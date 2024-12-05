@@ -113,17 +113,21 @@ async function setupInitiatedPeerConnection(
   })
   rtc.addEventListener('icecandidate', (event) => {
     if (event.candidate !== null) {
-      send({
-        forward: {
-          type: 'ICECandidate',
-          payload: {
-            candidate: event.candidate.candidate,
-            sdpMLineIndex: event.candidate.sdpMLineIndex,
-            sdpMid: event.candidate.sdpMid,
-            usernameFragment: event.candidate.usernameFragment
+      try {
+        send({
+          forward: {
+            type: 'ICECandidate',
+            payload: {
+              candidate: event.candidate.candidate,
+              sdpMLineIndex: event.candidate.sdpMLineIndex,
+              sdpMid: event.candidate.sdpMid,
+              usernameFragment: event.candidate.usernameFragment
+            }
           }
-        }
-      })
+        })
+      } catch {
+        console.error('failed to send ICE candidate')
+      }
     }
   })
   await rtc.setLocalDescription(rtcAnswer)

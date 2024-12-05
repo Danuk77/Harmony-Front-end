@@ -1,4 +1,4 @@
-type MsgFromServerCallbackType = (msg: string) => void
+type MsgFromServerCallbackType = (msg: string | null) => void
 
 /**
  * Struct to keep track of a transaction socket and to hold a callback for incoming messages on this socket.

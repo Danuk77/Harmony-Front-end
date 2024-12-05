@@ -12,6 +12,8 @@ import { masterRoutine } from './masterRoutine'
 import { backendURL } from './config'
 import { PeerConnectionCreationResult } from './HarmonyPeerConnection'
 
+const TRANSACTION_SOCKET_TIMEOUT = 3000 //ms
+
 type HarmonyWebsocketConnectionOptions = {
   /**
    * Url of the signalling server websocket endpoint.
@@ -29,12 +31,16 @@ export class HarmonyWebsocketConnection {
   private wsConnection?: connection
   private transactionSockets: Map<string, HarmonyTransactionSocket>
   public publicKey: string
+  public isClosed = false
 
-  // callback functions - must be added to the object.
+  // callback functions - may be added to the object.
   public onIncomingConnectionRequest?: (publicKey: string) => 'accept' | 'reject'
   public onIncomingConnectionResult?: <T = void>(
     peerConnection: PeerConnectionCreationResult
   ) => T | void
+  public onWebsocketClose?: <T = void>() => T | void
+  public onSendMessage?: <T = void>(msg: string) => T | void
+  public onReceiveMessage?: <T = void>(msg: string) => T | void
 
   constructor(publicKey: string, options?: Partial<HarmonyWebsocketConnectionOptions>) {
     // override default options
@@ -70,7 +76,7 @@ export class HarmonyWebsocketConnection {
     // return a promise so it can be `await`ed
     return new Promise((resolve, reject) => {
       client.on('connect', resolve)
-      client.on('connectFailed', () => reject('connectFailed'))
+      client.on('connectFailed', () => reject(new Error('Connection failed')))
     })
   }
 
@@ -78,10 +84,18 @@ export class HarmonyWebsocketConnection {
     console.error('Websocket error: ', err)
   }
   private wsClose = (): void => {
+    // send a null message to all open transactions.
+    // this causes them to error out and (hopefully) prevent memony leaks
+    for (const { messageCallback } of this.transactionSockets.values()) {
+      messageCallback?.(null)
+    }
+    this.isClosed = true
+    this.onWebsocketClose?.()
     console.log('Websocket closed')
   }
   private wsMessage = (message: Message): void => {
     if (message.type == 'utf8') {
+      this.onReceiveMessage?.(message.utf8Data)
       console.log('📬 recv: ' + message.utf8Data)
       if (message.utf8Data.length >= 16) {
         const id = message.utf8Data.slice(0, 16)
@@ -125,7 +139,7 @@ export class HarmonyWebsocketConnection {
     this.transactionSockets.set(transactionSocket.id, transactionSocket)
 
     // flag that determines if the user can still send/receive messages on this id
-    let isClosed = false
+    let tsIsClosed = false
 
     // routines initiated by an incoming message have the first message passed as an option when launchRoutine is called.
     // if this is the case this flag is true.
@@ -133,7 +147,8 @@ export class HarmonyWebsocketConnection {
     let mustSendFirstMessageThatWasProvidedInTheOptions = !!routineOptions.firstMsg
 
     // incoming messages from the server
-    const messageQueue = new AsyncBlockingQueue<string>()
+    // if the websocket is closed then a null is pushed to this queue.
+    const messageQueue = new AsyncBlockingQueue<string | null>()
     transactionSocket.onReceiveMessage((msg) => {
       messageQueue.enqueue(msg)
     })
@@ -141,20 +156,26 @@ export class HarmonyWebsocketConnection {
     // define callback functions recv and send
 
     const send = async (msg: object): Promise<void> => {
-      if (isClosed) {
+      if (tsIsClosed) {
         throw new HarmonyError('routine sent to closed transaction socket')
       }
 
-      if (!this.wsConnection) {
-        throw new Error('Disconnected')
+      if (Object.prototype.hasOwnProperty.call(msg, 'terminate')) {
+        tsIsClosed = true
       }
 
-      if (Object.prototype.hasOwnProperty.call(msg, 'terminate')) {
-        isClosed = true
+      if (!this.wsConnection) {
+        throw new Error('Not connected')
+      }
+
+      if (this.isClosed) {
+        tsIsClosed = true
+        throw new HarmonyError('Websocket closed')
       }
 
       const strMsg = transactionSocket.id + JSON.stringify(msg)
-      console.log('📮 sent: ' + strMsg)
+      this.onSendMessage?.(strMsg)
+      // doesn't throw an error if the connection is closed.
       this.wsConnection.send(strMsg)
     }
 
@@ -162,7 +183,7 @@ export class HarmonyWebsocketConnection {
      * @throws HarmonyError if the server sends a `{terminate:"error"}` property
      */
     const recv = async (): Promise<object> => {
-      if (isClosed) {
+      if (tsIsClosed) {
         throw new HarmonyError('recv on closed transaction socket')
       }
 
@@ -172,12 +193,31 @@ export class HarmonyWebsocketConnection {
         msg = routineOptions.firstMsg
         mustSendFirstMessageThatWasProvidedInTheOptions = false
       } else {
-        msg = await messageQueue.dequeue()
+        // send a null msg in case of a timeout
+        // causes an error below:
+        const timeout = setTimeout(() => {
+          send({
+            terminate: 'cancel'
+          }).catch(() => {})
+        }, TRANSACTION_SOCKET_TIMEOUT)
+
+        // wait for a message/null
+        const maybeMessage = await messageQueue.dequeue()
+
+        // cancel timeout when message is received
+        clearTimeout(timeout)
+
+        if (!maybeMessage) {
+          throw new HarmonyError('Peer timeout or websocket closed')
+        }
+        msg = maybeMessage
       }
       const parsed = JSON.parse(msg)
 
       // check if the server is terminating
       if (Object.prototype.hasOwnProperty.call(parsed, 'terminate')) {
+        tsIsClosed = true
+
         const terminateMsg = parsed as {
           terminate: string
           error?: string
@@ -193,16 +233,15 @@ export class HarmonyWebsocketConnection {
           error: string
         }
         console.log(errorMsg.error)
+
         // terminate the connection anyway. don't bother with re-sending messages for now.
-        /**@todo maybe change */
-        isClosed = true
-        try {
-          await send({
-            terminate: 'cancel'
-          })
-        } catch {
-          // guess we'll just have to wait for the server to timeout.
-        }
+        /**@todo maybe change - sort out this tsIsClosed thing, it's a mess */
+        tsIsClosed = true
+
+        await send({
+          terminate: 'cancel'
+        })
+        throw new HarmonyError(errorMsg.error)
       }
 
       return parsed
@@ -211,6 +250,7 @@ export class HarmonyWebsocketConnection {
     try {
       return await routine({ recv, send })
     } finally {
+      tsIsClosed = true
       this.transactionSockets.delete(routineOptions.id)
     }
   }
