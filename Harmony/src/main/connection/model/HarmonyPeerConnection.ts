@@ -10,6 +10,7 @@ export class HarmonyPeerConnection {
   }
 }
 
+// return type of initiatePeerConnection and callback of onIncomingConnectionResult
 export type PeerConnectionCreationResult =
   | {
       status: 'offline' | 'reject'

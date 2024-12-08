@@ -1,5 +1,5 @@
-import { HarmonyWebsocketConnection } from './HarmonyWebsocketConnection'
-import { HarmonyError } from './routine'
+import { HarmonyWebsocketConnection } from '../../model/HarmonyWebsocketConnection'
+import { HarmonyError } from '../../model/routine'
 
 export async function comeOnline(con: HarmonyWebsocketConnection, publicKey: string) {
   try {

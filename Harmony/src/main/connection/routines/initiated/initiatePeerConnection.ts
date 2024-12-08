@@ -1,7 +1,10 @@
-import { rtcConfig } from './config'
-import { HarmonyPeerConnection, PeerConnectionCreationResult } from './HarmonyPeerConnection'
-import { HarmonyWebsocketConnection } from './HarmonyWebsocketConnection'
-import { HarmonyRoutineParams } from './routine'
+import { rtcConfig } from '../../config'
+import {
+  HarmonyPeerConnection,
+  PeerConnectionCreationResult
+} from '../../model/HarmonyPeerConnection'
+import { HarmonyWebsocketConnection } from '../../model/HarmonyWebsocketConnection'
+import { HarmonyRoutineParams } from '../../model/routine'
 import { RTCPeerConnection } from '@roamhq/wrtc'
 
 /**

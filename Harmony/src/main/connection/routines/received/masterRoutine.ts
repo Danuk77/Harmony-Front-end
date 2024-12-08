@@ -1,17 +1,18 @@
-import { HarmonyWebsocketConnection } from './HarmonyWebsocketConnection'
+import { HarmonyWebsocketConnection } from '../../model/HarmonyWebsocketConnection'
+import { receiveFriendRequest } from './receiveFriendRequest'
 import { receivePeerConnection } from './receivePeerConnection'
-import { HarmonyRoutineParams } from './routine'
+import { HarmonyRoutineParams } from '../../model/routine'
+import { receiveFriendRejection } from './receiveFriendRejection'
 
 /**
  * any incoming transaction socket initiated by the server gets routed through here.
- * This routes it to the correct routine (there is currently only server-initiated routine, receiveConnectionRequest)
  */
 export async function masterRoutine(
   con: HarmonyWebsocketConnection,
   { send, recv }: HarmonyRoutineParams
 ) {
   let firstMsg: {
-    initiate: string
+    initiate: 'receiveConnectionRequest' | 'receiveFriendRequest' | 'receiveFriendRejection'
   }
   try {
     firstMsg = (await recv()) as typeof firstMsg
@@ -23,6 +24,12 @@ export async function masterRoutine(
   switch (firstMsg.initiate) {
     case 'receiveConnectionRequest':
       await receivePeerConnection(con, firstMsg as object, { send, recv })
+      break
+    case 'receiveFriendRequest':
+      await receiveFriendRequest(con, firstMsg as object, { send, recv })
+      break
+    case 'receiveFriendRejection':
+      await receiveFriendRejection(con, firstMsg as object)
       break
     default:
       try {

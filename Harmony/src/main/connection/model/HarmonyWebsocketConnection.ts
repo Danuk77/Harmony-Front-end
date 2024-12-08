@@ -7,9 +7,9 @@ import {
   HarmonyRoutineOptions
 } from './routine'
 import { AsyncBlockingQueue } from './AsyncBlockingQueue'
-import { comeOnline } from './comeOnline'
-import { masterRoutine } from './masterRoutine'
-import { backendURL } from './config'
+import { comeOnline } from '../routines/initiated/comeOnline'
+import { masterRoutine } from '../routines/received/masterRoutine'
+import { backendURL } from '../config'
 import { PeerConnectionCreationResult } from './HarmonyPeerConnection'
 
 const TRANSACTION_SOCKET_TIMEOUT = 3000 //ms
@@ -24,6 +24,12 @@ const defaultOptions: HarmonyWebsocketConnectionOptions = {
   websocketUrl: backendURL
 }
 
+export type FriendRequestResponseType = 'accept' | 'reject' | 'pending'
+
+/**
+ * Wrapper around a websocket that interacts with the server using the Harmony protocol.
+ * Callbacks must be added to this object for various actions, e.g. onIncomingConnectionRequest.
+ */
 export class HarmonyWebsocketConnection {
   public version = '0.0'
 
@@ -34,13 +40,20 @@ export class HarmonyWebsocketConnection {
   public isClosed = false
 
   // callback functions - may be added to the object.
-  public onIncomingConnectionRequest?: (publicKey: string) => 'accept' | 'reject'
+
+  public onIncomingConnectionRequest?: (
+    publicKey: string
+  ) => 'accept' | 'reject' | Promise<'accept' | 'reject'>
   public onIncomingConnectionResult?: <T = void>(
     peerConnection: PeerConnectionCreationResult
   ) => T | void
   public onWebsocketClose?: <T = void>() => T | void
   public onSendMessage?: <T = void>(msg: string) => T | void
   public onReceiveMessage?: <T = void>(msg: string) => T | void
+  public onReceiveFriendRequest?: (
+    pk: string
+  ) => FriendRequestResponseType | Promise<FriendRequestResponseType>
+  public onReceiveFriendRejection?: <T = void>(pk: string) => T | void
 
   constructor(publicKey: string, options?: Partial<HarmonyWebsocketConnectionOptions>) {
     // override default options
@@ -96,7 +109,6 @@ export class HarmonyWebsocketConnection {
   private wsMessage = (message: Message): void => {
     if (message.type == 'utf8') {
       this.onReceiveMessage?.(message.utf8Data)
-      console.log('📬 recv: ' + message.utf8Data)
       if (message.utf8Data.length >= 16) {
         const id = message.utf8Data.slice(0, 16)
         const transactionSocket = this.transactionSockets.get(id)
@@ -255,7 +267,7 @@ export class HarmonyWebsocketConnection {
     }
   }
 
-  newTransactionSocketID(): string {
+  private newTransactionSocketID(): string {
     // 16 random characters
     const charset = 'abcdefghijklmnopqrstuvwxyz0123456789'
     let id: string | undefined = undefined

@@ -1,23 +1,25 @@
-import { rtcConfig } from './config'
-import { HarmonyPeerConnection, PeerConnectionCreationResult } from './HarmonyPeerConnection'
-import { HarmonyWebsocketConnection } from './HarmonyWebsocketConnection'
-import { HarmonyRoutineParams } from './routine'
+import { rtcConfig } from '../../config'
+import {
+  HarmonyPeerConnection,
+  PeerConnectionCreationResult
+} from '../../model/HarmonyPeerConnection'
+import { HarmonyWebsocketConnection } from '../../model/HarmonyWebsocketConnection'
+import { HarmonyRoutineParams } from '../../model/routine'
 import { RTCPeerConnection } from '@roamhq/wrtc'
 
 /**
  * The non-initiator peer in the `establishConnectionToPeer` routine.
- * Unlike initiated peer connections, this function fires a callback instead of returning the peer connection.
- * The callback is con.onIncomingConnectionResult?.(result)
- * @param firstMsg
- * @param param1
- * @returns
+ * Called by the master routine when a new transaction socket is received with "initiate":"receiveConnectionRequest"
+ * This function uses 2 callbacks on the `con` object:
+ * `con.onIncomingConnectionRequest`, and `con.onIncomingConnectionResult`,
+ * the former of which determines whether the connection should be accepted or rejected, and the latter of which delivers the result in the accept case.
  */
 export async function receivePeerConnection(
   con: HarmonyWebsocketConnection,
   firstMsg: object,
   { send, recv }: HarmonyRoutineParams
 ) {
-  // this function needs to wait until the routine is done. Wait until a `done` callback is called.
+  // this function needs to wait until all messages on the routine have been sent/received, in order to prevent the transaction socket being deleted. Wait until a `done` callback is called.
   await new Promise<void>((done) => {
     // wrap all the cases for the PeerConnectionCreationResult in a promise. Promises can only be resolved once, so this ensures at most one onIncomingConnectionResult event is fired.
     // the `done` promise is separate to this.
@@ -25,6 +27,7 @@ export async function receivePeerConnection(
       const rtc = new RTCPeerConnection()
       // create data channel
       const dataChannel = rtc.createDataChannel('chat', { ordered: true })
+      // resolve promise when channel opens
       dataChannel.addEventListener('open', () => {
         resolve({
           status: 'succeed',
@@ -71,7 +74,7 @@ async function setupReceivedPeerConnection(
   }
 
   /**@todo check the user's friend list to see if they can connect to this peer */
-  const acceptOrReject = con.onIncomingConnectionRequest?.(initiateAndKey.key) ?? 'reject'
+  const acceptOrReject = (await con.onIncomingConnectionRequest?.(initiateAndKey.key)) ?? 'reject'
 
   // reject non-friends
   if (acceptOrReject == 'reject') {

@@ -1,5 +1,7 @@
-import { HarmonyWebsocketConnection } from './connection/HarmonyWebsocketConnection'
-import { initiatePeerConnection } from './connection/initiatePeerConnection'
+import { HarmonyWebsocketConnection } from './connection/model/HarmonyWebsocketConnection'
+import { initiatePeerConnection } from './connection/routines/initiated/initiatePeerConnection'
+import { sendFriendRejection } from './connection/routines/initiated/sendFriendRejection'
+import { sendFriendRequest } from './connection/routines/initiated/sendFriendRequest'
 
 /**
  * connectionTest(0) creates a websocket connection and listens for peers.
@@ -22,7 +24,20 @@ export function connectionTest(i: 0 | 1) {
     }
 
     // accept all incoming connections, ignore pk
-    connection.onIncomingConnectionRequest = () => 'accept'
+    connection.onIncomingConnectionRequest = (pk) => {
+      console.info('Accepting a connection request from ' + pk)
+      return 'accept'
+    }
+
+    // accept all friend requests
+    connection.onReceiveFriendRequest = (pk) => {
+      console.info('Accepting a friend request from ' + pk)
+      return 'accept'
+    }
+
+    connection.onReceiveFriendRejection = (pk) => {
+      console.info('Got a friend rejection from ' + pk)
+    }
 
     connection.onIncomingConnectionResult = (result) => {
       switch (result.status) {
@@ -46,16 +61,64 @@ export function connectionTest(i: 0 | 1) {
     )
 
     connection.onSendMessage = (msg) => {
-      console.log('📮 sent: ' + msg)
+      console.log('📮 WSsend: ' + msg)
     }
 
     connection.onReceiveMessage = (msg) => {
-      console.log('📬 recv: ' + msg)
+      console.log('📬 WSrecv: ' + msg)
     }
 
     connection
       .startup()
       .catch((e) => console.error((e as Error).message))
+      .then(() =>
+        sendFriendRequest(
+          connection,
+          'cffd10babed1182e7d8e6cff845767eeae4508aa13cd00379233f57f799dc18c1eefd35b51db36e3da4770737a3f8fe75eda0cd3c48f23ea705f3234b0929f9e'
+        )
+      )
+      .then((result) => {
+        switch (result.status) {
+          case 'fail':
+            console.info('The friend request failed')
+            console.error(result.msg)
+            break
+          case 'offline':
+            console.info('The friend is offline')
+            break
+          case 'succeed':
+            switch (result.type) {
+              case 'accept':
+                console.info('The peer accepted out friend request')
+                break
+              case 'reject':
+                console.info('The peer rejected out friend request')
+                break
+              case 'pending':
+                console.info('Our friend request is pending')
+                break
+            }
+        }
+      })
+      .then(() =>
+        sendFriendRejection(
+          connection,
+          'cffd10babed1182e7d8e6cff845767eeae4508aa13cd00379233f57f799dc18c1eefd35b51db36e3da4770737a3f8fe75eda0cd3c48f23ea705f3234b0929f9e'
+        )
+      )
+      .then((result) => {
+        switch (result.status) {
+          case 'fail':
+            console.info('The friend rejection failed')
+            console.error(result.msg)
+            break
+          case 'offline':
+            console.info('The peer for the friend rejection is offline')
+            break
+          case 'succeed':
+            console.info('The friend rejection was delivered')
+        }
+      })
       .then(() =>
         initiatePeerConnection(
           connection,
@@ -72,9 +135,10 @@ export function connectionTest(i: 0 | 1) {
             break
           case 'fail':
             console.info('The connection failed')
+            console.error(result.msg)
             break
           case 'succeed':
-            console.info('connection succeeded')
+            console.info('The connection succeeded')
             result.peerConnection.chat.addEventListener('message', (msg) => {
               console.log('📩 PEERrecv: ' + msg.data)
             })
