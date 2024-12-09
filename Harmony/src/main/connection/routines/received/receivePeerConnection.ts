@@ -21,6 +21,7 @@ export async function receivePeerConnection(
 ) {
   // this function needs to wait until all messages on the routine have been sent/received, in order to prevent the transaction socket being deleted. Wait until a `done` callback is called.
   await new Promise<void>((done) => {
+    const peerPk = (firstMsg as { key: string }).key
     // wrap all the cases for the PeerConnectionCreationResult in a promise. Promises can only be resolved once, so this ensures at most one onIncomingConnectionResult event is fired.
     // the `done` promise is separate to this.
     new Promise<PeerConnectionCreationResult>((resolve) => {
@@ -30,6 +31,7 @@ export async function receivePeerConnection(
       // resolve promise when channel opens
       dataChannel.addEventListener('open', () => {
         resolve({
+          publicKey: peerPk,
           status: 'succeed',
           peerConnection: new HarmonyPeerConnection(rtc, dataChannel)
         })
@@ -40,6 +42,7 @@ export async function receivePeerConnection(
         .then((status) => {
           if (status == 'reject') {
             resolve({
+              publicKey: peerPk,
               status: 'reject'
             })
             done()
@@ -47,6 +50,7 @@ export async function receivePeerConnection(
         })
         .catch((reason) => {
           resolve({
+            publicKey: peerPk,
             status: 'fail',
             msg: (reason as Error).message
           })

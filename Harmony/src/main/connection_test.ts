@@ -1,21 +1,17 @@
-import { HarmonyWebsocketConnection } from './connection/model/HarmonyWebsocketConnection'
-import { initiatePeerConnection } from './connection/routines/initiated/initiatePeerConnection'
-import { sendFriendRejection } from './connection/routines/initiated/sendFriendRejection'
-import { sendFriendRequest } from './connection/routines/initiated/sendFriendRequest'
+import { HarmonyConnection } from './connection/HarmonyConnection'
 
 /**
  * connectionTest(0) creates a websocket connection and listens for peers.
  * connectionTest(1) creates a websocket connection and attempts to connect to 0.
  * Both send a message to the other once complete.
  */
-export function connectionTest(i: 0 | 1) {
+export async function connectionTest(i: 0 | 1) {
   if (i == 0) {
-    const connection = new HarmonyWebsocketConnection(
-      'cffd10babed1182e7d8e6cff845767eeae4508aa13cd00379233f57f799dc18c1eefd35b51db36e3da4770737a3f8fe75eda0cd3c48f23ea705f3234b0929f9e'
+    const connection = new HarmonyConnection(
+      'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
     )
-    connection.startup().catch((e) => console.error((e as Error).message))
 
-    // for logging purposes. The messages are forwarded internally.
+    // for logging purposes
     connection.onSendMessage = (msg) => {
       console.log('📮 WSsend: ' + msg)
     }
@@ -55,9 +51,17 @@ export function connectionTest(i: 0 | 1) {
           result.peerConnection.chat.send(msgForPeer)
       }
     }
+
+    // startup connection
+    try {
+      await connection.startup()
+    } catch (e) {
+      console.error((e as Error).message)
+      return
+    }
   } else if (i == 1) {
-    const connection = new HarmonyWebsocketConnection(
-      'cffd10babed1182e7d8e6cff845767eeae4508aa13cd00379233f57f799dc18c1eefd35b51db36e3da4770737a3f8fe75eda0cd3c48f23ea705f3234b0929f9f'
+    const connection = new HarmonyConnection(
+      'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
     )
 
     connection.onSendMessage = (msg) => {
@@ -68,85 +72,82 @@ export function connectionTest(i: 0 | 1) {
       console.log('📬 WSrecv: ' + msg)
     }
 
-    connection
-      .startup()
-      .catch((e) => console.error((e as Error).message))
-      .then(() =>
-        sendFriendRequest(
-          connection,
-          'cffd10babed1182e7d8e6cff845767eeae4508aa13cd00379233f57f799dc18c1eefd35b51db36e3da4770737a3f8fe75eda0cd3c48f23ea705f3234b0929f9e'
-        )
-      )
-      .then((result) => {
-        switch (result.status) {
-          case 'fail':
-            console.info('The friend request failed')
-            console.error(result.msg)
-            break
-          case 'offline':
-            console.info('The friend is offline')
-            break
-          case 'succeed':
-            switch (result.type) {
-              case 'accept':
-                console.info('The peer accepted out friend request')
-                break
-              case 'reject':
-                console.info('The peer rejected out friend request')
-                break
-              case 'pending':
-                console.info('Our friend request is pending')
-                break
-            }
-        }
-      })
-      .then(() =>
-        sendFriendRejection(
-          connection,
-          'cffd10babed1182e7d8e6cff845767eeae4508aa13cd00379233f57f799dc18c1eefd35b51db36e3da4770737a3f8fe75eda0cd3c48f23ea705f3234b0929f9e'
-        )
-      )
-      .then((result) => {
-        switch (result.status) {
-          case 'fail':
-            console.info('The friend rejection failed')
-            console.error(result.msg)
-            break
-          case 'offline':
-            console.info('The peer for the friend rejection is offline')
-            break
-          case 'succeed':
-            console.info('The friend rejection was delivered')
-        }
-      })
-      .then(() =>
-        initiatePeerConnection(
-          connection,
-          'cffd10babed1182e7d8e6cff845767eeae4508aa13cd00379233f57f799dc18c1eefd35b51db36e3da4770737a3f8fe75eda0cd3c48f23ea705f3234b0929f9e'
-        )
-      )
-      .then((result) => {
-        switch (result.status) {
-          case 'offline':
-            console.info('The peer is offline')
+    try {
+      await connection.startup()
+    } catch (e) {
+      console.error((e as Error).message)
+      return
+    }
+
+    // send friend request
+    const friendRequestResult = await connection.sendFriendRequest(
+      'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+    )
+
+    switch (friendRequestResult.status) {
+      case 'fail':
+        console.info('The friend request failed')
+        console.error(friendRequestResult.msg)
+        break
+      case 'offline':
+        console.info('The friend is offline')
+        break
+      case 'succeed':
+        switch (friendRequestResult.type) {
+          case 'accept':
+            console.info('The peer accepted our friend request')
             break
           case 'reject':
-            console.info('The peer rejected our connection request')
+            console.info('The peer rejected our friend request')
             break
-          case 'fail':
-            console.info('The connection failed')
-            console.error(result.msg)
+          case 'pending':
+            console.info('Our friend request is pending')
             break
-          case 'succeed':
-            console.info('The connection succeeded')
-            result.peerConnection.chat.addEventListener('message', (msg) => {
-              console.log('📩 PEERrecv: ' + msg.data)
-            })
-            // eslint-disable-next-line
-            const msgForPeer = 'Hello there, connection that I initiated!!'
-            console.log('📨 PEERsend: ' + msgForPeer)
-            result.peerConnection.chat.send(msgForPeer)
         }
-      })
+    }
+
+    // send friend rejection
+    const friendRejectionResult = await connection.sendFriendRejection(
+      'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+    )
+
+    switch (friendRejectionResult.status) {
+      case 'fail':
+        console.info('The friend rejection failed')
+        console.error(friendRejectionResult.msg)
+        break
+      case 'offline':
+        console.info('The peer for the friend rejection is offline')
+        break
+      case 'succeed':
+        console.info('The friend rejection was delivered')
+    }
+
+    // establish connection to friend
+    const peerConnectionResult = await connection.initiatePeerConnection(
+      'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+    )
+
+    switch (peerConnectionResult.status) {
+      case 'offline':
+        console.info('The peer is offline')
+        break
+      case 'reject':
+        console.info('The peer rejected our connection request')
+        break
+      case 'fail':
+        console.info('The connection failed')
+        console.error(peerConnectionResult.msg)
+        break
+      case 'succeed':
+        console.info('The connection succeeded')
+        peerConnectionResult.peerConnection.chat.addEventListener('message', (msg) => {
+          console.log('📩 PEERrecv: ' + msg.data)
+        })
+        // eslint-disable-next-line
+        const msgForPeer = 'Hello there, connection that I initiated!!'
+        console.log('📨 PEERsend: ' + msgForPeer)
+        peerConnectionResult.peerConnection.chat.send(msgForPeer)
+    }
   }
 }

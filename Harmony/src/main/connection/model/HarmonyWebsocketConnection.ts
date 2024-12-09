@@ -14,7 +14,7 @@ import { PeerConnectionCreationResult } from './HarmonyPeerConnection'
 
 const TRANSACTION_SOCKET_TIMEOUT = 3000 //ms
 
-type HarmonyWebsocketConnectionOptions = {
+export type HarmonyWebsocketConnectionOptions = {
   /**
    * Url of the signalling server websocket endpoint.
    */
@@ -79,6 +79,13 @@ export class HarmonyWebsocketConnection {
     this.wsConnection = con
 
     await comeOnline(this, this.publicKey)
+  }
+
+  /**
+   * Close the websocket connection
+   */
+  public close() {
+    this.wsConnection?.close()
   }
 
   private getConnection(): Promise<connection> {

@@ -26,6 +26,7 @@ export function initiatePeerConnection(
   return new Promise<PeerConnectionCreationResult>((resolve) => {
     rtc.ondatachannel = (event) => {
       resolve({
+        publicKey: peerPk,
         status: 'succeed',
         peerConnection: new HarmonyPeerConnection(rtc, event.channel)
       })
@@ -33,6 +34,7 @@ export function initiatePeerConnection(
     rtc.onconnectionstatechange = () => {
       if (rtc.connectionState == 'failed') {
         resolve({
+          publicKey: peerPk,
           status: 'fail',
           msg: 'WebRTC failed to create a peer connection. Check TURN/STUN servers, NAT settings, etc.'
         })
@@ -45,12 +47,14 @@ export function initiatePeerConnection(
       .then((status) => {
         if (status == 'offline' || status == 'reject') {
           resolve({
+            publicKey: peerPk,
             status: status
           })
         }
       })
       .catch((e) =>
         resolve({
+          publicKey: peerPk,
           status: 'fail',
           msg: (e as Error).message
         })
