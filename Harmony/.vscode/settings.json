@@ -16,5 +16,10 @@
     "javascript",
     "javascriptreact",
     "svelte"
-  ]
+  ],
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll": "explicit"
+  },
+  "editor.tabSize": 2,
 }
