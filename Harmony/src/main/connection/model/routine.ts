@@ -9,11 +9,13 @@ export type HarmonyRoutineOptions = {
   id?: string
   // first message to be recv'd. Used when an incoming message causes a routine to be initiated - it appears here.
   firstMsg?: string
+  loginRequired?: boolean
 }
 
 const harmonyRoutineDefaultOptions: HarmonyRoutineOptions = {
   id: undefined,
-  firstMsg: undefined
+  firstMsg: undefined,
+  loginRequired: true
 }
 export { harmonyRoutineDefaultOptions }
 

@@ -7,6 +7,8 @@ export const DB_MESSAGES_LOC = path.join(DB_LOC, '/messages.db')
 export const DB_USERS_LOC = path.join(DB_LOC, '/users.db')
 export const DB_FRIENDS_LOC = path.join(DB_LOC, '/friends.db')
 
+console.log(DB_LOC)
+
 export type User = {
   pk: string
 }
@@ -15,11 +17,16 @@ type UserDoc = User & {
 }
 
 export type Friend = {
-  friendPk: string
+  peerPk: string
   localPk: string
-  status: 'reject' | 'accept' | 'pending' | 'block'
+  status:
+    | 'reject' // they rejected us.
+    | 'accept' // they are friends with us.
+    | 'pending' // they are waiting for us to reply.
+    | 'block' // we rejected them
+    | 'awaiting-response' // we want to become friends; waiting for peer's response
   statusModified: Date
-  nickname: string // initially sent the same as publickey
+  nickname: string // initially set the same as publickey
 }
 type FriendDoc = Friend & {
   _id?: string // nedb
@@ -50,10 +57,10 @@ export class LocalDatabase {
     await this.messagesDb.insertAsync(msg)
   }
 
-  public getFriend = async (localPk: string, friendPk: string) => {
+  public getFriend = async (localPk: string, peerPk: string) => {
     const friend = await this.friendsDb.findOneAsync({
       localPk: localPk,
-      friendPk: friendPk
+      peerPk: peerPk
     })
     // might be null, according to the docs.
     if (friend) {
@@ -72,13 +79,13 @@ export class LocalDatabase {
    * @param fields
    * @returns True if a friend was updated.
    */
-  public updateFriend = async (fields: Pick<Friend, 'friendPk' | 'localPk'> & Partial<Friend>) => {
-    const { friendPk, localPk, ...fieldsToModify } = fields
+  public updateFriend = async (fields: Pick<Friend, 'peerPk' | 'localPk'> & Partial<Friend>) => {
+    const { peerPk, localPk, ...fieldsToModify } = fields
 
     const result = await this.friendsDb.updateAsync(
       {
         localPk: localPk,
-        friendPk: friendPk
+        peerPk: peerPk
       },
       { $set: fieldsToModify }
     )

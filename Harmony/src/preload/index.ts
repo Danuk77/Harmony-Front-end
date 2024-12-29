@@ -1,9 +1,50 @@
-import { contextBridge } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
+import { Friend, Message } from '../main/LocalDatabase'
+import { FriendConnectionStatus } from '../main/FriendConnectionHandler'
+import { WebsocketStatusType } from '../main/connection/model/HarmonyWebsocketConnection'
+
+export type FriendWithState = Friend & {
+  connectionStatus: FriendConnectionStatus
+}
+
+// all one-way actions sent from main to renderer.
+export type MainToRendererAction =
+  | {
+      type: 'add-friend'
+      payload: FriendWithState
+    }
+  | {
+      type: 'friend-change'
+      // 'peerPk' and 'localPk' fields required, rest optional
+      payload: Pick<FriendWithState, 'peerPk' | 'localPk'> & Partial<FriendWithState>
+    }
+  | {
+      type: 'failed-login'
+      payload: {
+        reason: string
+      }
+    }
+  | {
+      type: 'receive-message'
+      payload: Message
+    }
+  | {
+      type: 'websocket-status-change'
+      payload: WebsocketStatusType
+    }
+  | {
+      type: 'error'
+      payload: {
+        msg: string
+      }
+    }
 
 // Custom APIs for renderer
 const api = {
-  test: () => console.log('hello')
+  test: () => console.log('hello'),
+  onMainToRendererAction: (callback: (arg0: MainToRendererAction) => unknown) =>
+    ipcRenderer.on('mainToRendererAction', (_event, value) => callback(value))
 }
 
 export type Api = typeof api

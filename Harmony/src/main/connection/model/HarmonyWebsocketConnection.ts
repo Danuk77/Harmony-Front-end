@@ -30,7 +30,8 @@ export type FriendRequestResponseType = 'accept' | 'reject' | 'pending'
 export type WebsocketStatusType =
   | 'disconnected' // attempt to reconnect after a period.
   | 'connecting'
-  | 'connected'
+  | 'connected' // not yet logged in
+  | 'logged-in'
   | 'login-failed' // websocket still open, but there was a problem with the login.
   | 'closed' // do not attempt to reconnect
 
@@ -125,11 +126,13 @@ export class HarmonyWebsocketConnection {
       con.on('message', this.wsMessage)
 
       this.wsConnection = con
+
+      this.wsStatus = 'connected'
     }
 
     try {
       await comeOnline(this, this.publicKey)
-      this.wsStatus = 'connected'
+      this.wsStatus = 'logged-in'
     } catch (e) {
       this.wsStatus = 'login-failed'
       this.onFailedLogin?.((e as Error).message)
@@ -238,7 +241,11 @@ export class HarmonyWebsocketConnection {
         tsIsClosed = true
       }
 
-      if (!this.wsConnection || this.wsStatus != 'connected') {
+      if (
+        !this.wsConnection ||
+        (routineOptions.loginRequired && this.wsStatus != 'logged-in') ||
+        (!routineOptions.loginRequired && this.wsStatus != 'connected')
+      ) {
         tsIsClosed = true
         throw new Error('Not connected')
       }

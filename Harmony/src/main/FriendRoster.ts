@@ -4,13 +4,14 @@ import { HarmonyConnection } from './connection/HarmonyConnection'
 import { Friend } from './LocalDatabase'
 import { FriendConnectionStatus, FriendConnectionHandler } from './FriendConnectionHandler'
 import { PeerConnectionCreationResult } from './connection/model/HarmonyPeerConnection'
+import { DEBUG } from '.'
 
 /**
  * Collection of all friends.
  * Combines methods and callbacks from the friends.
  */
 export class FriendRoster {
-  private friends = new Map<string, FriendConnectionHandler>()
+  private friends: Map<string, FriendConnectionHandler> = new Map<string, FriendConnectionHandler>()
   private con: HarmonyConnection
   private _paused: boolean = true
 
@@ -43,7 +44,7 @@ export class FriendRoster {
    * @param friend
    */
   public addOrUpdateFriend = (friend: Friend) => {
-    const existingFriendHandler = this.friends.get(friend.friendPk)
+    const existingFriendHandler = this.friends.get(friend.peerPk)
 
     if (existingFriendHandler) {
       existingFriendHandler.friend = friend
@@ -51,10 +52,10 @@ export class FriendRoster {
       const friendHandler = new FriendConnectionHandler(
         this.con,
         friend,
-        (status) => this.onFriendConnectionStatusChange?.(friendHandler.friend.pk, status),
-        (msg) => this.onReceiveMessage?.(friendHandler.friend.pk, msg)
+        (status) => this.onFriendConnectionStatusChange?.(friend.peerPk, status),
+        (msg) => this.onReceiveMessage?.(friend.peerPk, msg)
       )
-      this.friends[friend.friendPk] = friendHandler
+      this.friends.set(friend.peerPk, friendHandler)
       friendHandler.paused = this.paused
     }
   }
@@ -63,8 +64,8 @@ export class FriendRoster {
    * @param fields
    * @returns
    */
-  public updateFriend = (fields: Pick<Friend, 'friendPk'> & Partial<Friend>) => {
-    const existingFriendHandler = this.friends.get(fields.friendPk)
+  public updateFriend = (fields: Pick<Friend, 'peerPk'> & Partial<Friend>) => {
+    const existingFriendHandler = this.friends.get(fields.peerPk)
     if (existingFriendHandler) {
       existingFriendHandler.friend = {
         ...existingFriendHandler.friend,
@@ -93,6 +94,8 @@ export class FriendRoster {
     if (friendWrapper) {
       friendWrapper.receiveConnection(result)
     } else {
+      if (DEBUG)
+        console.error('Recieved a connection from an unknown friend, closing. ' + result.publicKey)
       result.peerConnection?.rtc.close()
     }
   }
@@ -106,7 +109,7 @@ export class FriendRoster {
    * @param publicKey
    * @param msg
    */
-  public sendFriendMessage = (publicKey: string, msg: string) => {
+  public sendMessage = (publicKey: string, msg: string) => {
     const friendHandler = this.friends.get(publicKey)
     if (!friendHandler) {
       throw new Error('Friend does not exist')

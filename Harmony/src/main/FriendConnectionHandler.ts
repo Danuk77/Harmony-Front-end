@@ -1,7 +1,9 @@
-import { RTCDataChannel } from '@roamhq/wrtc'
 import { Friend } from './LocalDatabase'
 import { HarmonyConnection } from './connection/HarmonyConnection'
-import { PeerConnectionCreationResult } from './connection/model/HarmonyPeerConnection'
+import {
+  HarmonyPeerConnection,
+  PeerConnectionCreationResult
+} from './connection/model/HarmonyPeerConnection'
 
 const offlineReconnectPeriod = 300_000 // ms (5 minutes)
 const disconnectedReconnectPeriod = 10_000 //ms
@@ -31,7 +33,7 @@ export class FriendConnectionHandler {
   private reconnectTimeout?: NodeJS.Timeout
 
   public con: HarmonyConnection
-  private chatChannel?: RTCDataChannel
+  private peerConnection?: HarmonyPeerConnection
 
   // callbacks
   public onConnectionStatusChange?: (status: typeof this._connectionStatus) => unknown
@@ -47,7 +49,6 @@ export class FriendConnectionHandler {
     this.onConnectionStatusChange = onConnectionStatusChange
     this.friend = friendDB
     this.con = con
-    this.connectionStatus = 'unknown'
   }
 
   public get friend() {
@@ -58,7 +59,7 @@ export class FriendConnectionHandler {
    */
   public set friend(friend: Friend) {
     // pk must NOT change.
-    if (friend.friendPk != this.friend.friendPk) {
+    if (!!this.friend?.peerPk && friend.peerPk != this.friend.peerPk) {
       throw new Error('The friend public key must NOT change.')
     }
 
@@ -149,14 +150,14 @@ export class FriendConnectionHandler {
     }
   }
 
-  private attemptConnection() {
+  private attemptConnection = () => {
     if (this.paused) {
       this.shouldReconnectWhenUnpaused = true
       return
     }
     this.reconnectTimeout = undefined
     this.connectionStatus = 'connecting'
-    this.con.initiatePeerConnection(this.friend.friendPk).then((result) => {
+    this.con.initiatePeerConnection(this.friend.peerPk).then((result) => {
       this.receiveConnection(result)
     })
   }
@@ -166,12 +167,13 @@ export class FriendConnectionHandler {
    * @param result
    * @returns
    */
-  public receiveConnection(result: PeerConnectionCreationResult) {
+  public receiveConnection = (result: PeerConnectionCreationResult) => {
     // reject connections if closed.
     if (this.connectionStatus == 'closed') {
       // close it immediately.
       if (result.status == 'succeed') {
         result.peerConnection.chatChannel.close()
+        result.peerConnection.rtc.close()
       }
       return
     }
@@ -180,9 +182,10 @@ export class FriendConnectionHandler {
     if (this.connectionStatus == 'online-connected') {
       if (result.status == 'succeed') {
         // reassign this.channel first so the event listener for the old channel doesn't change the status when it closes.
-        const oldChannel = this.chatChannel
-        this.chatChannel = result.peerConnection.chatChannel
-        oldChannel?.close()
+        const oldPeerConnection = this.peerConnection
+        this.peerConnection = result.peerConnection
+        oldPeerConnection?.chatChannel.close()
+        oldPeerConnection?.rtc.close()
       } else {
         // ignore the new failed connection. As far as we're concerned, we already have a working connection.
         return
@@ -201,20 +204,35 @@ export class FriendConnectionHandler {
         this.connectionStatus = 'failed'
         break
       case 'succeed':
-        this.connectionStatus = 'online-connected'
-        this.chatChannel = result.peerConnection.chatChannel
+        this.peerConnection = result.peerConnection
 
         // add event listeners
-        this.chatChannel.onmessage = (msg) => {
+        this.peerConnection.chatChannel.onmessage = (msg) => {
           this.onReceiveMessage?.(msg.data)
         }
-        this.chatChannel.onclose = () => {
+        this.peerConnection.chatChannel.onclose = () => {
           // check chat channel has not changed
-          if (this.chatChannel == result.peerConnection.chatChannel) {
+          if (this.peerConnection == result.peerConnection) {
             // in future we could get an explicit disconnect message from the user.
             this.connectionStatus = 'online-disconnected'
           }
+          // remove this listener
+          result.peerConnection.rtc.onconnectionstatechange = null
         }
+        result.peerConnection.rtc.onconnectionstatechange = () => {
+          if (
+            ['closed', 'disconnected', 'failed'].includes(result.peerConnection.rtc.connectionState)
+          ) {
+            // set to online-disconnected - if the peer connection was still in use
+            if (this.peerConnection == result.peerConnection) {
+              this.connectionStatus = 'online-disconnected'
+            }
+            // remove this listener
+            result.peerConnection.rtc.onconnectionstatechange = null
+          }
+        }
+
+        this.connectionStatus = 'online-connected'
         break
       default:
         this.connectionStatus = 'failed'
@@ -226,11 +244,11 @@ export class FriendConnectionHandler {
    * @param msg
    */
   public sendMessage(msg: string) {
-    if (!this.chatChannel) {
+    if (!this.peerConnection) {
       throw new Error('Chat channel not established')
     }
 
-    this.chatChannel.send(msg) // might throw an error
+    this.peerConnection.chatChannel.send(msg) // might throw an error
   }
 
   // close the connection and prevent reconnections.
