@@ -42,19 +42,19 @@ export async function connectionTest(i: 0 | 1) {
           break
         case 'succeed':
           console.info('connection succeeded')
-          result.peerConnection.chat.addEventListener('message', (msg) => {
+          result.peerConnection.chatChannel.addEventListener('message', (msg) => {
             console.log('📩 PEERrecv: ' + msg.data)
           })
           // eslint-disable-next-line
           const msgForPeer = 'Hello there, incoming connection!'
           console.log('📨 PEERsend: ' + msgForPeer)
-          result.peerConnection.chat.send(msgForPeer)
+          result.peerConnection.chatChannel.send(msgForPeer)
       }
     }
 
     // startup connection
     try {
-      await connection.startup()
+      await connection.reconnect()
     } catch (e) {
       console.error((e as Error).message)
       return
@@ -73,7 +73,7 @@ export async function connectionTest(i: 0 | 1) {
     }
 
     try {
-      await connection.startup()
+      await connection.reconnect()
     } catch (e) {
       console.error((e as Error).message)
       return
@@ -141,13 +141,13 @@ export async function connectionTest(i: 0 | 1) {
         break
       case 'succeed':
         console.info('The connection succeeded')
-        peerConnectionResult.peerConnection.chat.addEventListener('message', (msg) => {
+        peerConnectionResult.peerConnection.chatChannel.addEventListener('message', (msg) => {
           console.log('📩 PEERrecv: ' + msg.data)
         })
         // eslint-disable-next-line
         const msgForPeer = 'Hello there, connection that I initiated!!'
         console.log('📨 PEERsend: ' + msgForPeer)
-        peerConnectionResult.peerConnection.chat.send(msgForPeer)
+        peerConnectionResult.peerConnection.chatChannel.send(msgForPeer)
     }
   }
 }

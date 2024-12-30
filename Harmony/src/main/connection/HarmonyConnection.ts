@@ -24,6 +24,26 @@ export class HarmonyConnection {
   }
 
   /**
+   * Callback for when the websocket connection status has changed
+   */
+  public set onWsStatusChange(callback) {
+    this.websocket.onWsStatusChange = callback
+  }
+  public get onWsStatusChange() {
+    return this.websocket.onWsStatusChange
+  }
+
+  /**
+   * Callback for when the `comeOnline` routine fails for any reason.
+   */
+  public set onFailedLogin(callback) {
+    this.websocket.onFailedLogin = callback
+  }
+  public get onFailedLogin() {
+    return this.websocket.onFailedLogin
+  }
+
+  /**
    * Callback to accept/reject incoming connection requests.
    */
   public set onIncomingConnectionRequest(callback) {
@@ -41,15 +61,7 @@ export class HarmonyConnection {
   public get onIncomingConnectionResult() {
     return this.websocket.onIncomingConnectionResult
   }
-  /**
-   * Callback for when the Websocket connection is closed
-   */
-  public set onWebsocketClose(callback) {
-    this.websocket.onWebsocketClose = callback
-  }
-  public get onWebsocketClose() {
-    return this.websocket.onWebsocketClose
-  }
+
   /**
    * Callback for when a message is sent to the signalling server.
    * For monitoring/logging purposes.
@@ -93,7 +105,7 @@ export class HarmonyConnection {
    * Connect and login to the signalling server.
    * @returns
    */
-  public startup = () => this.websocket.startup()
+  public reconnect = () => this.websocket.reconnect()
 
   /**
    * Close the websocket connection to the signalling server.

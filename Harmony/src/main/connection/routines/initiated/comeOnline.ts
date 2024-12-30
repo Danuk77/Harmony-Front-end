@@ -2,8 +2,8 @@ import { HarmonyWebsocketConnection } from '../../model/HarmonyWebsocketConnecti
 import { HarmonyError } from '../../model/routine'
 
 export async function comeOnline(con: HarmonyWebsocketConnection, publicKey: string) {
-  try {
-    await con.launchRoutine(async ({ recv, send }) => {
+  await con.launchRoutine(
+    async ({ recv, send }) => {
       await send({
         initiate: 'comeOnline'
       })
@@ -28,9 +28,7 @@ export async function comeOnline(con: HarmonyWebsocketConnection, publicKey: str
         terminate: string
       }
       console.log(welcome.welcome)
-    })
-  } catch (e) {
-    /**@todo */
-    console.error((e as Error).message)
-  }
+    },
+    { loginRequired: false }
+  )
 }

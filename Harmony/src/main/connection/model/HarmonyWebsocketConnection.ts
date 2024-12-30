@@ -13,6 +13,7 @@ import { backendURL } from '../config'
 import { PeerConnectionCreationResult } from './HarmonyPeerConnection'
 
 const TRANSACTION_SOCKET_TIMEOUT = 3000 //ms
+const WS_RECONNECT_TIMEOUT = 10000 // ms
 
 export type HarmonyWebsocketConnectionOptions = {
   /**
@@ -26,6 +27,14 @@ const defaultOptions: HarmonyWebsocketConnectionOptions = {
 
 export type FriendRequestResponseType = 'accept' | 'reject' | 'pending'
 
+export type WebsocketStatusType =
+  | 'disconnected' // attempt to reconnect after a period.
+  | 'connecting'
+  | 'connected' // not yet logged in
+  | 'logged-in'
+  | 'login-failed' // websocket still open, but there was a problem with the login.
+  | 'closed' // do not attempt to reconnect
+
 /**
  * Wrapper around a websocket that interacts with the server using the Harmony protocol.
  * Callbacks must be added to this object for various actions, e.g. onIncomingConnectionRequest.
@@ -35,25 +44,24 @@ export class HarmonyWebsocketConnection {
 
   private options: HarmonyWebsocketConnectionOptions
   private wsConnection?: connection
+  private _wsStatus: WebsocketStatusType = 'disconnected'
   private transactionSockets: Map<string, HarmonyTransactionSocket>
+  private reconnectTimeout?: NodeJS.Timeout
   public publicKey: string
-  public isClosed = false
 
   // callback functions - may be added to the object.
-
+  public onWsStatusChange?: (status: WebsocketStatusType) => unknown
+  public onFailedLogin?: (reason: string) => unknown
   public onIncomingConnectionRequest?: (
     publicKey: string
   ) => 'accept' | 'reject' | Promise<'accept' | 'reject'>
-  public onIncomingConnectionResult?: <T = void>(
-    peerConnection: PeerConnectionCreationResult
-  ) => T | void
-  public onWebsocketClose?: <T = void>() => T | void
-  public onSendMessage?: <T = void>(msg: string) => T | void
-  public onReceiveMessage?: <T = void>(msg: string) => T | void
+  public onIncomingConnectionResult?: (peerConnection: PeerConnectionCreationResult) => unknown
+  public onSendMessage?: (msg: string) => unknown
+  public onReceiveMessage?: (msg: string) => unknown
   public onReceiveFriendRequest?: (
     pk: string
   ) => FriendRequestResponseType | Promise<FriendRequestResponseType>
-  public onReceiveFriendRejection?: <T = void>(pk: string) => T | void
+  public onReceiveFriendRejection?: (pk: string) => unknown
 
   constructor(publicKey: string, options?: Partial<HarmonyWebsocketConnectionOptions>) {
     // override default options
@@ -68,23 +76,74 @@ export class HarmonyWebsocketConnection {
     this.transactionSockets = new Map()
   }
 
-  public async startup(): Promise<void> {
-    const con = await this.getConnection()
+  private set wsStatus(status: WebsocketStatusType) {
+    // prevent the status change after 'closed'
+    if (this._wsStatus == 'closed') {
+      return
+    }
 
-    // add event listeners
-    con.on('close', this.wsClose)
-    con.on('error', this.wsError)
-    con.on('message', this.wsMessage)
+    // if disconnected, set a timer to reconnect.
+    if (status == 'disconnected') {
+      this.reconnectTimeout = setTimeout(this.reconnect, WS_RECONNECT_TIMEOUT)
+    } else {
+      clearTimeout(this.reconnectTimeout)
+    }
 
-    this.wsConnection = con
+    const oldStatus = this._wsStatus
+    this._wsStatus = status
+    if (status != oldStatus) {
+      this.onWsStatusChange?.(status)
+    }
+  }
 
-    await comeOnline(this, this.publicKey)
+  public get wsStatus() {
+    return this._wsStatus
   }
 
   /**
-   * Close the websocket connection
+   * Attempt to reconnect to the websocket and run comeOnline
+   * @returns
+   */
+  public async reconnect(): Promise<void> {
+    if (this.wsStatus == 'closed' || this.wsStatus == 'connecting') {
+      // ignore
+      return
+    }
+    if (this.wsStatus != 'login-failed') {
+      // attempt to establish a new websocket connection
+      this.wsStatus = 'connecting'
+      let con: connection
+      try {
+        con = await this.getConnection()
+      } catch {
+        this.wsStatus = 'disconnected'
+        return
+      }
+
+      // add event listeners
+      con.on('close', this.wsClose)
+      con.on('error', this.wsError)
+      con.on('message', this.wsMessage)
+
+      this.wsConnection = con
+
+      this.wsStatus = 'connected'
+    }
+
+    try {
+      await comeOnline(this, this.publicKey)
+      this.wsStatus = 'logged-in'
+    } catch (e) {
+      this.wsStatus = 'login-failed'
+      this.onFailedLogin?.((e as Error).message)
+    }
+  }
+
+  /**
+   * Permanently close the websocket connection
    */
   public close() {
+    this.wsStatus = 'closed'
     this.wsConnection?.close()
   }
 
@@ -106,11 +165,10 @@ export class HarmonyWebsocketConnection {
   private wsClose = (): void => {
     // send a null message to all open transactions.
     // this causes them to error out and (hopefully) prevent memony leaks
+    this.wsStatus = 'disconnected'
     for (const { messageCallback } of this.transactionSockets.values()) {
       messageCallback?.(null)
     }
-    this.isClosed = true
-    this.onWebsocketClose?.()
     console.log('Websocket closed')
   }
   private wsMessage = (message: Message): void => {
@@ -183,13 +241,13 @@ export class HarmonyWebsocketConnection {
         tsIsClosed = true
       }
 
-      if (!this.wsConnection) {
-        throw new Error('Not connected')
-      }
-
-      if (this.isClosed) {
+      if (
+        !this.wsConnection ||
+        (routineOptions.loginRequired && this.wsStatus != 'logged-in') ||
+        (!routineOptions.loginRequired && this.wsStatus != 'connected')
+      ) {
         tsIsClosed = true
-        throw new HarmonyError('Websocket closed')
+        throw new Error('Not connected')
       }
 
       const strMsg = transactionSocket.id + JSON.stringify(msg)

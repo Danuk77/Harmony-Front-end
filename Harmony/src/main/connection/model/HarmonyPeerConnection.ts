@@ -2,11 +2,11 @@ import { RTCPeerConnection, RTCDataChannel } from '@roamhq/wrtc'
 
 export class HarmonyPeerConnection {
   rtc: RTCPeerConnection
-  chat: RTCDataChannel
+  chatChannel: RTCDataChannel
 
   constructor(rtc: RTCPeerConnection, chat: RTCDataChannel) {
     this.rtc = rtc
-    this.chat = chat
+    this.chatChannel = chat
   }
 }
 
