@@ -3,11 +3,13 @@
  */
 
 import { DEBUG } from '.'
-import { MainToRendererAction } from '../preload'
+import { FriendWithState, MainToRendererAction } from '../preload'
 import { HarmonyConnection } from './connection/HarmonyConnection'
+import { WebsocketStatusType } from './connection/model/HarmonyWebsocketConnection'
 import { FriendRequestResult } from './connection/routines/initiated/sendFriendRequest'
 import { FriendRoster } from './FriendRoster'
 import { Friend, LocalDatabase, Message } from './LocalDatabase'
+import { storeTypesafe } from './redux/store'
 
 export type SendMessageReturnType =
   | {
@@ -19,11 +21,18 @@ export type SendMessageReturnType =
       error: string
     }
 
+export type ControllerState = {
+  connection: {
+    status: WebsocketStatusType
+  }
+  friends: FriendWithState[]
+}
+
 // links database and connections.
-export class State {
+export class Controller {
   private friendRoster: FriendRoster
   private con: HarmonyConnection
-  private db: LocalDatabase
+  public db: LocalDatabase
   private publicKey: string
 
   // callback for IPCs to be sent to the renderer.
@@ -77,11 +86,8 @@ export class State {
         })
         updatedFriend = { ...friend, ...updatedFields }
 
-        // tell the renderer
-        this.onMainToRendererAction?.({
-          type: 'friend-change',
-          payload: updatedFriend
-        })
+        // update the state
+        storeTypesafe.dispatch({ type: 'friend-change', payload: updatedFriend })
       } else {
         updatedFriend = {
           localPk: this.publicKey,
@@ -92,8 +98,7 @@ export class State {
         }
         await this.db.insertFriend(updatedFriend)
 
-        // tell the renderer
-        this.onMainToRendererAction?.({
+        storeTypesafe.dispatch({
           type: 'add-friend',
           payload: { ...updatedFriend, connectionStatus: 'unset' }
         })
@@ -118,7 +123,7 @@ export class State {
               this.friendRoster.updateFriend(update)
 
               // tell the renderer
-              this.onMainToRendererAction?.({
+              storeTypesafe.dispatch({
                 type: 'friend-change',
                 payload: update
               })
@@ -144,7 +149,7 @@ export class State {
               this.friendRoster.updateFriend(update)
 
               // tell the renderer
-              this.onMainToRendererAction?.({
+              storeTypesafe.dispatch({
                 type: 'friend-change',
                 payload: update
               })
@@ -165,7 +170,7 @@ export class State {
         await this.db.insertFriend(newFriend)
 
         // tell the renderer
-        this.onMainToRendererAction?.({
+        storeTypesafe.dispatch({
           type: 'add-friend',
           payload: { ...newFriend, connectionStatus: 'unset' }
         })
@@ -185,7 +190,7 @@ export class State {
     }
     this.con.onWsStatusChange = (status) => {
       // send a message to the renderer
-      this.onMainToRendererAction?.({
+      storeTypesafe.dispatch({
         type: 'websocket-status-change',
         payload: status
       })
@@ -218,7 +223,7 @@ export class State {
     }
 
     this.friendRoster.onFriendConnectionStatusChange = (peerPk, status) => {
-      this.onMainToRendererAction?.({
+      storeTypesafe.dispatch({
         type: 'friend-change',
         payload: {
           localPk: this.publicKey,
@@ -235,7 +240,7 @@ export class State {
     this.db.getAllFriends().then((friends) => {
       for (const friend of friends) {
         // send to front end
-        this.onMainToRendererAction?.({
+        storeTypesafe.dispatch({
           type: 'add-friend',
           payload: {
             ...friend,
@@ -339,7 +344,7 @@ export class State {
         statusModified: new Date(Date.now())
       }
       // tell the front end
-      this.onMainToRendererAction?.({
+      storeTypesafe.dispatch({
         type: 'friend-change',
         payload: friendUpdate
       })
@@ -369,7 +374,7 @@ export class State {
       }
 
       // tell the front end
-      this.onMainToRendererAction?.({
+      storeTypesafe.dispatch({
         type: 'add-friend',
         payload: { ...friendObj, connectionStatus: 'unset' }
       })
@@ -408,7 +413,7 @@ export class State {
       }
 
       // inform front ends
-      this.onMainToRendererAction?.({
+      storeTypesafe.dispatch({
         type: 'friend-change',
         payload: friendUpdate
       })
@@ -435,7 +440,7 @@ export class State {
         statusModified: new Date(Date.now())
       }
       // inform front end
-      this.onMainToRendererAction?.({
+      storeTypesafe.dispatch({
         type: 'add-friend',
         payload: { ...friend, connectionStatus: 'do-not-connect' }
       })

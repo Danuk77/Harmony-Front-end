@@ -23,6 +23,10 @@ export class HarmonyConnection {
     this.websocket = new HarmonyWebsocketConnection(publicKey, websocketConnectionOptions)
   }
 
+  public get wsStatus() {
+    return this.websocket.wsStatus
+  }
+
   /**
    * Callback for when the websocket connection status has changed
    */

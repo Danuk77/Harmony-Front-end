@@ -57,6 +57,24 @@ export class LocalDatabase {
     await this.messagesDb.insertAsync(msg)
   }
 
+  public getConversation = async (pk0: string, pk1: string) => {
+    const friends = await this.messagesDb
+      .findAsync({
+        $or: [
+          {
+            fromPk: pk0,
+            toPk: pk1
+          },
+          {
+            fromPk: pk1,
+            toPk: pk0
+          }
+        ]
+      })
+      .sort({ date: 1 })
+    return friends
+  }
+
   public getFriend = async (localPk: string, peerPk: string) => {
     const friend = await this.friendsDb.findOneAsync({
       localPk: localPk,

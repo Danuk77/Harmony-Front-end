@@ -1,12 +1,13 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { stateTest0, stateTest1 } from './stateTest'
+import { Controller } from './Controller'
+import { ipcMainTypesafe } from './ipcMainTypesafe'
 
 export const DEBUG = true
 
-function createWindow(): void {
+function createWindow(): BrowserWindow {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
     width: 900,
@@ -36,6 +37,10 @@ function createWindow(): void {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
+
+  mainWindow.webContents.openDevTools()
+
+  return mainWindow
 }
 
 // This method will be called when Electron has finished
@@ -52,8 +57,19 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  // IPC test
-  ipcMain.on('ping', () => console.log('pong'))
+  const state = new Controller(
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+  )
+
+  // 2 way, initiated by renderer
+  ipcMainTypesafe.handle('getConversation', (_, ...args) => state.db.getConversation(...args))
+
+  // main to renderer
+  state.onMainToRendererAction = (action) => {
+    BrowserWindow.getAllWindows().forEach((window) => {
+      window.webContents.send('mainToRendererAction', action)
+    })
+  }
 
   createWindow()
 
@@ -62,8 +78,6 @@ app.whenReady().then(() => {
     // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
-
-  stateTest1()
 })
 
 // Quit when all windows are closed, except on macOS. There, it's common

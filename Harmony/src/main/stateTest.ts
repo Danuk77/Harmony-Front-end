@@ -1,4 +1,4 @@
-import { State } from './State'
+import { Controller } from './Controller'
 
 const pk0 =
   'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
@@ -6,7 +6,7 @@ const pk1 =
   'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
 
 export async function stateTest0() {
-  const state = new State(pk0)
+  const state = new Controller(pk0)
 
   state.onMainToRendererAction = async (action) => {
     console.log(action)
@@ -24,7 +24,7 @@ export async function stateTest0() {
 }
 
 export async function stateTest1() {
-  const state = new State(pk1)
+  const state = new Controller(pk1)
 
   state.onMainToRendererAction = async (action) => {
     console.log(action)
