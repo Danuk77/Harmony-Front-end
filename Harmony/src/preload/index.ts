@@ -1,8 +1,9 @@
+import 'electron-redux/preload'
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import { Friend, LocalDatabase, Message } from '../main/LocalDatabase'
 import { FriendConnectionStatus } from '../main/FriendConnectionHandler'
-// import 'electron-redux/preload'
+import { Controller } from '../main/Controller'
 
 export type FriendWithState = Friend & {
   connectionStatus: FriendConnectionStatus
@@ -33,6 +34,7 @@ const api = {
   getConversation: <LocalDatabase['getConversation']>(
     ((...args) => ipcRenderer.invoke('getConversation', ...args))
   ),
+  sendMessage: <Controller['sendMessage']>((...args) => ipcRenderer.invoke('sendMessage', ...args)),
   onMainToRendererAction: (callback: (arg0: MainToRendererAction) => unknown) =>
     ipcRenderer.on('mainToRendererAction', (_event, value) => callback(value))
 }

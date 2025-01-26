@@ -8,7 +8,8 @@ export const rtcConfig: RTCConfiguration = {
         'stun:stun.ekiga.net:3478'
       ]
     }
-  ]
+  ],
+  iceTransportPolicy: 'all'
 }
 
 export const backendURL = 'ws://localhost:8080/ws'

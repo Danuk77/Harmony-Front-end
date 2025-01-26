@@ -1,22 +1,23 @@
 <script lang="ts">
-  import type { FriendWithState } from '../../../preload'
   import '@fortawesome/fontawesome-free/css/all.min.css'
   import '@fortawesome/fontawesome-free/js/all.min.js'
   import { connectionStatusToBulbColorCssVariable } from '../misc/misc'
-  let {
-    selected,
-    friend,
-    onclick
-  }: { selected: boolean; friend: FriendWithState; onclick: () => unknown } = $props()
+  import type { FriendState } from '../../../common/redux'
+  let { selected, fs, onclick }: { selected: boolean; fs: FriendState; onclick: () => unknown } =
+    $props()
 
   let backgroundColor = $derived(selected ? '--color-block-selected' : '--color-block')
-  let bulbColor = $derived(connectionStatusToBulbColorCssVariable(friend.connectionStatus))
+  let bulbColor = $derived(connectionStatusToBulbColorCssVariable(fs.connectionStatus))
 </script>
 
 <button type="button" id="button" {onclick}>
   <div id="block" style={`background-color: var(${backgroundColor})`}>
-    <i class="fas fa-lightbulb" id="bulb" style={`color: var(${bulbColor})`}></i>
-    <p id="nickname">{friend.nickname}</p>
+    {#key fs}
+      <span title={fs.connectionStatus}>
+        <i class="fas fa-lightbulb" id="bulb" style={`color: var(${bulbColor})`}></i>
+      </span>
+    {/key}
+    <p id="nickname">{fs.friend.nickname}</p>
   </div>
 </button>
 

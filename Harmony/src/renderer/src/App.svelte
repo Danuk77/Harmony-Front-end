@@ -2,8 +2,12 @@
   import MainScreen from './screens/MainScreen.svelte'
 
   // const ipcHandle = (): void => window.electron.ipcRenderer.send('ping')
+
+  const bc = new BroadcastChannel('mainToRendererAction')
+
   window.api.onMainToRendererAction((action) => {
     console.log(action)
+    bc.postMessage(action)
   })
 </script>
 

@@ -1,12 +1,15 @@
 <script>
   import Chat from '../components/Chat.svelte'
+  import AddFriend from '../components/AddFriend.svelte'
   import Sidebar from '../components/Sidebar.svelte'
   import TopBar from '../components/TopBar.svelte'
+  import { store } from '../redux'
 </script>
 
 <div id="overlay">
   <div id="iconAndLogo">
     <h1 id="harmonyText">Harmony</h1>
+    <p>{$store.connection.state}</p>
   </div>
   <div id="statusBar">
     <TopBar />
@@ -17,7 +20,11 @@
   </div>
 
   <div id="main-panel">
-    <Chat />
+    {#if $store.ui.screenMode == 'chat'}
+      <Chat />
+    {:else if $store.ui.screenMode == 'add-friend'}
+      <AddFriend />
+    {/if}
   </div>
 </div>
 

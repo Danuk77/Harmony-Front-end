@@ -1,66 +1,39 @@
 <script lang="ts">
+  import { onMount, tick } from 'svelte'
   import type { Message } from '../../../main/LocalDatabase'
-  import { ui } from '../state.svelte'
+  import type { MainToRendererAction } from '../../../preload'
+  import { pk } from '../main'
+  import { store } from '../redux'
 
-  const localPk = 'us' as string
+  const localPk = pk as string
+  const friendState = $derived.by(() =>
+    $store.friendStates.find((fs) => fs.friend.peerPk == $store.ui.selectedFriendPk)
+  )
 
   let messages: Message[] = $state([])
 
   // update messages when ui changes
   $effect(() => {
-    if (ui.selectedFriendPk != null) {
+    if ($store.ui.selectedFriendPk != null) {
       window.api
-        .getConversation('us', ui.selectedFriendPk)
+        .getConversation(pk, $store.ui.selectedFriendPk)
         .then((_messages) => (messages = _messages))
     }
   })
 
-  // let messages: Message[] = [
-  //   {
-  //     date: new Date(time - 10000),
-  //     fromPk: 'them',
-  //     toPk: 'us',
-  //     text: 'Short message!'
-  //   },
-  //   {
-  //     date: new Date(time - 10000),
-  //     fromPk: 'them',
-  //     toPk: 'us',
-  //     text: 'Short message!'
-  //   },
-  //   {
-  //     date: new Date(time - 9000),
-  //     fromPk: 'them',
-  //     toPk: 'us',
-  //     text: 'Another short message!'
-  //   },
-  //   {
-  //     date: new Date(time - 8000),
-  //     fromPk: 'them',
-  //     toPk: 'us',
-  //     text: 'Long message! Bing chilling bing chilling bing chilling bing chilling bing chilling bing chilling bing chilling bing chilling bing chilling bing chilling bing chilling bing chilling bing chilling bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbingchil'
-  //   },
-  //   {
-  //     date: new Date(time - 7000),
-  //     fromPk: 'us',
-  //     toPk: 'them',
-  //     text: 'I am going to infect your computer with a virus using XSS'
-  //   },
-  //   {
-  //     date: new Date(time - 6000),
-  //     fromPk: 'us',
-  //     toPk: 'them',
-  //     // eslint doesn't like that I'm excaping a forward slash (which is required to prevent an error)
-  //     // eslint-disable-next-line
-  //     text: '<script>delete("system 32")<\/script>'
-  //   },
-  //   {
-  //     date: new Date(time - 5000),
-  //     fromPk: 'them',
-  //     toPk: 'us',
-  //     text: 'Ah but all these inputs are sanitized u silly. Youre a silly boy'
-  //   }
-  // ]
+  // uupdate with incoming messasges
+  onMount(() => {
+    const bc = new BroadcastChannel('mainToRendererAction')
+    bc.onmessage = (_event) => {
+      const action = _event.data as MainToRendererAction
+      if (action.type == 'receive-message') {
+        if (action.payload.fromPk == $store.ui.selectedFriendPk && action.payload.toPk == localPk) {
+          messages.push(action.payload)
+        }
+      }
+    }
+    return () => bc.close()
+  })
 
   // group consecutive messages from the same sender
   let messageGroups = $derived.by(() => {
@@ -90,23 +63,81 @@
     }
     return groups
   })
+
+  // scroll to the bottom
+  // https://svelte.dev/docs/svelte/lifecycle-hooks
+  let viewport: HTMLDivElement
+  $effect.pre(() => {
+    messageGroups
+    const autoscroll =
+      viewport && viewport.offsetHeight + viewport.scrollTop > viewport.scrollHeight - 50
+
+    if (autoscroll) {
+      tick().then(() => {
+        viewport.scrollTo(0, viewport.scrollHeight)
+      })
+    }
+  })
+
+  // input box
+  let inputEnabled = $derived(
+    friendState?.connectionStatus && friendState.connectionStatus == 'online-connected'
+  )
+  let textBoxContents = $state('')
+  let isShiftHeld = false
+  function globalKeydown(event: KeyboardEvent) {
+    if (event.key == 'Shift') {
+      isShiftHeld = true
+    }
+  }
+  function globalKeyup(event: KeyboardEvent) {
+    if (event.key == 'Shift') {
+      isShiftHeld = false
+    }
+  }
+  function messageBoxKeyEvent(event: KeyboardEvent) {
+    if (event.key == 'Enter' && !isShiftHeld && $store.ui.selectedFriendPk) {
+      event.preventDefault()
+      if (!inputEnabled) {
+        return
+      }
+      if (textBoxContents == '') {
+        return
+      }
+      window.api
+        .sendMessage(localPk, $store.ui.selectedFriendPk, textBoxContents)
+        .then(({ msg, error }) => {
+          if (!error && msg) messages.push(msg)
+        })
+      textBoxContents = ''
+    }
+  }
+  let inputBoxColor = $derived.by(() => {
+    if (inputEnabled) {
+      return '--color-input-box'
+    } else {
+      return '--color-input-box-disabled'
+    }
+  })
 </script>
 
+<svelte:window onkeydown={globalKeydown} on:keyup={globalKeyup} />
+
 <div id="chat">
-  <div id="message-scroll-container">
+  <div id="message-scroll-container" bind:this={viewport}>
     <div id="messages">
       {#each messageGroups as messageGroup}
         {#if messageGroup.fromPk == localPk}
-          <p class="sender-align name">Peer</p>
+          <p class="receiver-align name">You</p>
           {#each messageGroup.msgs as msg}
-            <div class="sender-align sender-color bubble">
+            <div class="receiver-align receiver-color bubble">
               {msg.text}
             </div>
           {/each}
         {:else}
-          <p class="receiver-align name">You</p>
+          <p class="sender-align name">Peer</p>
           {#each messageGroup.msgs as msg}
-            <div class="receiver-align receiver-color bubble">
+            <div class="sender-align sender-color bubble">
               {msg.text}
             </div>
           {/each}
@@ -114,8 +145,15 @@
       {/each}
     </div>
   </div>
-  <div class="bubble" id="message-input-container">
-    <div contenteditable="true" id="message-input"></div>
+  <div class="bubble" id="message-input-container" style="background-color: var({inputBoxColor})">
+    <div
+      contenteditable="true"
+      id="message-input"
+      onkeypress={messageBoxKeyEvent}
+      role="textbox"
+      tabindex="0"
+      bind:innerText={textBoxContents}
+    ></div>
   </div>
 </div>
 
@@ -134,7 +172,7 @@
     align-items: center;
     display: flex;
     flex-direction: column;
-    flex-grow: 1;
+    flex: 1;
   }
   #messages {
     margin-top: auto; /*bottom-justifys content*/
@@ -150,6 +188,7 @@
     padding-right: 8px;
     margin-bottom: 2px;
     word-break: break-word;
+    white-space: break-spaces;
   }
   .name {
     margin-top: 4px;
@@ -167,17 +206,22 @@
     background-color: var(--color-receiver-bubble);
   }
   #message-input-container {
-    background-color: var(--color-input-box);
+    /* background color now set by inline css */
     max-width: 700px;
     width: 90%;
+    max-height: 50%;
     margin-bottom: 20px;
     margin-top: 20px;
     min-height: 30px;
+    height: max-content;
   }
   #message-input {
+    height: 100%;
     color: var(--color-text-black);
-    border: none;
-    resize: none;
-    text-wrap: start;
+    white-space: normal;
+    overflow-y: scroll;
+  }
+  #message-input:focus {
+    outline: none;
   }
 </style>

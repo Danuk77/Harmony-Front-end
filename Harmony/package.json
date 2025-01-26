@@ -31,7 +31,8 @@
     "@types/websocket": "^1.0.10",
     "electron-redux": "^2.0.0",
     "electron-updater": "^6.1.7",
-    "websocket": "^1.0.35"
+    "websocket": "^1.0.35",
+    "yup": "^1.6.1"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config-prettier": "^2.0.0",

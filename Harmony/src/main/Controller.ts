@@ -3,13 +3,14 @@
  */
 
 import { DEBUG } from '.'
+import { Action } from '../common/redux'
 import { FriendWithState, MainToRendererAction } from '../preload'
 import { HarmonyConnection } from './connection/HarmonyConnection'
 import { WebsocketStatusType } from './connection/model/HarmonyWebsocketConnection'
 import { FriendRequestResult } from './connection/routines/initiated/sendFriendRequest'
 import { FriendRoster } from './FriendRoster'
 import { Friend, LocalDatabase, Message } from './LocalDatabase'
-import { storeTypesafe } from './redux/store'
+import { getFriendState, startAppListening, storeTypesafe } from './redux'
 
 export type SendMessageReturnType =
   | {
@@ -55,7 +56,8 @@ export class Controller {
     }
 
     this.con.onIncomingConnectionRequest = async (pk) => {
-      const friend = await this.db.getFriend(this.publicKey, pk)
+      const friend = getFriendState(this.publicKey, pk)?.friend
+
       if (friend && friend.status == 'accept') {
         return 'accept'
         /**@todo maybe inform the renderer?*/
@@ -70,45 +72,36 @@ export class Controller {
     }
 
     this.con.onReceiveFriendRejection = async (pk) => {
-      const friend = await this.db.getFriend(this.publicKey, pk)
+      const friend = getFriendState(this.publicKey, pk)?.friend
       let updatedFriend: Friend
 
       // update the friend
       if (friend) {
         const updatedFields = {
           status: 'reject' as const,
-          statusModified: new Date(Date.now())
+          statusModified: Date.now()
         }
-        await this.db.updateFriend({
-          localPk: this.publicKey,
-          peerPk: pk,
-          ...updatedFields
-        })
         updatedFriend = { ...friend, ...updatedFields }
 
         // update the state
-        storeTypesafe.dispatch({ type: 'friend-change', payload: updatedFriend })
+        storeTypesafe.dispatch({ type: 'friend-change', payload: { friend: updatedFriend } })
       } else {
         updatedFriend = {
           localPk: this.publicKey,
           peerPk: pk,
           status: 'reject',
-          statusModified: new Date(Date.now()),
+          statusModified: Date.now(),
           nickname: pk
         }
-        await this.db.insertFriend(updatedFriend)
 
         storeTypesafe.dispatch({
           type: 'add-friend',
-          payload: { ...updatedFriend, connectionStatus: 'unset' }
+          payload: updatedFriend
         })
       }
-
-      // tell the friend roster
-      this.friendRoster.addOrUpdateFriend(updatedFriend)
     }
     this.con.onReceiveFriendRequest = async (pk) => {
-      const friend = await this.db.getFriend(this.publicKey, pk)
+      const friend = getFriendState(this.publicKey, pk)?.friend
       if (friend) {
         switch (friend.status) {
           case 'reject':
@@ -117,15 +110,13 @@ export class Controller {
                 localPk: this.publicKey,
                 peerPk: pk,
                 status: 'pending' as const,
-                statusModified: new Date(Date.now())
+                statusModified: Date.now()
               }
-              await this.db.updateFriend(update)
-              this.friendRoster.updateFriend(update)
 
               // tell the renderer
               storeTypesafe.dispatch({
                 type: 'friend-change',
-                payload: update
+                payload: { friend: update }
               })
 
               /**@todo send notification */
@@ -143,15 +134,13 @@ export class Controller {
                 localPk: this.publicKey,
                 peerPk: pk,
                 status: 'accept' as const,
-                statusModified: new Date(Date.now())
+                statusModified: Date.now()
               }
-              await this.db.updateFriend(update)
-              this.friendRoster.updateFriend(update)
 
               // tell the renderer
               storeTypesafe.dispatch({
                 type: 'friend-change',
-                payload: update
+                payload: { friend: update }
               })
 
               /**@todo send notification */
@@ -165,17 +154,14 @@ export class Controller {
           peerPk: pk,
           status: 'pending',
           nickname: pk,
-          statusModified: new Date(Date.now())
+          statusModified: Date.now()
         }
-        await this.db.insertFriend(newFriend)
 
         // tell the renderer
         storeTypesafe.dispatch({
           type: 'add-friend',
-          payload: { ...newFriend, connectionStatus: 'unset' }
+          payload: newFriend
         })
-
-        this.friendRoster.addOrUpdateFriend(newFriend)
 
         return 'pending'
       }
@@ -205,7 +191,7 @@ export class Controller {
     // friend roster listeners
     this.friendRoster.onReceiveMessage = (pk, msg) => {
       const msgObj: Message = {
-        date: new Date(Date.now()),
+        date: Date.now(),
         fromPk: pk,
         toPk: this.publicKey,
         text: msg
@@ -224,10 +210,12 @@ export class Controller {
 
     this.friendRoster.onFriendConnectionStatusChange = (peerPk, status) => {
       storeTypesafe.dispatch({
-        type: 'friend-change',
+        type: 'friend-connection-status-change',
         payload: {
-          localPk: this.publicKey,
-          peerPk: peerPk,
+          friend: {
+            localPk: this.publicKey,
+            peerPk: peerPk
+          },
           connectionStatus: status
         }
       })
@@ -238,16 +226,43 @@ export class Controller {
 
     // on startup, add all friends to the friend roster.
     this.db.getAllFriends().then((friends) => {
-      for (const friend of friends) {
-        // send to front end
-        storeTypesafe.dispatch({
-          type: 'add-friend',
-          payload: {
-            ...friend,
-            connectionStatus: 'unset'
-          }
-        })
-        this.friendRoster.addOrUpdateFriend(friend)
+      storeTypesafe.dispatch({ type: 'hydrate-friends', payload: friends })
+    })
+
+    //update friend roster and database when redux store changes
+    // redux store is considered the main source of truth
+    // so only update the redux store and the rest should be done automatically
+    startAppListening({
+      predicate: (_action) => {
+        const action = _action as Action
+        return (
+          action.type == 'add-friend' ||
+          action.type == 'friend-change' ||
+          action.type == 'remove-friend' ||
+          action.type == 'hydrate-friends'
+        )
+      },
+      effect: (_action) => {
+        const action = _action as Action // typescript is dumb
+        switch (action.type) {
+          case 'add-friend':
+            this.friendRoster.addOrUpdateFriend(action.payload)
+            this.db.insertFriend(action.payload)
+            break
+          case 'friend-change':
+            this.friendRoster.updateFriend(action.payload.friend)
+            this.db.updateFriend(action.payload.friend)
+            break
+          case 'remove-friend':
+            this.friendRoster.removeFriend(action.payload.peerPk)
+            /**@todo delete friend from database! */
+            break
+          case 'hydrate-friends':
+            action.payload.forEach((friend) => {
+              this.friendRoster.addOrUpdateFriend(friend)
+            })
+            break
+        }
       }
     })
   }
@@ -271,7 +286,7 @@ export class Controller {
     }
 
     const msgObj: Message = {
-      date: new Date(Date.now()),
+      date: Date.now(),
       fromPk: fromPk,
       toPk: toPk,
       text: message
@@ -335,65 +350,33 @@ export class Controller {
     // update db and friend roster
     // check if friend already exists
     /**@todo this might cause an error */
-    let friendObj = await this.db.getFriend(localPk, peerPk)
+    let friendObj = getFriendState(localPk, peerPk)?.friend
     if (friendObj) {
       const friendUpdate = {
         peerPk,
         localPk,
         status: newStatus,
-        statusModified: new Date(Date.now())
+        statusModified: Date.now()
       }
       // tell the front end
       storeTypesafe.dispatch({
         type: 'friend-change',
-        payload: friendUpdate
+        payload: { friend: friendUpdate }
       })
-
-      // edit friend roster
-      this.friendRoster.updateFriend(friendUpdate)
-
-      // edit database
-      try {
-        await this.db.updateFriend(friendUpdate)
-      } catch (e) {
-        this.onMainToRendererAction?.({
-          type: 'error',
-          payload: {
-            msg: 'Failed to edit local database: ' + eToStr(e)
-          }
-        })
-        console.error(eToStr(e))
-      }
     } else {
       friendObj = {
         localPk: localPk,
         peerPk: peerPk,
-        nickname: localPk,
+        nickname: peerPk,
         status: newStatus,
-        statusModified: new Date(Date.now())
+        statusModified: Date.now()
       }
 
       // tell the front end
       storeTypesafe.dispatch({
         type: 'add-friend',
-        payload: { ...friendObj, connectionStatus: 'unset' }
+        payload: friendObj
       })
-
-      // add to friend roster
-      this.friendRoster.addOrUpdateFriend(friendObj)
-
-      // add to database
-      try {
-        await this.db.insertFriend(friendObj)
-      } catch (e) {
-        this.onMainToRendererAction?.({
-          type: 'error',
-          payload: {
-            msg: 'Failed to edit local database: ' + eToStr(e)
-          }
-        })
-        console.error(eToStr(e))
-      }
     }
     return result
   }
@@ -403,61 +386,33 @@ export class Controller {
     // in all cases we want to prevent the friend from connecting to us.
     // update the friend roster and databse.
     /**@todo next line might raise an error */
-    const friendObj = await this.db.getFriend(localPk, peerPk)
+    const friendObj = getFriendState(localPk, peerPk)?.friend
     if (friendObj) {
       const friendUpdate = {
         localPk: localPk,
         peerPk: peerPk,
         status: 'block' as const,
-        statusModified: new Date(Date.now())
+        statusModified: Date.now()
       }
 
       // inform front ends
       storeTypesafe.dispatch({
         type: 'friend-change',
-        payload: friendUpdate
+        payload: { friend: friendUpdate }
       })
-
-      // update friend roster
-      this.friendRoster.updateFriend(friendUpdate)
-
-      // update local db
-      try {
-        await this.db.updateFriend(friendUpdate)
-      } catch (e) {
-        this.onMainToRendererAction?.({
-          type: 'error',
-          payload: { msg: 'Failed to edit local database: ' + eToStr(e) }
-        })
-        console.error(eToStr(e))
-      }
     } else {
       const friend: Friend = {
         localPk,
         peerPk,
         nickname: peerPk,
         status: 'block',
-        statusModified: new Date(Date.now())
+        statusModified: Date.now()
       }
       // inform front end
       storeTypesafe.dispatch({
         type: 'add-friend',
-        payload: { ...friend, connectionStatus: 'do-not-connect' }
+        payload: friend
       })
-
-      // add to friend roster
-      this.friendRoster.addOrUpdateFriend(friend)
-
-      // update local db
-      try {
-        await this.db.insertFriend(friend)
-      } catch (e) {
-        this.onMainToRendererAction?.({
-          type: 'error',
-          payload: { msg: 'Failed to edit local database: ' + eToStr(e) }
-        })
-        console.error(eToStr(e))
-      }
     }
 
     return result

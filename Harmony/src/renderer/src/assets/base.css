@@ -36,6 +36,7 @@
   --color-block-selected: var(--ev-c-gray-2);
   --color-block: var(--ev-c-gray-3);
   --color-input-box: var(--ev-c-gray-0);
+  --color-input-box-disabled: var(--ev-c-gray-1);
 
   --color-lightbulb-connected: var(--ev-c-green-1);
   --color-lightbulb-disconnected: var(--ev-c-amber-1);

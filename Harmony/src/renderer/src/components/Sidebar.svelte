@@ -1,17 +1,16 @@
 <script>
   import FriendBlock from './FriendBlock.svelte'
-  import { friends, ui } from '../state.svelte'
-  import { store } from '../redux/store'
+  import { store } from '../redux'
 </script>
 
 <div id="sidebar">
   <div id="friend-list">
-    {#each friends.values() as friend}
+    {#each $store.friendStates as fs}
       <FriendBlock
-        selected={friend.peerPk == ui.selectedFriendPk}
-        {friend}
+        selected={fs.friend.peerPk == $store.ui.selectedFriendPk}
+        {fs}
         onclick={() => {
-          ui.selectedFriendPk = friend.peerPk
+          store.dispatch({ type: 'setSelectedFriendPk', payload: { pk: fs.friend.peerPk } })
           console.log(store.getState())
         }}
       />

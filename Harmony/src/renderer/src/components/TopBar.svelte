@@ -1,28 +1,28 @@
 <script lang="ts">
   import '@fortawesome/fontawesome-free/css/all.min.css'
   import '@fortawesome/fontawesome-free/js/all.min.js'
-  import { friends, ui } from '../state.svelte'
   import { connectionStatusToBulbColorCssVariable } from '../misc/misc'
+  import { store } from '../redux'
 
-  let friend = $derived.by(() => {
-    return ui.selectedFriendPk ? friends.get(ui.selectedFriendPk) : undefined
+  let fs = $derived.by(() => {
+    return $store.ui.selectedFriendPk
+      ? $store.friendStates.find((fs) => fs.friend.peerPk == $store.ui.selectedFriendPk)
+      : undefined
   })
   let bulbColor = $derived(
-    friend
-      ? connectionStatusToBulbColorCssVariable(friend.connectionStatus)
-      : '--color-lightbulb-connected'
+    fs ? connectionStatusToBulbColorCssVariable(fs.connectionStatus) : '--color-lightbulb-connected'
   )
 </script>
 
 <div id="friendDescription">
-  {#if friend}
+  {#if fs}
     <!-- wrap in key+span for dumb reasons involving the i tag being translated into an svg by fontawesome -->
-    {#key friend}
+    {#key fs}
       <span>
         <i class="fas fa-lightbulb" style="color: var({bulbColor})" id="bulb"></i>
       </span>
     {/key}
-    <p id="nicknameAndPk">{friend.nickname}<span id="pk">&nbsp;| {friend.peerPk}</span></p>
+    <p id="nicknameAndPk">{fs.friend.nickname}<span id="pk">&nbsp;| {fs.friend.peerPk}</span></p>
   {/if}
 </div>
 

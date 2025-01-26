@@ -25,7 +25,8 @@ export type Friend = {
     | 'pending' // they are waiting for us to reply.
     | 'block' // we rejected them
     | 'awaiting-response' // we want to become friends; waiting for peer's response
-  statusModified: Date
+  // ms since UNIX epoch
+  statusModified: number
   nickname: string // initially set the same as publickey
 }
 type FriendDoc = Friend & {
@@ -36,8 +37,10 @@ export type Message = {
   fromPk: string
   toPk: string
   text: string
-  date: Date
+  // ms since UNIX epoch
+  date: number
 }
+
 type MessageDoc = Message & {
   _id?: string // nedb
 }

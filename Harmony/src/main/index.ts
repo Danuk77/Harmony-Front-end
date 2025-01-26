@@ -4,8 +4,10 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { Controller } from './Controller'
 import { ipcMainTypesafe } from './ipcMainTypesafe'
-
+import { mediaDevices } from '@roamhq/wrtc'
 export const DEBUG = true
+
+process.traceProcessWarnings = true
 
 function createWindow(): BrowserWindow {
   // Create the browser window.
@@ -57,15 +59,24 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  const state = new Controller(
+  const controller = new Controller(
     'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
   )
+  // setTimeout(
+  //   () =>
+  //     state.sendFriendRequest(
+  //       'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  //       'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+  //     ),
+  //   5000
+  // )
 
   // 2 way, initiated by renderer
-  ipcMainTypesafe.handle('getConversation', (_, ...args) => state.db.getConversation(...args))
+  ipcMainTypesafe.handle('getConversation', (_, ...args) => controller.db.getConversation(...args))
+  ipcMainTypesafe.handle('sendMessage', (_, ...args) => controller.sendMessage(...args))
 
   // main to renderer
-  state.onMainToRendererAction = (action) => {
+  controller.onMainToRendererAction = (action) => {
     BrowserWindow.getAllWindows().forEach((window) => {
       window.webContents.send('mainToRendererAction', action)
     })
@@ -84,9 +95,10 @@ app.whenReady().then(() => {
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
-  }
+  createWindow()
+  // if (process.platform !== 'darwin') {
+  //   app.quit()
+  // }
 })
 
 export { app }
