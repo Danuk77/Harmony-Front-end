@@ -4,7 +4,6 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { Controller } from './Controller'
 import { ipcMainTypesafe } from './ipcMainTypesafe'
-import { mediaDevices } from '@roamhq/wrtc'
 export const DEBUG = true
 
 process.traceProcessWarnings = true

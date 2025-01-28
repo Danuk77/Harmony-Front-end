@@ -5,7 +5,7 @@ import {
 } from '../../model/HarmonyPeerConnection'
 import { HarmonyWebsocketConnection } from '../../model/HarmonyWebsocketConnection'
 import { HarmonyRoutineParams } from '../../model/routine'
-import { RTCPeerConnection } from '@roamhq/wrtc'
+import { RTCPeerConnection, RTCIceCandidate } from 'werift'
 
 /**
  * Create a WebRTC connection with a peer with public key `peerPk`.
@@ -153,7 +153,8 @@ async function setupInitiatedPeerConnection(
   }
   let recvCandidate: recvCandidateType
   while ((recvCandidate = (await recv()) as recvCandidateType).forwarded.payload.candidate != '') {
-    await rtc.addIceCandidate(recvCandidate.forwarded.payload)
+    const candidate = new RTCIceCandidate(recvCandidate.forwarded.payload)
+    await rtc.addIceCandidate(candidate)
   }
 
   // should get a terminate message - end of communication with server
