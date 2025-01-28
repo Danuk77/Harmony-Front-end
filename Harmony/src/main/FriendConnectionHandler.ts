@@ -216,22 +216,25 @@ export class FriendConnectionHandler {
         this.peerConnection = result.peerConnection
 
         // add event listeners
-        this.peerConnection.chatChannel.onmessage = (msg) => {
-          if (msg.data instanceof Buffer) {
-            this.onReceiveMessage?.(msg.data.toString())
+        this.peerConnection.chatChannel.onMessage.subscribe((msg) => {
+          if (msg instanceof Buffer) {
+            this.onReceiveMessage?.(msg.toString())
           } else {
-            this.onReceiveMessage?.(msg.data)
+            this.onReceiveMessage?.(msg)
           }
-        }
-        this.peerConnection.chatChannel.onclose = () => {
-          // check chat channel has not changed
-          if (this.peerConnection == result.peerConnection) {
-            // in future we could get an explicit disconnect message from the user.
-            this.connectionStatus = 'online-disconnected'
+        })
+        this.peerConnection.chatChannel.stateChanged.subscribe((state) => {
+          if (state == 'closing' || state == 'closed') {
+            // check chat channel has not changed
+            if (this.peerConnection == result.peerConnection) {
+              // in future we could get an explicit disconnect message from the user.
+              this.connectionStatus = 'online-disconnected'
+            }
+            // remove listeners
+            result.peerConnection.chatChannel.stateChanged.allUnsubscribe()
+            result.peerConnection.rtc.connectionStateChange.allUnsubscribe()
           }
-          // remove this listener
-          result.peerConnection.rtc.connectionStateChange.allUnsubscribe()
-        }
+        })
         result.peerConnection.rtc.connectionStateChange.subscribe(() => {
           if (
             ['closed', 'disconnected', 'failed'].includes(result.peerConnection.rtc.connectionState)
@@ -240,7 +243,8 @@ export class FriendConnectionHandler {
             if (this.peerConnection == result.peerConnection) {
               this.connectionStatus = 'online-disconnected'
             }
-            // remove this listener
+            // remove these listeners
+            result.peerConnection.chatChannel.stateChanged.allUnsubscribe()
             result.peerConnection.rtc.connectionStateChange.allUnsubscribe()
           }
         })

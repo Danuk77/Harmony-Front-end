@@ -7,6 +7,7 @@ import { FriendConnectionStatus } from '../main/FriendConnectionHandler'
 export const defaultState: State = {
   friendStates: [],
   connection: {
+    pk: null,
     state: 'disconnected'
   },
   ui: {
@@ -25,6 +26,7 @@ export type ScreenMode = 'chat' | 'add-friend'
 export type State = {
   friendStates: FriendState[]
   connection: {
+    pk: string | null
     state: WebsocketStatusType
     failedLoginMsg?: string
   }
@@ -69,6 +71,7 @@ export type Action =
     }
   | { type: 'hydrate-friends'; payload: Friend[] }
   | { type: 'set-screen'; payload: ScreenMode }
+  | { type: 'set-local-pk'; payload: string }
 
 export function reducer(state: State | undefined = defaultState, action: Action): State {
   switch (action.type) {
@@ -154,6 +157,14 @@ export function reducer(state: State | undefined = defaultState, action: Action)
         ui: {
           ...state.ui,
           screenMode: action.payload
+        }
+      }
+    case 'set-local-pk':
+      return {
+        ...state,
+        connection: {
+          ...state.connection,
+          pk: action.payload
         }
       }
   }

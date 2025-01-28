@@ -2,10 +2,8 @@
   import { onMount, tick } from 'svelte'
   import type { Message } from '../../../main/LocalDatabase'
   import type { MainToRendererAction } from '../../../preload'
-  import { pk } from '../main'
   import { store } from '../redux'
 
-  const localPk = pk as string
   const friendState = $derived.by(() =>
     $store.friendStates.find((fs) => fs.friend.peerPk == $store.ui.selectedFriendPk)
   )
@@ -14,9 +12,9 @@
 
   // update messages when ui changes
   $effect(() => {
-    if ($store.ui.selectedFriendPk != null) {
+    if ($store.ui.selectedFriendPk != null && $store.connection.pk != null) {
       window.api
-        .getConversation(pk, $store.ui.selectedFriendPk)
+        .getConversation($store.connection.pk, $store.ui.selectedFriendPk)
         .then((_messages) => (messages = _messages))
     }
   })
@@ -27,7 +25,10 @@
     bc.onmessage = (_event) => {
       const action = _event.data as MainToRendererAction
       if (action.type == 'receive-message') {
-        if (action.payload.fromPk == $store.ui.selectedFriendPk && action.payload.toPk == localPk) {
+        if (
+          action.payload.fromPk == $store.ui.selectedFriendPk &&
+          action.payload.toPk == $store.connection.pk
+        ) {
           messages.push(action.payload)
         }
       }
@@ -104,8 +105,11 @@
       if (textBoxContents == '') {
         return
       }
+      if (!$store.connection.pk) {
+        return
+      }
       window.api
-        .sendMessage(localPk, $store.ui.selectedFriendPk, textBoxContents)
+        .sendMessage($store.connection.pk, $store.ui.selectedFriendPk, textBoxContents)
         .then(({ msg, error }) => {
           if (!error && msg) messages.push(msg)
         })
@@ -127,7 +131,7 @@
   <div id="message-scroll-container" bind:this={viewport}>
     <div id="messages">
       {#each messageGroups as messageGroup}
-        {#if messageGroup.fromPk == localPk}
+        {#if messageGroup.fromPk == $store.connection.pk}
           <p class="receiver-align name">You</p>
           {#each messageGroup.msgs as msg}
             <div class="receiver-align receiver-color bubble">

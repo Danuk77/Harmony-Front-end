@@ -45,6 +45,8 @@ export class Controller {
     this.con = new HarmonyConnection(publicKey)
     this.friendRoster = new FriendRoster(this.con)
 
+    storeTypesafe.dispatch({ type: 'set-local-pk', payload: publicKey })
+
     // con listeners
     this.con.onFailedLogin = (reason) => {
       this.onMainToRendererAction?.({

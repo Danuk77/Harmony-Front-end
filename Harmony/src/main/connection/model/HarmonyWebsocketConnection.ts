@@ -12,7 +12,7 @@ import { masterRoutine } from '../routines/received/masterRoutine'
 import { backendURL } from '../config'
 import { PeerConnectionCreationResult } from './HarmonyPeerConnection'
 
-const TRANSACTION_SOCKET_TIMEOUT = 3000 //ms
+const TRANSACTION_SOCKET_TIMEOUT = 20000 //ms
 const WS_RECONNECT_TIMEOUT = 10000 // ms
 
 export type HarmonyWebsocketConnectionOptions = {
