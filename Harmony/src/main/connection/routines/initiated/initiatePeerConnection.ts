@@ -24,22 +24,22 @@ export function initiatePeerConnection(
   // but the connection can fail for a number of reasons
   // wrap everything in a promise
   return new Promise<PeerConnectionCreationResult>((resolve) => {
-    rtc.ondatachannel = (event) => {
+    rtc.onDataChannel.subscribe((channel) => {
       resolve({
         publicKey: peerPk,
         status: 'succeed',
-        peerConnection: new HarmonyPeerConnection(rtc, event.channel)
+        peerConnection: new HarmonyPeerConnection(rtc, channel)
       })
-    }
-    rtc.onconnectionstatechange = () => {
-      if (rtc.connectionState == 'failed') {
+    })
+    rtc.connectionStateChange.subscribe((state) => {
+      if (state == 'failed') {
         resolve({
           publicKey: peerPk,
           status: 'fail',
           msg: 'WebRTC failed to create a peer connection. Check TURN/STUN servers, NAT settings, etc.'
         })
       }
-    }
+    })
 
     // setup the rtc connection using the signalling server
     con

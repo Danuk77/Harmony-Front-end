@@ -217,7 +217,11 @@ export class FriendConnectionHandler {
 
         // add event listeners
         this.peerConnection.chatChannel.onmessage = (msg) => {
-          this.onReceiveMessage?.(msg.data)
+          if (msg.data instanceof Buffer) {
+            this.onReceiveMessage?.(msg.data.toString())
+          } else {
+            this.onReceiveMessage?.(msg.data)
+          }
         }
         this.peerConnection.chatChannel.onclose = () => {
           // check chat channel has not changed
@@ -226,9 +230,9 @@ export class FriendConnectionHandler {
             this.connectionStatus = 'online-disconnected'
           }
           // remove this listener
-          result.peerConnection.rtc.onconnectionstatechange = null
+          result.peerConnection.rtc.connectionStateChange.allUnsubscribe()
         }
-        result.peerConnection.rtc.onconnectionstatechange = () => {
+        result.peerConnection.rtc.connectionStateChange.subscribe(() => {
           if (
             ['closed', 'disconnected', 'failed'].includes(result.peerConnection.rtc.connectionState)
           ) {
@@ -237,9 +241,9 @@ export class FriendConnectionHandler {
               this.connectionStatus = 'online-disconnected'
             }
             // remove this listener
-            result.peerConnection.rtc.onconnectionstatechange = null
+            result.peerConnection.rtc.connectionStateChange.allUnsubscribe()
           }
-        }
+        })
 
         this.connectionStatus = 'online-connected'
         break
