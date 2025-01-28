@@ -118,17 +118,17 @@ async function setupInitiatedPeerConnection(
       payload: rtcAnswer
     }
   })
-  rtc.addEventListener('icecandidate', (event) => {
-    if (event.candidate !== null) {
+  rtc.onIceCandidate.subscribe((candidate) => {
+    if (candidate) {
       try {
         send({
           forward: {
             type: 'ICECandidate',
             payload: {
-              candidate: event.candidate.candidate,
-              sdpMLineIndex: event.candidate.sdpMLineIndex,
-              sdpMid: event.candidate.sdpMid,
-              usernameFragment: event.candidate.usernameFragment
+              candidate: candidate.candidate,
+              sdpMLineIndex: candidate.sdpMLineIndex,
+              sdpMid: candidate.sdpMid,
+              usernameFragment: candidate.usernameFragment
             }
           }
         })
