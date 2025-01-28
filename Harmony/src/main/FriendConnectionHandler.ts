@@ -29,7 +29,6 @@ export class FriendConnectionHandler {
   // _paused == true: Stop trying to connect to the peer. E.g., may be used when the websocket connection is broken.
   private _paused: boolean = true
   private shouldReconnectWhenUnpaused = false
-  private connectionStatusWhenUnpaused: FriendConnectionStatus | null = null
 
   private reconnectTimeout?: NodeJS.Timeout
 
@@ -93,9 +92,7 @@ export class FriendConnectionHandler {
         this.shouldReconnectWhenUnpaused = true
       }
     } else {
-      if (this.connectionStatusWhenUnpaused) {
-        this.connectionStatus = this.connectionStatusWhenUnpaused
-      } else if (this.shouldReconnectWhenUnpaused) {
+      if (this.shouldReconnectWhenUnpaused) {
         this.attemptConnection()
       }
       this.shouldReconnectWhenUnpaused = false
@@ -115,12 +112,6 @@ export class FriendConnectionHandler {
   private set connectionStatus(status: FriendConnectionStatus) {
     if (this._connectionStatus == 'closed') {
       throw new Error("Can't change closed connection status")
-    }
-
-    // this fn will be called again on unpause
-    if (this.paused) {
-      this.connectionStatusWhenUnpaused = status
-      return
     }
 
     const hasChanged = status != this._connectionStatus

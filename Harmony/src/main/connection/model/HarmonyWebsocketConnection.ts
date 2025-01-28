@@ -104,7 +104,7 @@ export class HarmonyWebsocketConnection {
    * Attempt to reconnect to the websocket and run comeOnline
    * @returns
    */
-  public async reconnect(): Promise<void> {
+  public reconnect = async (): Promise<void> => {
     if (this.wsStatus == 'closed' || this.wsStatus == 'connecting') {
       // ignore
       return
