@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
-  import type { Message } from '../../../main/LocalDatabase'
-  import type { MainToRendererAction } from '../../../preload'
-  import { store } from '../redux'
+  import type { Message } from '../../../../main/LocalDatabase'
+  import type { MainToRendererAction } from '../../../../preload'
+  import { store } from '../../redux'
 
   const friendState = $derived.by(() =>
     $store.friendStates.find((fs) => fs.friend.peerPk == $store.ui.selectedFriendPk)

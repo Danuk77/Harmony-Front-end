@@ -1,5 +1,5 @@
 import 'electron-redux/preload'
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, dialog, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import { Friend, LocalDatabase, Message } from '../main/LocalDatabase'
 import { FriendConnectionStatus } from '../main/FriendConnectionHandler'
@@ -36,7 +36,13 @@ const api = {
   ),
   sendMessage: <Controller['sendMessage']>((...args) => ipcRenderer.invoke('sendMessage', ...args)),
   onMainToRendererAction: (callback: (arg0: MainToRendererAction) => unknown) =>
-    ipcRenderer.on('mainToRendererAction', (_event, value) => callback(value))
+    ipcRenderer.on('mainToRendererAction', (_event, value) => callback(value)),
+  sendFriendRequest: <Controller['sendFriendRequest']>(
+    ((...args) => ipcRenderer.invoke('sendFriendRequest', ...args))
+  ),
+  showErrorBox: <typeof dialog.showErrorBox>(
+    ((...args) => ipcRenderer.invoke('showErrorBox', ...args))
+  )
 }
 
 export type Api = typeof api

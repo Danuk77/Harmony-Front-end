@@ -314,7 +314,8 @@ export class Controller {
    */
   public sendFriendRequest = async (
     localPk: string,
-    peerPk: string
+    peerPk: string,
+    nickname: string
   ): Promise<FriendRequestResult> => {
     let result: FriendRequestResult
     try {
@@ -357,6 +358,7 @@ export class Controller {
       const friendUpdate = {
         peerPk,
         localPk,
+        nickname,
         status: newStatus,
         statusModified: Date.now()
       }
@@ -369,7 +371,7 @@ export class Controller {
       friendObj = {
         localPk: localPk,
         peerPk: peerPk,
-        nickname: peerPk,
+        nickname: nickname,
         status: newStatus,
         statusModified: Date.now()
       }

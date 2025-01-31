@@ -1,5 +1,5 @@
 <script lang="ts">
-  import MainScreen from './screens/MainScreen.svelte'
+  import MainScreen from './Layout.svelte'
 
   // const ipcHandle = (): void => window.electron.ipcRenderer.send('ping')
 

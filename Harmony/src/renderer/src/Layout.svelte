@@ -1,9 +1,10 @@
 <script>
-  import Chat from '../components/Chat.svelte'
-  import AddFriend from '../components/AddFriend.svelte'
-  import Sidebar from '../components/Sidebar.svelte'
-  import TopBar from '../components/TopBar.svelte'
-  import { store } from '../redux'
+  import ChatMainPanel from './screens/chat/ChatMainPanel.svelte'
+  import AddFriendMainPanel from './screens/add-friend/AddFriendMainPanel.svelte'
+  import Sidebar from './components/Sidebar.svelte'
+  import { store } from './redux'
+  import ChatTopBar from './screens/chat/ChatTopBar.svelte'
+  import AddFriendTopBar from './screens/add-friend/AddFriendTopBar.svelte'
 </script>
 
 <div id="overlay">
@@ -11,8 +12,12 @@
     <h1 id="harmonyText">Harmony</h1>
     <p>{$store.connection.state}</p>
   </div>
-  <div id="statusBar">
-    <TopBar />
+  <div id="top-bar">
+    {#if $store.ui.screenMode == 'chat'}
+      <ChatTopBar />
+    {:else if $store.ui.screenMode == 'add-friend'}
+      <AddFriendTopBar />
+    {/if}
   </div>
 
   <div id="sidebar">
@@ -21,9 +26,9 @@
 
   <div id="main-panel">
     {#if $store.ui.screenMode == 'chat'}
-      <Chat />
+      <ChatMainPanel />
     {:else if $store.ui.screenMode == 'add-friend'}
-      <AddFriend />
+      <AddFriendMainPanel />
     {/if}
   </div>
 </div>
@@ -45,7 +50,7 @@
     grid-column: 1;
     background-color: var(--color-sidebar);
   }
-  #statusBar {
+  #top-bar {
     grid-row: 1;
     grid-column: 2;
     background-color: var(--color-sidebar);

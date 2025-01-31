@@ -1,41 +1,51 @@
-<div class="bubble" id="message-input-container">
-  <div
-    contenteditable="true"
-    id="message-input"
-    on:keypress
-    role="textbox"
-    tabindex="0"
-    bind:innerText
-  ></div>
-</div>
+<script lang="ts">
+  let {
+    value = $bindable(),
+    label = undefined,
+    error = undefined
+  }: { value?: string; label?: string; error?: string } = $props()
+
+  let textarea: HTMLTextAreaElement
+
+  $effect(() => {
+    textarea.style.height = textarea.scrollHeight + 'px'
+    textarea.style.overflowY = 'hidden'
+    const listener = () => {
+      textarea.style.height = 'auto'
+      textarea.style.height = textarea.scrollHeight + 'px'
+    }
+    textarea.addEventListener('input', listener)
+    return () => textarea.removeEventListener('input', listener)
+  })
+</script>
+
+{#if label}
+  <label for="message-input">{label}</label><br />
+{/if}
+{#if error}
+  <label for="message-input" id="error">{error}</label><br />
+{/if}
+<textarea bind:value id="message-input" rows="1" bind:this={textarea}></textarea>
 
 <style>
-  .bubble {
-    border-radius: 18px;
-    padding: 4px;
-    padding-left: 8px;
-    padding-right: 8px;
-    margin-bottom: 2px;
-    word-break: break-word;
-    white-space: pre;
-  }
-  #message-input-container {
-    /* background color now set by inline css */
-    max-width: 700px;
-    width: 90%;
-    max-height: 50%;
-    margin-bottom: 20px;
-    margin-top: 20px;
-    min-height: 30px;
-    height: max-content;
-  }
   #message-input {
-    height: 100%;
+    font-family: inherit;
+    font-size: inherit;
+    border-radius: 18px;
+    background-color: var(--color-input-box);
+    margin-bottom: 20px;
+    /* margin-top: 20px; */
+    width: 100%;
+    padding: 7px;
     color: var(--color-text-black);
     white-space: normal;
-    overflow-y: scroll;
+    resize: none;
   }
+
   #message-input:focus {
     outline: none;
+  }
+  #error {
+    color: var(--color-text-error);
   }
 </style>

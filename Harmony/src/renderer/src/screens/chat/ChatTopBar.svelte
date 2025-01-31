@@ -1,8 +1,8 @@
 <script lang="ts">
   import '@fortawesome/fontawesome-free/css/all.min.css'
   import '@fortawesome/fontawesome-free/js/all.min.js'
-  import { connectionStatusToBulbColorCssVariable } from '../misc/misc'
-  import { store } from '../redux'
+  import { connectionStatusToBulbColorCssVariable } from '../../misc/misc'
+  import { store } from '../../redux'
 
   let fs = $derived.by(() => {
     return $store.ui.selectedFriendPk
