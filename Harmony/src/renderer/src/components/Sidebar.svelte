@@ -17,17 +17,19 @@
     </div>
 
     {#each $store.friendStates as fs}
-      <FriendBlock
-        selected={fs.friend.peerPk == $store.ui.selectedFriendPk}
-        {fs}
-        onclick={() => {
-          store.dispatch({ type: 'setSelectedFriendPk', payload: { pk: fs.friend.peerPk } })
-          // set mode to chat
-          if ($store.ui.screenMode != 'chat') {
-            store.dispatch({ type: 'set-screen-mode', payload: 'chat' })
-          }
-        }}
-      />
+      {#if fs.friend.status != 'block'}
+        <FriendBlock
+          selected={fs.friend.peerPk == $store.ui.selectedFriendPk}
+          {fs}
+          onclick={() => {
+            store.dispatch({ type: 'setSelectedFriendPk', payload: { pk: fs.friend.peerPk } })
+            // set mode to chat
+            if ($store.ui.screenMode != 'chat') {
+              store.dispatch({ type: 'set-screen-mode', payload: 'chat' })
+            }
+          }}
+        />
+      {/if}
     {/each}
   </div>
 </div>

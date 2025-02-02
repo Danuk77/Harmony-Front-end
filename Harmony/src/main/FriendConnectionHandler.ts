@@ -7,7 +7,7 @@ import {
 
 const offlineReconnectPeriod = 300_000 // ms (5 minutes)
 const disconnectedReconnectPeriod = 10_000 //ms
-const failedReconnectPeriod = 10_000 // ms
+const failedReconnectPeriod = 300_000 // ms
 const rejectedReconnectPeriod = 10_000 // ms
 
 export type FriendConnectionStatus =
