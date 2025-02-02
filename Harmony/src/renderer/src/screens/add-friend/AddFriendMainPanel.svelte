@@ -55,7 +55,7 @@
     showErrors = true
 
     if (!$store.connection.pk) {
-      alert('Your public key is not set. Please set a public key and try again')
+      window.api.showErrorBox('Your public key is not set', 'Please set a public key and try again')
       return
     }
 

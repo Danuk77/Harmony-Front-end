@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, dialog } from 'electron'
+import { app, shell, BrowserWindow, dialog, Tray, Menu } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -8,9 +8,23 @@ export const DEBUG = true
 
 process.traceProcessWarnings = true
 
-function createWindow(): BrowserWindow {
+let mainWindow: BrowserWindow | undefined
+
+// focus the main window. If it doesn't exist, create it
+function focusMainWindow() {
+  if (!mainWindow) {
+    mainWindow = createMainWindow()
+    mainWindow.on('close', () => {
+      mainWindow = undefined
+    })
+  } else {
+    mainWindow.focus()
+  }
+}
+
+function createMainWindow(): BrowserWindow {
   // Create the browser window.
-  const mainWindow = new BrowserWindow({
+  const window = new BrowserWindow({
     width: 900,
     height: 670,
     show: false,
@@ -22,11 +36,11 @@ function createWindow(): BrowserWindow {
     }
   })
 
-  mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
+  window.on('ready-to-show', () => {
+    window.show()
   })
 
-  mainWindow.webContents.setWindowOpenHandler((details) => {
+  window.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
   })
@@ -34,14 +48,12 @@ function createWindow(): BrowserWindow {
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+    window.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    window.loadFile(join(__dirname, '../renderer/index.html'))
   }
 
-  mainWindow.webContents.openDevTools()
-
-  return mainWindow
+  return window
 }
 
 // This method will be called when Electron has finished
@@ -50,6 +62,20 @@ function createWindow(): BrowserWindow {
 app.whenReady().then(() => {
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.electron')
+
+  // system tray
+  const appIcon = new Tray(join(__dirname, '../../resources/smallIcon.png'))
+  const contextMenu = Menu.buildFromTemplate([
+    { label: 'Harmony Client', type: 'normal', enabled: false },
+    { type: 'separator' },
+    {
+      label: 'Open',
+      type: 'normal',
+      click: focusMainWindow
+    },
+    { label: 'Quit', type: 'normal', click: app.quit }
+  ])
+  appIcon.setContextMenu(contextMenu)
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
@@ -83,12 +109,12 @@ app.whenReady().then(() => {
     })
   }
 
-  createWindow()
+  focusMainWindow()
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (BrowserWindow.getAllWindows().length === 0) focusMainWindow()
   })
 })
 
@@ -96,7 +122,7 @@ app.whenReady().then(() => {
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
 app.on('window-all-closed', () => {
-  createWindow()
+  // createWindow()
   // if (process.platform !== 'darwin') {
   //   app.quit()
   // }
