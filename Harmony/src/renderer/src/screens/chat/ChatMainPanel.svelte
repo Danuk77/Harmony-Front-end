@@ -37,23 +37,38 @@
   })
 
   // group consecutive messages from the same sender
+  // create new group if messages more than 5 mins apart.
   let messageGroups = $derived.by(() => {
-    type group = { fromPk: string; msgs: Message[] }
+    type group = { fromPk: string; msgs: Message[]; newDay: boolean }
     let groups: group[] = []
     let currentGroup: group | undefined
     for (const msg of messages) {
       if (!currentGroup) {
         currentGroup = {
           fromPk: msg.fromPk,
-          msgs: [msg]
+          msgs: [msg],
+          newDay: true
         }
         continue
       }
-      if (msg.fromPk != currentGroup.fromPk) {
+      // check for new day
+      if (containsDateBoundary(currentGroup.msgs[currentGroup.msgs.length - 1].date, msg.date)) {
         groups.push(currentGroup)
         currentGroup = {
           fromPk: msg.fromPk,
-          msgs: [msg]
+          msgs: [msg],
+          newDay: true
+        }
+        // different sender or gap between last message
+      } else if (
+        msg.fromPk != currentGroup.fromPk ||
+        msg.date > currentGroup.msgs[0].date + 300_000 /*5 mins*/
+      ) {
+        groups.push(currentGroup)
+        currentGroup = {
+          fromPk: msg.fromPk,
+          msgs: [msg],
+          newDay: false
         }
       } else {
         currentGroup.msgs.push(msg)
@@ -123,6 +138,21 @@
       return '--color-input-box-disabled'
     }
   })
+
+  const msToTimeString = (time: number) => {
+    const date = new Date(time)
+    return date.toLocaleTimeString([], { timeStyle: 'short' })
+  }
+
+  const msToDateString = (time: number) => {
+    return new Date(time).toLocaleDateString([], { dateStyle: 'full' })
+  }
+
+  const containsDateBoundary = (date0: number, date1: number) => {
+    return (
+      Math.abs(date1 - date0) >= 86400000 || new Date(date0).getDate() != new Date(date1).getDate()
+    )
+  }
 </script>
 
 <svelte:window onkeydown={globalKeydown} on:keyup={globalKeyup} />
@@ -131,15 +161,24 @@
   <div id="message-scroll-container" bind:this={viewport}>
     <div id="messages">
       {#each messageGroups as messageGroup}
+        {#if messageGroup.newDay}
+          <div class="date-align" style="margin-top: 10px">
+            {msToDateString(messageGroup.msgs[0].date)}
+          </div>
+        {/if}
         {#if messageGroup.fromPk == $store.connection.pk}
-          <p class="receiver-align name">You</p>
+          <p class="receiver-align name">
+            You • {msToTimeString(messageGroup.msgs[0].date)}
+          </p>
           {#each messageGroup.msgs as msg}
             <div class="receiver-align receiver-color bubble">
               {msg.text}
             </div>
           {/each}
         {:else}
-          <p class="sender-align name">Peer</p>
+          <p class="sender-align name">
+            Peer • {msToTimeString(messageGroup.msgs[0].date)}
+          </p>
           {#each messageGroup.msgs as msg}
             <div class="sender-align sender-color bubble">
               {msg.text}
@@ -202,6 +241,9 @@
   }
   .receiver-align {
     align-self: flex-end;
+  }
+  .date-align {
+    align-self: center;
   }
   .sender-color {
     background-color: var(--color-sender-bubble);
