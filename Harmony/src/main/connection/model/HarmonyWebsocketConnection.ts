@@ -47,7 +47,7 @@ export class HarmonyWebsocketConnection {
   private _wsStatus: WebsocketStatusType = 'disconnected'
   private transactionSockets: Map<string, HarmonyTransactionSocket>
   private reconnectTimeout?: NodeJS.Timeout
-  public publicKey: string
+  private _publicKey: string | null = null
 
   // callback functions - may be added to the object.
   public onWsStatusChange?: (status: WebsocketStatusType) => unknown
@@ -63,7 +63,7 @@ export class HarmonyWebsocketConnection {
   ) => FriendRequestResponseType | Promise<FriendRequestResponseType>
   public onReceiveFriendRejection?: (pk: string) => unknown
 
-  constructor(publicKey: string, options?: Partial<HarmonyWebsocketConnectionOptions>) {
+  constructor(publicKey: string | null, options?: Partial<HarmonyWebsocketConnectionOptions>) {
     // override default options
     this.options = options
       ? {
@@ -72,8 +72,17 @@ export class HarmonyWebsocketConnection {
         }
       : { ...defaultOptions }
 
-    this.publicKey = publicKey
     this.transactionSockets = new Map()
+    this.publicKey = publicKey
+  }
+
+  public set publicKey(publicKey: string | null) {
+    this._publicKey = publicKey
+    this.reconnect()
+  }
+
+  public get publicKey() {
+    return this._publicKey
   }
 
   private set wsStatus(status: WebsocketStatusType) {
@@ -109,6 +118,10 @@ export class HarmonyWebsocketConnection {
       // ignore
       return
     }
+
+    // close connection if already open
+    this.wsConnection?.close()
+
     if (this.wsStatus != 'login-failed') {
       // attempt to establish a new websocket connection
       this.wsStatus = 'connecting'
@@ -130,12 +143,14 @@ export class HarmonyWebsocketConnection {
       this.wsStatus = 'connected'
     }
 
-    try {
-      await comeOnline(this, this.publicKey)
-      this.wsStatus = 'logged-in'
-    } catch (e) {
-      this.wsStatus = 'login-failed'
-      this.onFailedLogin?.((e as Error).message)
+    if (this.publicKey) {
+      try {
+        await comeOnline(this, this.publicKey)
+        this.wsStatus = 'logged-in'
+      } catch (e) {
+        this.wsStatus = 'login-failed'
+        this.onFailedLogin?.((e as Error).message)
+      }
     }
   }
 
@@ -169,6 +184,8 @@ export class HarmonyWebsocketConnection {
     for (const { messageCallback } of this.transactionSockets.values()) {
       messageCallback?.(null)
     }
+    // clear map
+    this.transactionSockets = new Map()
     console.log('Websocket closed')
   }
   private wsMessage = (message: Message): void => {

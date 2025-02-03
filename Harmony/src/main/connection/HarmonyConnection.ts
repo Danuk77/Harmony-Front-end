@@ -27,6 +27,13 @@ export class HarmonyConnection {
     return this.websocket.wsStatus
   }
 
+  public set publicKey(publicKey: string | null) {
+    this.websocket.publicKey = publicKey
+  }
+  public get publicKey() {
+    return this.websocket.publicKey
+  }
+
   /**
    * Callback for when the websocket connection status has changed
    */

@@ -2,6 +2,7 @@
   import * as yup from 'yup'
   import ExpandableBubble from '../../components/ExpandableBubble.svelte'
   import { store } from '../../redux'
+  import { collectYupErrorsByField } from '../../utils'
 
   const formSchema = yup.object({
     pk: yup
@@ -22,30 +23,7 @@
   let formValues = $state(formDefaults)
 
   // list of string errors form each field
-  type FormErrors = Record<keyof yup.InferType<typeof formSchema>, string[]>
-  const formErrors = $derived.by<FormErrors>(() => {
-    // empty FormErrors obj.
-    const errors = Object.fromEntries(
-      Object.keys(formValues).map((key) => [key, [] as string[]])
-    ) as FormErrors
-
-    // validate and collect errors
-    try {
-      formSchema.validateSync(formValues, { abortEarly: false })
-    } catch (e) {
-      if (e instanceof yup.ValidationError) {
-        // errors come through individually, even if there are multiple errors in a field
-        // loop through and add to lists.
-        for (const validationError of e.inner) {
-          if (validationError.path) {
-            errors[validationError.path].push(validationError.message)
-          }
-        }
-      }
-    }
-
-    return errors
-  })
+  const formErrors = $derived(collectYupErrorsByField(formSchema, formValues))
 
   // true once the user has submitted once
   let showErrors = $state(false)
@@ -60,13 +38,16 @@
     }
 
     if (formSchema.isValidSync(formValues)) {
+      // remove whitespace from pk and make lower
+      const pk = formValues.pk.toLowerCase().replace(/\s/g, '')
+
       // if no nickname provided just use the pk
       let nickname: string | undefined = formValues.nickname
       if (!nickname || nickname.length == 0) {
-        nickname = formValues.pk
+        nickname = pk
       }
 
-      window.api.sendFriendRequest($store.connection.pk, formValues.pk, nickname).then((result) => {
+      window.api.sendFriendRequest($store.connection.pk, pk, nickname).then((result) => {
         switch (result.status) {
           case 'fail':
             window.api.showErrorBox('Failed to send friend request', result.msg)

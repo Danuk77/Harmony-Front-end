@@ -1,6 +1,9 @@
 <script lang="ts">
-  let { onclick, ariaLabel, icon }: { onclick: () => unknown; ariaLabel: string; icon: string } =
-    $props()
+  let {
+    onclick,
+    ariaLabel,
+    icon
+  }: { onclick: HTMLButtonElement['onclick']; ariaLabel: string; icon: string } = $props()
 </script>
 
 <button type="button" {onclick} id="icon" aria-label={ariaLabel}>

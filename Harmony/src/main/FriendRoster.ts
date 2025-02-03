@@ -11,6 +11,7 @@ import { DEBUG } from '.'
  * Combines methods and callbacks from the friends.
  */
 export class FriendRoster {
+  // peerPk -> FriendConnectionHandler
   private friends: Map<string, FriendConnectionHandler> = new Map<string, FriendConnectionHandler>()
   private con: HarmonyConnection
   private _paused: boolean = true
@@ -94,6 +95,7 @@ export class FriendRoster {
 
   /**
    * Add a new friend for connections, or update the friend
+   * Returns true if the friend already existed
    * @param friend
    */
   public addOrUpdateFriend = (friend: Friend) => {
@@ -101,6 +103,7 @@ export class FriendRoster {
 
     if (existingFriendHandler) {
       existingFriendHandler.friend = friend
+      return true
     } else {
       const friendHandler = new FriendConnectionHandler(
         this.con,
@@ -110,6 +113,7 @@ export class FriendRoster {
       )
       this.friends.set(friend.peerPk, friendHandler)
       friendHandler.paused = this.paused
+      return false
     }
   }
   /**
@@ -168,5 +172,14 @@ export class FriendRoster {
       throw new Error('Friend does not exist')
     }
     friendHandler.sendMessage(msg) // might throw an error.
+  }
+
+  /**
+   * Gracefully close all rtc connections
+   */
+  public closeAll = () => {
+    for (const friend of this.friends.values()) {
+      friend.close()
+    }
   }
 }

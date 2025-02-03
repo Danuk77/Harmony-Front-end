@@ -21,7 +21,7 @@ export type FriendState = {
   connectionStatus: FriendConnectionStatus
 }
 
-export type ScreenMode = 'chat' | 'add-friend'
+export type ScreenMode = 'chat' | 'add-friend' | 'user-settings'
 
 export type State = {
   friendStates: FriendState[]
@@ -51,7 +51,7 @@ export type Action =
   | {
       type: 'friend-connection-status-change'
       payload: {
-        friend: Pick<Friend, 'peerPk' | 'localPk'>
+        friend: Pick<Friend, 'peerPk'>
         connectionStatus: FriendState['connectionStatus']
       }
     }
@@ -130,10 +130,7 @@ export function reducer(state: State | undefined = defaultState, action: Action)
       return {
         ...state,
         friendStates: state.friendStates.map((fs) => {
-          if (
-            fs.friend.localPk == action.payload.friend.localPk &&
-            fs.friend.peerPk == action.payload.friend.peerPk
-          ) {
+          if (fs.friend.peerPk == action.payload.friend.peerPk) {
             return {
               ...fs,
               connectionStatus: action.payload.connectionStatus
@@ -148,7 +145,10 @@ export function reducer(state: State | undefined = defaultState, action: Action)
         ...state,
         friendStates: action.payload.map((friend) => ({
           friend: friend,
-          connectionStatus: 'unset'
+          // keep the old connection status if it exists
+          connectionStatus:
+            state.friendStates.find((fr) => fr.friend.peerPk == friend.peerPk)?.connectionStatus ??
+            'unset'
         }))
       }
     case 'set-screen-mode':

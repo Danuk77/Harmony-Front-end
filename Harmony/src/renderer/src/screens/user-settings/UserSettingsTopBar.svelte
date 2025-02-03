@@ -6,4 +6,4 @@
   }
 </script>
 
-<MenuTopBar {navigateBack} title="Add Friend" />
+<MenuTopBar {navigateBack} title="User Settings" />

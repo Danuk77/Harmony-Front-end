@@ -34,18 +34,23 @@ export class Controller {
   private friendRoster: FriendRoster
   private con: HarmonyConnection
   public db: LocalDatabase
-  private publicKey: string
+  private _publicKey: string | null = null
 
   // callback for IPCs to be sent to the renderer.
   public onMainToRendererAction?: (arg0: MainToRendererAction) => unknown
 
   constructor(publicKey: string) {
-    this.publicKey = publicKey
     this.db = new LocalDatabase()
     this.con = new HarmonyConnection(publicKey)
     this.friendRoster = new FriendRoster(this.con)
 
-    storeTypesafe.dispatch({ type: 'set-local-pk', payload: publicKey })
+    // Setting the local pk is what kicks everything off.
+    // The redux store is the source of truth for the local public key.
+    // At the end of this constructor method, a redux action is dispatched to set the pk.
+    // this.publicKey is then set by redux middleware.
+    // The setter for this.publicKey then dispatches another redux action to add the friends to the redux state.
+    // Once again, this is intercepted by redux middleware, and the friends are added to the friend roster.
+    // The friend roster starts attempting to connect to those friends when a server websocket connection is established and logged-in.
 
     // con listeners
     this.con.onFailedLogin = (reason) => {
@@ -58,6 +63,8 @@ export class Controller {
     }
 
     this.con.onIncomingConnectionRequest = async (pk) => {
+      if (!this.publicKey) return 'reject'
+
       const friend = getFriendState(this.publicKey, pk)?.friend
 
       if (friend && friend.status == 'accept') {
@@ -74,6 +81,8 @@ export class Controller {
     }
 
     this.con.onReceiveFriendRejection = async (pk) => {
+      if (!this.publicKey) return
+
       const friend = getFriendState(this.publicKey, pk)?.friend
       let updatedFriend: Friend
 
@@ -103,6 +112,10 @@ export class Controller {
       }
     }
     this.con.onReceiveFriendRequest = async (pk) => {
+      if (!this.publicKey) {
+        return 'reject'
+      }
+
       const friend = getFriendState(this.publicKey, pk)?.friend
       if (friend) {
         switch (friend.status) {
@@ -195,7 +208,7 @@ export class Controller {
       const msgObj: Message = {
         date: Date.now(),
         fromPk: pk,
-        toPk: this.publicKey,
+        toPk: 'local',
         text: msg
       }
 
@@ -215,7 +228,6 @@ export class Controller {
         type: 'friend-connection-status-change',
         payload: {
           friend: {
-            localPk: this.publicKey,
             peerPk: peerPk
           },
           connectionStatus: status
@@ -225,11 +237,6 @@ export class Controller {
 
     // start websocket connection initiation
     this.con.reconnect()
-
-    // on startup, add all friends to the friend roster.
-    this.db.getAllFriends().then((friends) => {
-      storeTypesafe.dispatch({ type: 'hydrate-friends', payload: friends })
-    })
 
     //update friend roster and database when redux store changes
     // redux store is considered the main source of truth
@@ -241,7 +248,8 @@ export class Controller {
           action.type == 'add-friend' ||
           action.type == 'friend-change' ||
           action.type == 'remove-friend' ||
-          action.type == 'hydrate-friends'
+          action.type == 'hydrate-friends' ||
+          action.type == 'set-local-pk'
         )
       },
       effect: (_action) => {
@@ -260,22 +268,25 @@ export class Controller {
             /**@todo delete friend from database! */
             break
           case 'hydrate-friends':
-            action.payload.forEach((friend) => {
-              this.friendRoster.addOrUpdateFriend(friend)
-            })
+            this.friendRoster.setFriends(action.payload)
+            // action.payload.forEach((friend) => {
+            //   this.friendRoster.addOrUpdateFriend(friend)
+            // })
+            break
+          case 'set-local-pk':
+            this.publicKey = action.payload
             break
         }
       }
     })
+
+    // set local pk, which kick-starts everything
+    storeTypesafe.dispatch({ type: 'set-local-pk', payload: publicKey }) // (this.publicKey = publicKey)
   }
   /**
    * Send a message to a peer, update the database, return a message to the front end.
    */
-  public sendMessage = async (
-    fromPk: string,
-    toPk: string,
-    message: string
-  ): Promise<SendMessageReturnType> => {
+  public sendMessage = async (toPk: string, message: string): Promise<SendMessageReturnType> => {
     // send message
     try {
       this.friendRoster.sendMessage(toPk, message)
@@ -289,7 +300,7 @@ export class Controller {
 
     const msgObj: Message = {
       date: Date.now(),
-      fromPk: fromPk,
+      fromPk: 'local',
       toPk: toPk,
       text: message
     }
@@ -420,6 +431,34 @@ export class Controller {
     }
 
     return result
+  }
+
+  public set publicKey(publicKey: string | null) {
+    this._publicKey = publicKey
+    this.con.publicKey = publicKey
+    console.log(publicKey)
+
+    if (publicKey) {
+      // update friend roster with correct friends
+      this.db.getAllFriends(publicKey).then((friends) => {
+        storeTypesafe.dispatch({ type: 'hydrate-friends', payload: friends })
+      })
+    } else {
+      // clear friends
+      storeTypesafe.dispatch({ type: 'hydrate-friends', payload: [] })
+    }
+  }
+
+  public get publicKey() {
+    return this._publicKey
+  }
+
+  /**
+   * Gracefully stop everything
+   */
+  public close() {
+    this.friendRoster.closeAll()
+    this.con.close()
   }
 }
 

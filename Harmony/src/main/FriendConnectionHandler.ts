@@ -55,7 +55,7 @@ export class FriendConnectionHandler {
     return this._friend
   }
   /**
-   * Set this.friendInternal and update the connection status too.
+   * Set this._friend and update the connection status too.
    */
   public set friend(friend: Friend) {
     // pk must NOT change.
@@ -111,7 +111,8 @@ export class FriendConnectionHandler {
   }
   private set connectionStatus(status: FriendConnectionStatus) {
     if (this._connectionStatus == 'closed') {
-      throw new Error("Can't change closed connection status")
+      return // ignore
+      // throw new Error("Can't change closed connection status")
     }
 
     const hasChanged = status != this._connectionStatus
@@ -262,5 +263,7 @@ export class FriendConnectionHandler {
   // close the connection and prevent reconnections.
   public close() {
     this.connectionStatus = 'closed'
+    this.peerConnection?.chatChannel.close()
+    this.peerConnection?.rtc.close()
   }
 }

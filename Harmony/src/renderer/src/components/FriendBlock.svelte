@@ -3,10 +3,13 @@
   import '@fortawesome/fontawesome-free/js/all.min.js'
   import { connectionStatusToBulbColorCssVariable } from '../misc/misc'
   import type { FriendState } from '../../../common/redux'
+  import { store } from '../redux'
   let { selected, fs, onclick }: { selected: boolean; fs: FriendState; onclick: () => unknown } =
     $props()
 
-  let backgroundColor = $derived(selected ? '--color-block-selected' : '--color-block')
+  let backgroundColor = $derived(
+    selected && $store.ui.screenMode == 'chat' ? '--color-block-selected' : '--color-block'
+  )
   let bulbColor = $derived.by(() => {
     if (fs.friend.status == 'accept') {
       return connectionStatusToBulbColorCssVariable(fs.connectionStatus)
@@ -27,9 +30,6 @@
       case 'awaiting-response':
         return 'fa-hourglass-half'
     }
-  })
-  $effect(() => {
-    console.log(icon)
   })
 </script>
 

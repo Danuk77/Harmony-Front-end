@@ -5,6 +5,8 @@
   import { store } from './redux'
   import ChatTopBar from './screens/chat/ChatTopBar.svelte'
   import AddFriendTopBar from './screens/add-friend/AddFriendTopBar.svelte'
+  import UserSettingsTopBar from './screens/user-settings/UserSettingsTopBar.svelte'
+  import UserSettingsMainPanel from './screens/user-settings/UserSettingsMainPanel.svelte'
 </script>
 
 <div id="overlay">
@@ -17,6 +19,8 @@
       <ChatTopBar />
     {:else if $store.ui.screenMode == 'add-friend'}
       <AddFriendTopBar />
+    {:else if $store.ui.screenMode == 'user-settings'}
+      <UserSettingsTopBar />
     {/if}
   </div>
 
@@ -29,6 +33,8 @@
       <ChatMainPanel />
     {:else if $store.ui.screenMode == 'add-friend'}
       <AddFriendMainPanel />
+    {:else if $store.ui.screenMode == 'user-settings'}
+      <UserSettingsMainPanel />
     {/if}
   </div>
 </div>

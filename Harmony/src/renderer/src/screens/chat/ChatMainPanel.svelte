@@ -14,7 +14,7 @@
   $effect(() => {
     if ($store.ui.selectedFriendPk != null && $store.connection.pk != null) {
       window.api
-        .getConversation($store.connection.pk, $store.ui.selectedFriendPk)
+        .getConversation('local', $store.ui.selectedFriendPk)
         .then((_messages) => (messages = _messages))
     }
   })
@@ -25,10 +25,7 @@
     bc.onmessage = (_event) => {
       const action = _event.data as MainToRendererAction
       if (action.type == 'receive-message') {
-        if (
-          action.payload.fromPk == $store.ui.selectedFriendPk &&
-          action.payload.toPk == $store.connection.pk
-        ) {
+        if (action.payload.fromPk == $store.ui.selectedFriendPk && action.payload.toPk == 'local') {
           messages.push(action.payload)
         }
       }
@@ -123,11 +120,9 @@
       if (!$store.connection.pk) {
         return
       }
-      window.api
-        .sendMessage($store.connection.pk, $store.ui.selectedFriendPk, textBoxContents)
-        .then(({ msg, error }) => {
-          if (!error && msg) messages.push(msg)
-        })
+      window.api.sendMessage($store.ui.selectedFriendPk, textBoxContents).then(({ msg, error }) => {
+        if (!error && msg) messages.push(msg)
+      })
       textBoxContents = ''
     }
   }
@@ -166,7 +161,7 @@
             {msToDateString(messageGroup.msgs[0].date)}
           </div>
         {/if}
-        {#if messageGroup.fromPk == $store.connection.pk}
+        {#if messageGroup.fromPk == 'local'}
           <p class="receiver-align name">
             You • {msToTimeString(messageGroup.msgs[0].date)}
           </p>

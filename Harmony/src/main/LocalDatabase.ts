@@ -91,8 +91,10 @@ export class LocalDatabase {
     }
   }
 
-  public getAllFriends = async () => {
-    return await this.friendsDb.findAsync({})
+  public getAllFriends = async (localPk: string) => {
+    return await this.friendsDb.findAsync({
+      localPk
+    })
   }
 
   /**
