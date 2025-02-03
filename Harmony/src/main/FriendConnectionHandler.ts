@@ -209,11 +209,7 @@ export class FriendConnectionHandler {
 
         // add event listeners
         this.peerConnection.chatChannel.onMessage.subscribe((msg) => {
-          if (msg instanceof Buffer) {
-            this.onReceiveMessage?.(msg.toString())
-          } else {
-            this.onReceiveMessage?.(msg)
-          }
+          this.onReceiveMessage?.(msg.toString())
         })
         this.peerConnection.chatChannel.stateChanged.subscribe((state) => {
           if (state == 'closing' || state == 'closed') {

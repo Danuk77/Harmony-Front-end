@@ -12,9 +12,9 @@ console.log(DB_LOC)
 export type User = {
   pk: string
 }
-type UserDoc = User & {
-  _id?: string // nedb thing
-}
+// type UserDoc = User & {
+//   _id?: string // nedb thing
+// }
 
 export type Friend = {
   peerPk: string
@@ -46,12 +46,12 @@ type MessageDoc = Message & {
 }
 
 export class LocalDatabase {
-  private usersDb: DataStore<UserDoc>
+  // private usersDb: DataStore<UserDoc>
   private messagesDb: DataStore<MessageDoc>
   private friendsDb: DataStore<FriendDoc>
 
   constructor() {
-    this.usersDb = new DataStore({ filename: DB_USERS_LOC, autoload: true })
+    // this.usersDb = new DataStore({ filename: DB_USERS_LOC, autoload: true })
     this.messagesDb = new DataStore({ filename: DB_MESSAGES_LOC, autoload: true })
     this.friendsDb = new DataStore({ filename: DB_FRIENDS_LOC, autoload: true })
   }
