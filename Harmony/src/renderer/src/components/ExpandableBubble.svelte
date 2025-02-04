@@ -2,8 +2,9 @@
   let {
     value = $bindable(),
     label = undefined,
-    error = undefined
-  }: { value?: string; label?: string; error?: string } = $props()
+    error = undefined,
+    bottomMargin = true
+  }: { value?: string; label?: string; error?: string; bottomMargin?: boolean } = $props()
 
   let textarea: HTMLTextAreaElement
 
@@ -25,7 +26,13 @@
 {#if error}
   <label for="message-input" id="error">{error}</label><br />
 {/if}
-<textarea bind:value id="message-input" rows="1" bind:this={textarea}></textarea>
+<textarea
+  bind:value
+  id="message-input"
+  style={bottomMargin ? '' : 'margin-bottom:0px'}
+  rows="1"
+  bind:this={textarea}
+></textarea>
 
 <style>
   #message-input {

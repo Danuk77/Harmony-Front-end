@@ -44,6 +44,13 @@ export class HarmonyConnection {
     return this.websocket.websocketUrl
   }
 
+  public set enabled(enabled: boolean) {
+    this.websocket.enabled = enabled
+  }
+  public get enabled() {
+    return this.websocket.enabled
+  }
+
   /**
    * Callback for when the websocket connection status has changed
    */

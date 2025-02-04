@@ -49,6 +49,7 @@ export class HarmonyWebsocketConnection {
   private reconnectTimeout?: NodeJS.Timeout
   private _publicKey: string | null = null
   private reconnectCount = 0
+  private _enabled: boolean = false
 
   // callback functions - may be added to the object.
   public onWsStatusChange?: (status: WebsocketStatusType) => unknown
@@ -75,6 +76,14 @@ export class HarmonyWebsocketConnection {
 
     this.transactionSockets = new Map()
     this.publicKey = publicKey
+  }
+
+  public set enabled(enabled: boolean) {
+    this._enabled = enabled
+    this.reconnect()
+  }
+  public get enabled() {
+    return this._enabled
   }
 
   public set websocketUrl(websocketUrl: string | null) {
@@ -137,8 +146,8 @@ export class HarmonyWebsocketConnection {
     // close connection if already open
     this.wsConnection?.close()
 
-    // ignore if no websocket url
-    if (!this.options.websocketUrl) {
+    // ignore if no websocket url or not enabled
+    if (!this.options.websocketUrl || !this.enabled) {
       return
     }
 

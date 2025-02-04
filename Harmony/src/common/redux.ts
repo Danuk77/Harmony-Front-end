@@ -9,7 +9,8 @@ export const defaultState: State = {
   connection: {
     pk: null,
     state: 'disconnected',
-    url: 'ws://localhost:8080/ws'
+    url: 'ws://localhost:8080/ws',
+    serverEnabled: true
   },
   ui: {
     selectedFriendPk: null,
@@ -31,6 +32,7 @@ export type State = {
     state: WebsocketStatusType
     url: string | null
     failedLoginMsg?: string
+    serverEnabled: boolean
   }
   ui: {
     selectedFriendPk: string | null
@@ -75,6 +77,7 @@ export type Action =
   | { type: 'set-screen-mode'; payload: ScreenMode }
   | { type: 'set-local-pk'; payload: string | null }
   | { type: 'set-server-url'; payload: string | null }
+  | { type: 'set-server-enabled'; payload: boolean }
 
 export function reducer(state: State | undefined = defaultState, action: Action): State {
   switch (action.type) {
@@ -176,6 +179,14 @@ export function reducer(state: State | undefined = defaultState, action: Action)
         connection: {
           ...state.connection,
           url: action.payload
+        }
+      }
+    case 'set-server-enabled':
+      return {
+        ...state,
+        connection: {
+          ...state.connection,
+          serverEnabled: action.payload
         }
       }
   }

@@ -35,12 +35,24 @@
     <div id="form">
       <form onsubmit={handleSubmit}>
         <ExpandableBubble
+          bottomMargin={false}
           bind:value={values.url}
           label="Websocket URL"
           error={showErrors && formErrors.url.length > 0 ? formErrors.url[0] : undefined}
         />
         <input type="submit" id="submit" value="Confirm" />
       </form>
+    </div>
+
+    <div id="checkboxes">
+      <input
+        id="serverEnabled"
+        name="serverEnabled"
+        bind:checked={() => $store.connection.serverEnabled,
+        (v) => store.dispatch({ type: 'set-server-enabled', payload: v })}
+        type="checkbox"
+      />
+      <label for="serverEnabled">Enable server</label>
     </div>
   </div>
 </div>
@@ -70,5 +82,9 @@
     max-width: 700px;
     display: flex;
     flex-direction: column;
+  }
+  #checkboxes {
+    width: 90%;
+    max-width: 700px;
   }
 </style>

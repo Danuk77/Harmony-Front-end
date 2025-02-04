@@ -248,7 +248,8 @@ export class Controller {
           action.type == 'remove-friend' ||
           action.type == 'hydrate-friends' ||
           action.type == 'set-local-pk' ||
-          action.type == 'set-server-url'
+          action.type == 'set-server-url' ||
+          action.type == 'set-server-enabled'
         )
       },
       effect: (_action) => {
@@ -275,9 +276,17 @@ export class Controller {
             break
           case 'set-server-url':
             this.con.websocketUrl = action.payload
+            /**@todo update db */
+            break
+          case 'set-server-enabled':
+            this.con.enabled = action.payload
+            console.log('server enableld: ' + action.payload)
         }
       }
     })
+
+    // set enabled
+    storeTypesafe.dispatch({ type: 'set-server-enabled', payload: true })
 
     // set backend url
     storeTypesafe.dispatch({ type: 'set-server-url', payload: backendURL })
