@@ -1,5 +1,22 @@
-import { HarmonyWebsocketConnection } from '../../model/HarmonyWebsocketConnection'
-import { HarmonyRoutineParams } from '../../model/routine'
+import { FromSchema } from 'json-schema-to-ts'
+import { HarmonyWebsocketConnection, validator } from '../../model/HarmonyWebsocketConnection'
+import { HarmonyError, HarmonyRoutineParams } from '../../model/routine'
+
+const initiateSchema = {
+  $schema: 'https://json-schema.org/draft/2020-12/schema',
+  type: 'object',
+  properties: {
+    initiate: {
+      const: 'receiveFriendRequest'
+    },
+    key: {
+      type: 'string',
+      pattern: '^[0123456789abcdef]{128}$'
+    }
+  },
+  required: ['initiate', 'key'],
+  additionalProperties: false
+} as const
 
 /**
  * Called by the master routine when a new transaction socket is received with "initiate":"receiveFriendRequest"
@@ -10,10 +27,16 @@ export async function receiveFriendRequest(
   firstMsg: object,
   { send, recv }: HarmonyRoutineParams
 ) {
-  const firstMsgTyped = firstMsg as {
-    initiate: 'receiveFriendRequest'
-    key: string
+  // validate first message against schema
+  const validationResult = validator.validate(firstMsg, initiateSchema as object)
+  if (!validationResult.valid) {
+    throw new HarmonyError(
+      'Error on incoming message: ' +
+        validationResult.errors.map((error) => error.toString()).join(', ')
+    )
   }
+
+  const firstMsgTyped = firstMsg as FromSchema<typeof initiateSchema>
 
   const shouldAccept = (await con.onReceiveFriendRequest?.(firstMsgTyped.key)) ?? 'no-handler'
 

@@ -7,7 +7,8 @@ import { FriendConnectionStatus } from '../main/FriendConnectionHandler'
 export const defaultState: State = {
   friendStates: [],
   connection: {
-    state: 'disconnected'
+    state: 'disconnected',
+    failedLoginMsg: null
   },
   user: {
     pk: null,
@@ -31,7 +32,7 @@ export type State = {
   friendStates: FriendState[]
   connection: {
     state: WebsocketStatusType
-    failedLoginMsg?: string
+    failedLoginMsg: string | null
   }
   user: User
   ui: {
@@ -79,6 +80,7 @@ export type Action =
   | { type: 'set-local-pk'; payload: string | null }
   | { type: 'set-server-url'; payload: string | null }
   | { type: 'set-server-enabled'; payload: boolean }
+  | { type: 'set-failed-login-msg'; payload: string | null }
 
 export function reducer(state: State | undefined = defaultState, action: Action): State {
   switch (action.type) {
@@ -121,7 +123,9 @@ export function reducer(state: State | undefined = defaultState, action: Action)
         ...state,
         connection: {
           ...state.connection,
-          state: action.payload
+          state: action.payload,
+          // clear failed login message if no longer in a failed login state
+          failedLoginMsg: action.payload != 'login-failed' ? null : state.connection.failedLoginMsg
         }
       }
     }
@@ -193,6 +197,14 @@ export function reducer(state: State | undefined = defaultState, action: Action)
         user: {
           ...state.user,
           serverEnabled: action.payload
+        }
+      }
+    case 'set-failed-login-msg':
+      return {
+        ...state,
+        connection: {
+          ...state.connection,
+          failedLoginMsg: action.payload
         }
       }
   }

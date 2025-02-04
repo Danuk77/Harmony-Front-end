@@ -1,7 +1,9 @@
+import { FromSchema, JSONSchema } from 'json-schema-to-ts'
+
 export type HarmonyRoutine<T> = (routineParams: HarmonyRoutineParams) => Promise<T>
 
 export type HarmonyRoutineParams = {
-  recv: () => Promise<object>
+  recv: <S extends JSONSchema, T = FromSchema<S>>(schema?: S) => Promise<T>
   send: (msg: object) => Promise<void>
 }
 

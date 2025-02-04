@@ -30,6 +30,7 @@
     "@types/websocket": "^1.0.10",
     "electron-redux": "^2.0.0",
     "electron-updater": "^6.1.7",
+    "jsonschema": "^1.5.0",
     "websocket": "^1.0.35",
     "werift": "^0.21.12",
     "yup": "^1.6.1"
@@ -45,6 +46,7 @@
     "electron-vite": "^2.3.0",
     "eslint": "^8.57.0",
     "eslint-plugin-svelte": "^2.41.0",
+    "json-schema-to-ts": "^3.1.1",
     "prettier": "^3.3.2",
     "prettier-plugin-svelte": "^3.2.5",
     "svelte": "^5.16.0",

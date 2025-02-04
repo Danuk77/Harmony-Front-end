@@ -54,12 +54,7 @@ export class Controller {
 
     // con listeners
     this.con.onFailedLogin = (reason) => {
-      this.onMainToRendererAction?.({
-        type: 'failed-login',
-        payload: {
-          reason: reason
-        }
-      })
+      storeTypesafe.dispatch({ type: 'set-failed-login-msg', payload: reason })
     }
 
     this.con.onIncomingConnectionRequest = async (pk) => {

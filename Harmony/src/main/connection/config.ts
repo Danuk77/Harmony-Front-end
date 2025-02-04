@@ -14,5 +14,3 @@ export const rtcConfig: Partial<PeerConfig> = {
   ],
   iceTransportPolicy: 'all'
 }
-
-export const backendURL = 'ws://localhost:8080/ws'

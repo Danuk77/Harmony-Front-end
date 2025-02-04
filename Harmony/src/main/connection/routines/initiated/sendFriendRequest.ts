@@ -2,6 +2,7 @@ import {
   FriendRequestResponseType,
   HarmonyWebsocketConnection
 } from '../../model/HarmonyWebsocketConnection'
+import { offlineResponseSchema } from './initiatePeerConnection'
 
 export type FriendRequestResult =
   | {
@@ -19,6 +20,35 @@ export type FriendRequestResult =
       type: FriendRequestResponseType
       msg?: undefined
     }
+
+const onlineResponseSchema = {
+  $schema: 'https://json-schema.org/draft/2020-12/schema',
+  type: 'object',
+  properties: {
+    peerStatus: {
+      const: 'online'
+    },
+    forwarded: {
+      type: 'object',
+      properties: {
+        type: {
+          enum: ['accept', 'reject', 'pending']
+        }
+      },
+      required: ['type'],
+      additionalProperties: false
+    } as const,
+    terminate: {
+      const: 'done'
+    }
+  },
+  required: ['peerStatus', 'forwarded', 'terminate'],
+  additionalProperties: false
+} as const
+
+const responseSchema = {
+  oneOf: [offlineResponseSchema, onlineResponseSchema]
+} as const
 
 /**
  * Sends a friend request to a peer and returns the result
@@ -39,20 +69,7 @@ export function sendFriendRequest(
           key: peerPk
         })
 
-        // give correct type to incoming message
-        const resp = (await recv()) as
-          | {
-              peerStatus: 'offline'
-              forwarded: null
-              terminate: 'done'
-            }
-          | {
-              peerStatus: 'online'
-              forwarded: {
-                type: 'accept' | 'reject' | 'pending'
-              }
-              terminate: 'done'
-            }
+        const resp = await recv(responseSchema)
 
         switch (resp.peerStatus) {
           case 'offline':

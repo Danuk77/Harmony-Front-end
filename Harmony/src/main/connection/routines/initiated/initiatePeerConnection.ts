@@ -1,3 +1,4 @@
+import { FromSchema } from 'json-schema-to-ts'
 import { rtcConfig } from '../../config'
 import {
   HarmonyPeerConnection,
@@ -6,6 +7,127 @@ import {
 import { HarmonyWebsocketConnection } from '../../model/HarmonyWebsocketConnection'
 import { HarmonyRoutineParams } from '../../model/routine'
 import { RTCPeerConnection, RTCIceCandidate } from 'werift'
+
+// export this cos it's reused in sendFriendRequest
+export const offlineResponseSchema = {
+  $schema: 'https://json-schema.org/draft/2020-12/schema',
+  type: 'object',
+  properties: {
+    peerStatus: {
+      const: 'offline'
+    },
+    forwarded: {
+      const: null
+    },
+    terminate: {
+      const: 'done'
+    }
+  },
+  required: ['peerStatus', 'forwarded', 'terminate'],
+  additionalProperties: false
+} as const
+
+const rejectResponseSchema = {
+  $schema: 'https://json-schema.org/draft/2020-12/schema',
+  type: 'object',
+  properties: {
+    peerStatus: {
+      const: 'online'
+    },
+    forwarded: {
+      type: 'object',
+      properties: {
+        type: {
+          const: 'reject'
+        }
+      },
+      required: ['type'],
+      additionalProperties: false
+    } as const,
+    terminate: {
+      const: 'done'
+    }
+  },
+  required: ['peerStatus', 'forwarded', 'terminate'],
+  additionalProperties: false
+} as const
+
+const acceptAndOfferResponseSchema = {
+  $schema: 'https://json-schema.org/draft/2020-12/schema',
+  type: 'object',
+  properties: {
+    peerStatus: {
+      const: 'online'
+    },
+    forwarded: {
+      type: 'object',
+      properties: {
+        type: {
+          const: 'acceptAndOffer'
+        },
+        payload: {
+          type: 'object',
+          properties: {
+            type: {
+              const: 'offer'
+            },
+            sdp: {
+              type: 'string'
+            }
+          },
+          required: ['type', 'sdp'],
+          additionalProperties: false
+        } as const
+      },
+      required: ['type', 'payload'],
+      additionalProperties: false
+    } as const
+  },
+  required: ['peerStatus', 'forwarded'],
+  additionalProperties: false
+} as const
+
+const peerResponseSchema = {
+  oneOf: [offlineResponseSchema, rejectResponseSchema, acceptAndOfferResponseSchema]
+} as const
+
+export const iceCandidateSchema = {
+  $schema: 'https://json-schema.org/draft/2020-12/schema',
+  type: 'object',
+  properties: {
+    forwarded: {
+      type: 'object',
+      properties: {
+        type: {
+          const: 'ICECandidate'
+        },
+        payload: {
+          type: 'object',
+          properties: {
+            candidate: {
+              type: 'string'
+            },
+            sdpMLineIndex: {
+              type: 'integer'
+            },
+            sdpMid: {
+              type: 'string'
+            },
+            usernameFragment: {
+              type: 'string'
+            }
+          },
+          required: ['candidate', 'sdpMLineIndex'],
+          additionalProperties: false
+        } as const
+      },
+      required: ['type', 'payload'],
+      additionalProperties: false
+    } as const
+  },
+  required: ['forwarded'],
+  additionalProperties: false
+} as const
 
 /**
  * Create a WebRTC connection with a peer with public key `peerPk`.
@@ -75,29 +197,7 @@ async function setupInitiatedPeerConnection(
     key: peerPk
   })
   // response with union type of 3 cases
-  const peerResponse = (await recv()) as
-    | {
-        peerStatus: 'offline'
-        forwarded: null
-        terminate: 'done'
-      }
-    | {
-        peerStatus: 'online'
-        forwarded: {
-          type: 'reject'
-        }
-        terminate: 'done'
-      }
-    | {
-        peerStatus: 'online'
-        forwarded: {
-          type: 'acceptAndOffer'
-          payload: {
-            type: 'offer'
-            sdp: string
-          }
-        }
-      }
+  const peerResponse = await recv(peerResponseSchema)
 
   if (peerResponse.peerStatus == 'offline') {
     console.log('Peer is offline')
@@ -140,19 +240,8 @@ async function setupInitiatedPeerConnection(
   await rtc.setLocalDescription(rtcAnswer)
 
   // keep waiting to receive candidates until one with an empty candidate field is received
-  type recvCandidateType = {
-    forwarded: {
-      type: 'ICECandidate'
-      payload: {
-        candidate: string
-        sdpMLineIndex: number
-        sdpMid: string
-        usernameFragment: string
-      }
-    }
-  }
-  let recvCandidate: recvCandidateType
-  while ((recvCandidate = (await recv()) as recvCandidateType).forwarded.payload.candidate != '') {
+  let recvCandidate: FromSchema<typeof iceCandidateSchema>
+  while ((recvCandidate = await recv(iceCandidateSchema)).forwarded.payload.candidate != '') {
     const candidate = new RTCIceCandidate(recvCandidate.forwarded.payload)
     await rtc.addIceCandidate(candidate)
   }

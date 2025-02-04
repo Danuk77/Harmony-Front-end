@@ -8,16 +8,25 @@
       ? '--color-local-status-bubble-selected'
       : '--color-local-status-bubble'
   )
-  let bulbColor = $derived(
-    $store.connection.state == 'logged-in'
-      ? '--color-lightbulb-connected'
-      : '--color-lightbulb-offline'
-  )
+  let bulbColor = $derived.by(() => {
+    switch ($store.connection.state) {
+      case 'logged-in':
+        return '--color-lightbulb-connected'
+      case 'login-failed':
+        return '--color-lightbulb-disconnected'
+      default:
+        return '--color-lightbulb-offline'
+    }
+  })
 
   let onclick: HTMLButtonElement['onclick'] = () => {
     store.dispatch({ type: 'set-screen-mode', payload: 'user-settings' })
   }
 </script>
+
+{#if $store.connection.failedLoginMsg}
+  <div id="error-msg">{$store.connection.failedLoginMsg}</div>
+{/if}
 
 <button type="button" id="button" {onclick}>
   <div id="block" style={`background-color: var(${backgroundColor})`}>
@@ -55,16 +64,22 @@
   #block:active {
     cursor: pointer;
   }
-  /* #bulb {
+  #bulb {
     margin-left: 5px;
     margin-right: 5px;
     font-size: 25px;
-  } */
+  }
   #nickname {
     text-overflow: ellipsis;
     overflow: hidden;
     white-space: nowrap;
     flex-grow: 1;
     text-align: center;
+  }
+  #error-msg {
+    text-align: center;
+    color: var(--color-text-error);
+    margin-left: 10px;
+    margin-right: 10px;
   }
 </style>

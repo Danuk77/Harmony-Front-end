@@ -11,9 +11,13 @@ import { comeOnline } from '../routines/initiated/comeOnline'
 import { masterRoutine } from '../routines/received/masterRoutine'
 import { PeerConnectionCreationResult } from './HarmonyPeerConnection'
 import { eToStr } from '../../Controller'
+import { Validator } from 'jsonschema'
+import { FromSchema, JSONSchema } from 'json-schema-to-ts'
 
 const TRANSACTION_SOCKET_TIMEOUT = 20000 //ms
 const WS_RECONNECT_TIMEOUT = 10000 // ms
+
+export const validator = new Validator()
 
 export type HarmonyWebsocketConnectionOptions = {
   /**
@@ -314,7 +318,7 @@ export class HarmonyWebsocketConnection {
     /**
      * @throws HarmonyError if the server sends a `{terminate:"error"}` property
      */
-    const recv = async (): Promise<object> => {
+    const recv = async <S extends JSONSchema, T = FromSchema<S>>(schema?: S): Promise<T> => {
       if (tsIsClosed) {
         throw new HarmonyError('recv on closed transaction socket')
       }
@@ -344,7 +348,15 @@ export class HarmonyWebsocketConnection {
         }
         msg = maybeMessage
       }
-      const parsed = JSON.parse(msg)
+
+      // parse
+      // let parsed: S extends JSONSchema ? FromSchema<S> : object
+      let parsed: object
+      try {
+        parsed = JSON.parse(msg)
+      } catch (e) {
+        throw new HarmonyError(eToStr(e))
+      }
 
       // check if the server is terminating
       if (Object.prototype.hasOwnProperty.call(parsed, 'terminate')) {
@@ -367,21 +379,28 @@ export class HarmonyWebsocketConnection {
         console.log(errorMsg.error)
 
         // terminate the connection anyway. don't bother with re-sending messages for now.
-        /**@todo maybe change - sort out this tsIsClosed thing, it's a mess */
-        tsIsClosed = true
-
-        await send({
-          terminate: 'cancel'
-        })
         throw new HarmonyError(errorMsg.error)
       }
 
-      return parsed
+      // compare against schema
+      if (schema) {
+        const result = validator.validate(parsed, schema as object)
+        if (!result.valid) {
+          throw new HarmonyError(
+            'Error on incoming message: ' + result.errors.map((err) => err.toString()).join(', ')
+          )
+        }
+      }
+      // apply typings
+      return parsed as T
     }
 
     try {
       return await routine({ recv, send })
     } finally {
+      if (!tsIsClosed) {
+        send({ terminate: 'cancel' })
+      }
       tsIsClosed = true
       this.transactionSockets.delete(routineOptions.id)
     }
