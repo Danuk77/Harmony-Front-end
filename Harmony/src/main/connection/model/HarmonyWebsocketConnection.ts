@@ -10,6 +10,7 @@ import { AsyncBlockingQueue } from './AsyncBlockingQueue'
 import { comeOnline } from '../routines/initiated/comeOnline'
 import { masterRoutine } from '../routines/received/masterRoutine'
 import { PeerConnectionCreationResult } from './HarmonyPeerConnection'
+import { eToStr } from '../../Controller'
 
 const TRANSACTION_SOCKET_TIMEOUT = 20000 //ms
 const WS_RECONNECT_TIMEOUT = 10000 // ms
@@ -146,8 +147,9 @@ export class HarmonyWebsocketConnection {
     let con: connection
     try {
       con = await this.getConnection(this.options.websocketUrl)
-    } catch {
+    } catch (e) {
       // check that this is still the legitimate reconnect(), and that there is not a newer one running somewhere else
+      console.error(eToStr(e))
       if (reconnectNum == this.reconnectCount) {
         this.wsStatus = 'disconnected'
       }
@@ -192,12 +194,12 @@ export class HarmonyWebsocketConnection {
   private getConnection(websocketUrl: string): Promise<connection> {
     const client = new WebSocketClient()
 
-    client.connect(websocketUrl, [''])
+    client.connect(websocketUrl)
 
     // return a promise so it can be `await`ed
     return new Promise((resolve, reject) => {
       client.on('connect', resolve)
-      client.on('connectFailed', () => reject(new Error('Connection failed')))
+      client.on('connectFailed', (error) => reject(error))
     })
   }
 

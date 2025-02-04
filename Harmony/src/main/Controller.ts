@@ -236,9 +236,6 @@ export class Controller {
       })
     }
 
-    // start websocket connection initiation
-    this.con.reconnect()
-
     //update friend roster and database when redux store changes
     // redux store is considered the main source of truth
     // so only update the redux store and the rest should be done automatically
