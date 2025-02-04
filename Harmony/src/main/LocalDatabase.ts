@@ -11,9 +11,17 @@ console.log(DB_LOC)
 
 export type User = {
   pk: string | null
+  serverUrl: string | null
+  serverEnabled: boolean
 }
 type UserDoc = User & {
   _id?: string // nedb thing
+}
+
+const defaultUser: User = {
+  pk: null,
+  serverUrl: null,
+  serverEnabled: true
 }
 
 export type Friend = {
@@ -123,15 +131,13 @@ export class LocalDatabase {
     await this.friendsDb.insertAsync(friend)
   }
 
-  public setLocalPublicKey = async (publicKey: string | null) => {
-    const fieldsToUpdate: Partial<UserDoc> = {
-      pk: publicKey
-    }
-    const result = await this.usersDb.updateAsync({}, { $set: fieldsToUpdate })
+  public updateUser = async (fields: Partial<User>) => {
+    const result = await this.usersDb.updateAsync({}, { $set: fields })
     if (result.numAffected == 0) {
       // create doc
       const newDoc: User = {
-        pk: publicKey
+        ...defaultUser,
+        ...fields
       }
       await this.usersDb.insertAsync(newDoc)
     } else if (result.numAffected > 1) {
@@ -143,13 +149,11 @@ export class LocalDatabase {
     }
   }
 
-  public getLocalPublicKey = async () => {
-    let userDoc: UserDoc
+  public getUser = async (): Promise<User> => {
     try {
-      userDoc = await this.usersDb.findOneAsync({})
-      return userDoc.pk
+      return await this.usersDb.findOneAsync({})
     } catch {
-      return null
+      return defaultUser
     }
   }
 }

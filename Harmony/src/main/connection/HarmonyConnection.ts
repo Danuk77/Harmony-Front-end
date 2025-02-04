@@ -37,11 +37,11 @@ export class HarmonyConnection {
     return this.websocket.publicKey
   }
 
-  public set websocketUrl(websocketUrl: string | null) {
-    this.websocket.websocketUrl = websocketUrl
+  public set serverUrl(serverUrl: string | null) {
+    this.websocket.serverUrl = serverUrl
   }
-  public get websocketUrl() {
-    return this.websocket.websocketUrl
+  public get serverUrl() {
+    return this.websocket.serverUrl
   }
 
   public set enabled(enabled: boolean) {

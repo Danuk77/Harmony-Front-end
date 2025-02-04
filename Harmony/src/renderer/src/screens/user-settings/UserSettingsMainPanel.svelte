@@ -12,7 +12,7 @@
   })
 
   let values = $state<yup.InferType<typeof schema>>({
-    pk: $store.connection.pk ?? ''
+    pk: $store.user.pk ?? ''
   })
 
   let formErrors = $derived(collectYupErrorsByField(schema, values))

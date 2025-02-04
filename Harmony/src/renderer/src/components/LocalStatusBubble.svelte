@@ -8,11 +8,11 @@
       ? '--color-local-status-bubble-selected'
       : '--color-local-status-bubble'
   )
-  // let bulbColor = $derived(
-  //   $store.connection.state == 'logged-in'
-  //     ? '--color-lightbulb-connected'
-  //     : '--color-lightbulb-offline'
-  // )
+  let bulbColor = $derived(
+    $store.connection.state == 'logged-in'
+      ? '--color-lightbulb-connected'
+      : '--color-lightbulb-offline'
+  )
 
   let onclick: HTMLButtonElement['onclick'] = () => {
     store.dispatch({ type: 'set-screen-mode', payload: 'user-settings' })
@@ -21,11 +21,11 @@
 
 <button type="button" id="button" {onclick}>
   <div id="block" style={`background-color: var(${backgroundColor})`}>
-    <!-- {#key $store.connection.state}
+    {#key $store.connection.state}
       <span title={$store.connection.state}>
         <i class="fas fa-lightbulb" id="bulb" style={`color: var(${bulbColor})`}></i>
       </span>
-    {/key} -->
+    {/key}
     <p id="nickname">User settings</p>
   </div>
 </button>

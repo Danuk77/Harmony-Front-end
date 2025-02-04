@@ -12,7 +12,7 @@
 
   // update messages when ui changes
   $effect(() => {
-    if ($store.ui.selectedFriendPk != null && $store.connection.pk != null) {
+    if ($store.ui.selectedFriendPk != null && $store.user.pk != null) {
       window.api
         .getConversation('local', $store.ui.selectedFriendPk)
         .then((_messages) => (messages = _messages))
@@ -117,7 +117,7 @@
       if (textBoxContents == '') {
         return
       }
-      if (!$store.connection.pk) {
+      if (!$store.user.pk) {
         return
       }
       window.api.sendMessage($store.ui.selectedFriendPk, textBoxContents).then(({ msg, error }) => {

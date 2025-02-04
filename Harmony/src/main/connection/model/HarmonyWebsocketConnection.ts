@@ -19,10 +19,10 @@ export type HarmonyWebsocketConnectionOptions = {
   /**
    * Url of the signalling server websocket endpoint.
    */
-  websocketUrl: string | null
+  serverUrl: string | null
 }
 const defaultOptions: HarmonyWebsocketConnectionOptions = {
-  websocketUrl: null
+  serverUrl: null
 }
 
 export type FriendRequestResponseType = 'accept' | 'reject' | 'pending'
@@ -86,13 +86,13 @@ export class HarmonyWebsocketConnection {
     return this._enabled
   }
 
-  public set websocketUrl(websocketUrl: string | null) {
-    this.options.websocketUrl = websocketUrl
+  public set serverUrl(websocketUrl: string | null) {
+    this.options.serverUrl = websocketUrl
     this.reconnect()
   }
 
-  public get websocketUrl() {
-    return this.options.websocketUrl
+  public get serverUrl() {
+    return this.options.serverUrl
   }
 
   public set publicKey(publicKey: string | null) {
@@ -147,7 +147,7 @@ export class HarmonyWebsocketConnection {
     this.wsConnection?.close()
 
     // ignore if no websocket url or not enabled
-    if (!this.options.websocketUrl || !this.enabled) {
+    if (!this.options.serverUrl || !this.enabled) {
       return
     }
 
@@ -155,7 +155,7 @@ export class HarmonyWebsocketConnection {
     this.wsStatus = 'connecting'
     let con: connection
     try {
-      con = await this.getConnection(this.options.websocketUrl)
+      con = await this.getConnection(this.options.serverUrl)
     } catch (e) {
       // check that this is still the legitimate reconnect(), and that there is not a newer one running somewhere else
       console.error(eToStr(e))

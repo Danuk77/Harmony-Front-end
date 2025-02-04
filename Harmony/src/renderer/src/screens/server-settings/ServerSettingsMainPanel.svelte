@@ -14,7 +14,7 @@
   })
 
   let values = $state<yup.InferType<typeof schema>>({
-    url: $store.connection.url ?? ''
+    url: $store.user.serverUrl ?? ''
   })
 
   let formErrors = $derived(collectYupErrorsByField(schema, values))
@@ -48,7 +48,7 @@
       <input
         id="serverEnabled"
         name="serverEnabled"
-        bind:checked={() => $store.connection.serverEnabled,
+        bind:checked={() => $store.user.serverEnabled,
         (v) => store.dispatch({ type: 'set-server-enabled', payload: v })}
         type="checkbox"
       />

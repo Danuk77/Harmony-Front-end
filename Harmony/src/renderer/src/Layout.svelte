@@ -14,8 +14,6 @@
 
 <div id="overlay">
   <div id="iconAndLogo">
-    <!-- <h1 id="harmonyText">Harmony</h1>
-    <p>{$store.connection.state}</p> -->
     <ServerStatusBubble />
   </div>
   <div id="top-bar">

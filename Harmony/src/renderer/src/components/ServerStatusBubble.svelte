@@ -22,7 +22,7 @@
           <i class="fas fa-plug" id="bulb" style={`color: var(${bulbColor})`}></i>
         </span>
       {/key}
-      <p id="nickname">{$store.connection.url}</p>
+      <p id="nickname">{$store.user.serverUrl}</p>
     </div>
   </button>
   <div id="scrollbar-placeholder"></div>

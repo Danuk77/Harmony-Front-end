@@ -5,7 +5,6 @@
 import { DEBUG } from '.'
 import { Action } from '../common/redux'
 import { FriendWithState, MainToRendererAction } from '../preload'
-import { backendURL } from './connection/config'
 import { HarmonyConnection } from './connection/HarmonyConnection'
 import { WebsocketStatusType } from './connection/model/HarmonyWebsocketConnection'
 import { FriendRequestResult } from './connection/routines/initiated/sendFriendRequest'
@@ -247,6 +246,7 @@ export class Controller {
           action.type == 'friend-change' ||
           action.type == 'remove-friend' ||
           action.type == 'hydrate-friends' ||
+          action.type == 'hydrate-user' ||
           action.type == 'set-local-pk' ||
           action.type == 'set-server-url' ||
           action.type == 'set-server-enabled'
@@ -270,31 +270,30 @@ export class Controller {
           case 'hydrate-friends':
             this.friendRoster.setFriends(action.payload)
             break
+          case 'hydrate-user':
+            this.publicKey = action.payload.pk
+            this.con.serverUrl = action.payload.serverUrl
+            this.con.enabled = action.payload.serverEnabled
+            break
           case 'set-local-pk':
             this.publicKey = action.payload
-            this.db.setLocalPublicKey(action.payload)
+            this.db.updateUser({ pk: action.payload })
             break
           case 'set-server-url':
-            this.con.websocketUrl = action.payload
-            /**@todo update db */
+            this.con.serverUrl = action.payload
+            this.db.updateUser({ serverUrl: action.payload })
             break
           case 'set-server-enabled':
             this.con.enabled = action.payload
-            console.log('server enableld: ' + action.payload)
+            this.db.updateUser({ serverEnabled: action.payload })
         }
       }
     })
 
-    // set enabled
-    storeTypesafe.dispatch({ type: 'set-server-enabled', payload: true })
-
-    // set backend url
-    storeTypesafe.dispatch({ type: 'set-server-url', payload: backendURL })
-
-    // set local pk, which kick-starts everything
-    this.db.getLocalPublicKey().then((pk) => {
-      storeTypesafe.dispatch({ type: 'set-local-pk', payload: pk })
-    })
+    // kicks things off.
+    this.db
+      .getUser()
+      .then((user) => storeTypesafe.dispatch({ type: 'hydrate-user', payload: user }))
   }
   /**
    * Send a message to a peer, update the database, return a message to the front end.

@@ -1,16 +1,18 @@
 // stores are synced  between main and renderer processes. Both need access to these types and functions.
 
 import type { WebsocketStatusType } from '../main/connection/model/HarmonyWebsocketConnection'
-import { Friend } from '../main/LocalDatabase'
+import { Friend, User } from '../main/LocalDatabase'
 import { FriendConnectionStatus } from '../main/FriendConnectionHandler'
 
 export const defaultState: State = {
   friendStates: [],
   connection: {
+    state: 'disconnected'
+  },
+  user: {
     pk: null,
-    state: 'disconnected',
-    url: 'ws://localhost:8080/ws',
-    serverEnabled: true
+    serverEnabled: true,
+    serverUrl: null
   },
   ui: {
     selectedFriendPk: null,
@@ -28,12 +30,10 @@ export type ScreenMode = 'chat' | 'add-friend' | 'user-settings' | 'server-setti
 export type State = {
   friendStates: FriendState[]
   connection: {
-    pk: string | null
     state: WebsocketStatusType
-    url: string | null
     failedLoginMsg?: string
-    serverEnabled: boolean
   }
+  user: User
   ui: {
     selectedFriendPk: string | null
     screenMode: ScreenMode
@@ -74,6 +74,7 @@ export type Action =
       }
     }
   | { type: 'hydrate-friends'; payload: Friend[] }
+  | { type: 'hydrate-user'; payload: User }
   | { type: 'set-screen-mode'; payload: ScreenMode }
   | { type: 'set-local-pk'; payload: string | null }
   | { type: 'set-server-url'; payload: string | null }
@@ -157,6 +158,11 @@ export function reducer(state: State | undefined = defaultState, action: Action)
             'unset'
         }))
       }
+    case 'hydrate-user':
+      return {
+        ...state,
+        user: action.payload
+      }
     case 'set-screen-mode':
       return {
         ...state,
@@ -168,24 +174,24 @@ export function reducer(state: State | undefined = defaultState, action: Action)
     case 'set-local-pk':
       return {
         ...state,
-        connection: {
-          ...state.connection,
+        user: {
+          ...state.user,
           pk: action.payload
         }
       }
     case 'set-server-url':
       return {
         ...state,
-        connection: {
-          ...state.connection,
-          url: action.payload
+        user: {
+          ...state.user,
+          serverUrl: action.payload
         }
       }
     case 'set-server-enabled':
       return {
         ...state,
-        connection: {
-          ...state.connection,
+        user: {
+          ...state.user,
           serverEnabled: action.payload
         }
       }

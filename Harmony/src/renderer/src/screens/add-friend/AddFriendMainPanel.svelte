@@ -32,7 +32,7 @@
     event.preventDefault()
     showErrors = true
 
-    if (!$store.connection.pk) {
+    if (!$store.user.pk) {
       window.api.showErrorBox('Your public key is not set', 'Please set a public key and try again')
       return
     }
@@ -47,7 +47,7 @@
         nickname = pk
       }
 
-      window.api.sendFriendRequest($store.connection.pk, pk, nickname).then((result) => {
+      window.api.sendFriendRequest($store.user.pk, pk, nickname).then((result) => {
         switch (result.status) {
           case 'fail':
             window.api.showErrorBox('Failed to send friend request', result.msg)
