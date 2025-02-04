@@ -84,9 +84,7 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  const controller = new Controller(
-    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
-  )
+  const controller = new Controller()
 
   // 2 way, initiated by renderer
   ipcMainTypesafe.handle('getConversation', (_, ...args) => controller.db.getConversation(...args))

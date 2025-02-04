@@ -10,11 +10,11 @@ export const DB_FRIENDS_LOC = path.join(DB_LOC, '/friends.db')
 console.log(DB_LOC)
 
 export type User = {
-  pk: string
+  pk: string | null
 }
-// type UserDoc = User & {
-//   _id?: string // nedb thing
-// }
+type UserDoc = User & {
+  _id?: string // nedb thing
+}
 
 export type Friend = {
   peerPk: string
@@ -46,12 +46,12 @@ type MessageDoc = Message & {
 }
 
 export class LocalDatabase {
-  // private usersDb: DataStore<UserDoc>
+  private usersDb: DataStore<UserDoc>
   private messagesDb: DataStore<MessageDoc>
   private friendsDb: DataStore<FriendDoc>
 
   constructor() {
-    // this.usersDb = new DataStore({ filename: DB_USERS_LOC, autoload: true })
+    this.usersDb = new DataStore({ filename: DB_USERS_LOC, autoload: true })
     this.messagesDb = new DataStore({ filename: DB_MESSAGES_LOC, autoload: true })
     this.friendsDb = new DataStore({ filename: DB_FRIENDS_LOC, autoload: true })
   }
@@ -121,5 +121,35 @@ export class LocalDatabase {
    */
   public insertFriend = async (friend: Friend) => {
     await this.friendsDb.insertAsync(friend)
+  }
+
+  public setLocalPublicKey = async (publicKey: string | null) => {
+    const fieldsToUpdate: Partial<UserDoc> = {
+      pk: publicKey
+    }
+    const result = await this.usersDb.updateAsync({}, { $set: fieldsToUpdate })
+    if (result.numAffected == 0) {
+      // create doc
+      const newDoc: User = {
+        pk: publicKey
+      }
+      await this.usersDb.insertAsync(newDoc)
+    } else if (result.numAffected > 1) {
+      throw new Error(
+        'Multiple user documents in ' +
+          DB_USERS_LOC +
+          '\nDelete the file or remove all but 1 entry from within'
+      )
+    }
+  }
+
+  public getLocalPublicKey = async () => {
+    let userDoc: UserDoc
+    try {
+      userDoc = await this.usersDb.findOneAsync({})
+      return userDoc.pk
+    } catch {
+      return null
+    }
   }
 }

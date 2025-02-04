@@ -71,7 +71,7 @@ export type Action =
     }
   | { type: 'hydrate-friends'; payload: Friend[] }
   | { type: 'set-screen-mode'; payload: ScreenMode }
-  | { type: 'set-local-pk'; payload: string }
+  | { type: 'set-local-pk'; payload: string | null }
 
 export function reducer(state: State | undefined = defaultState, action: Action): State {
   switch (action.type) {

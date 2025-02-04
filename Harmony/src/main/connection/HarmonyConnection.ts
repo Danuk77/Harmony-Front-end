@@ -18,7 +18,10 @@ export class HarmonyConnection {
    * @param publicKey This client's public key
    * @param websocketConnectionOptions Additional options for the websocket.
    */
-  constructor(publicKey: string, websocketConnectionOptions?: HarmonyWebsocketConnectionOptions) {
+  constructor(
+    publicKey: string | null,
+    websocketConnectionOptions?: HarmonyWebsocketConnectionOptions
+  ) {
     // create websocket
     this.websocket = new HarmonyWebsocketConnection(publicKey, websocketConnectionOptions)
   }

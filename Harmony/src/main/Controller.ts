@@ -39,9 +39,9 @@ export class Controller {
   // callback for IPCs to be sent to the renderer.
   public onMainToRendererAction?: (arg0: MainToRendererAction) => unknown
 
-  constructor(publicKey: string) {
+  constructor() {
     this.db = new LocalDatabase()
-    this.con = new HarmonyConnection(publicKey)
+    this.con = new HarmonyConnection(null)
     this.friendRoster = new FriendRoster(this.con)
 
     // Setting the local pk is what kicks everything off.
@@ -269,19 +269,19 @@ export class Controller {
             break
           case 'hydrate-friends':
             this.friendRoster.setFriends(action.payload)
-            // action.payload.forEach((friend) => {
-            //   this.friendRoster.addOrUpdateFriend(friend)
-            // })
             break
           case 'set-local-pk':
             this.publicKey = action.payload
+            this.db.setLocalPublicKey(action.payload)
             break
         }
       }
     })
 
     // set local pk, which kick-starts everything
-    storeTypesafe.dispatch({ type: 'set-local-pk', payload: publicKey }) // (this.publicKey = publicKey)
+    this.db.getLocalPublicKey().then((pk) => {
+      storeTypesafe.dispatch({ type: 'set-local-pk', payload: pk })
+    })
   }
   /**
    * Send a message to a peer, update the database, return a message to the front end.
