@@ -37,6 +37,13 @@ export class HarmonyConnection {
     return this.websocket.publicKey
   }
 
+  public set websocketUrl(websocketUrl: string | null) {
+    this.websocket.websocketUrl = websocketUrl
+  }
+  public get websocketUrl() {
+    return this.websocket.websocketUrl
+  }
+
   /**
    * Callback for when the websocket connection status has changed
    */

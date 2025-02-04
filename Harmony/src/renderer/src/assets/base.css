@@ -21,6 +21,8 @@
   --ev-c-text-white: #ffffff;
   --ev-c-text-gray: #6D6D6D;
 
+  --scrollbar-width: 10px;
+
 
 }
 
@@ -88,7 +90,7 @@ body {
 }
 
 ::-webkit-scrollbar {
-  width: 10px;
+  width: var(--scrollbar-width);
 }
 
 /* Track */

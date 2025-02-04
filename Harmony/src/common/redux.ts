@@ -8,7 +8,8 @@ export const defaultState: State = {
   friendStates: [],
   connection: {
     pk: null,
-    state: 'disconnected'
+    state: 'disconnected',
+    url: 'ws://localhost:8080/ws'
   },
   ui: {
     selectedFriendPk: null,
@@ -21,13 +22,14 @@ export type FriendState = {
   connectionStatus: FriendConnectionStatus
 }
 
-export type ScreenMode = 'chat' | 'add-friend' | 'user-settings'
+export type ScreenMode = 'chat' | 'add-friend' | 'user-settings' | 'server-settings'
 
 export type State = {
   friendStates: FriendState[]
   connection: {
     pk: string | null
     state: WebsocketStatusType
+    url: string | null
     failedLoginMsg?: string
   }
   ui: {
@@ -72,6 +74,7 @@ export type Action =
   | { type: 'hydrate-friends'; payload: Friend[] }
   | { type: 'set-screen-mode'; payload: ScreenMode }
   | { type: 'set-local-pk'; payload: string | null }
+  | { type: 'set-server-url'; payload: string | null }
 
 export function reducer(state: State | undefined = defaultState, action: Action): State {
   switch (action.type) {
@@ -165,6 +168,14 @@ export function reducer(state: State | undefined = defaultState, action: Action)
         connection: {
           ...state.connection,
           pk: action.payload
+        }
+      }
+    case 'set-server-url':
+      return {
+        ...state,
+        connection: {
+          ...state.connection,
+          url: action.payload
         }
       }
   }

@@ -9,7 +9,6 @@ import {
 import { AsyncBlockingQueue } from './AsyncBlockingQueue'
 import { comeOnline } from '../routines/initiated/comeOnline'
 import { masterRoutine } from '../routines/received/masterRoutine'
-import { backendURL } from '../config'
 import { PeerConnectionCreationResult } from './HarmonyPeerConnection'
 
 const TRANSACTION_SOCKET_TIMEOUT = 20000 //ms
@@ -19,10 +18,10 @@ export type HarmonyWebsocketConnectionOptions = {
   /**
    * Url of the signalling server websocket endpoint.
    */
-  websocketUrl: string
+  websocketUrl: string | null
 }
 const defaultOptions: HarmonyWebsocketConnectionOptions = {
-  websocketUrl: backendURL
+  websocketUrl: null
 }
 
 export type FriendRequestResponseType = 'accept' | 'reject' | 'pending'
@@ -48,6 +47,7 @@ export class HarmonyWebsocketConnection {
   private transactionSockets: Map<string, HarmonyTransactionSocket>
   private reconnectTimeout?: NodeJS.Timeout
   private _publicKey: string | null = null
+  private reconnectCount = 0
 
   // callback functions - may be added to the object.
   public onWsStatusChange?: (status: WebsocketStatusType) => unknown
@@ -74,6 +74,15 @@ export class HarmonyWebsocketConnection {
 
     this.transactionSockets = new Map()
     this.publicKey = publicKey
+  }
+
+  public set websocketUrl(websocketUrl: string | null) {
+    this.options.websocketUrl = websocketUrl
+    this.reconnect()
+  }
+
+  public get websocketUrl() {
+    return this.options.websocketUrl
   }
 
   public set publicKey(publicKey: string | null) {
@@ -114,7 +123,12 @@ export class HarmonyWebsocketConnection {
    * @returns
    */
   public reconnect = async (): Promise<void> => {
-    if (this.wsStatus == 'closed' || this.wsStatus == 'connecting') {
+    // bump and keep track of reconnect attempt.
+    // use this num to detect whether this is the newest reconnect attempt
+    // and cancel if not.
+    const reconnectNum = ++this.reconnectCount
+
+    if (this.wsStatus == 'closed') {
       // ignore
       return
     }
@@ -122,27 +136,40 @@ export class HarmonyWebsocketConnection {
     // close connection if already open
     this.wsConnection?.close()
 
-    if (this.wsStatus != 'login-failed') {
-      // attempt to establish a new websocket connection
-      this.wsStatus = 'connecting'
-      let con: connection
-      try {
-        con = await this.getConnection()
-      } catch {
-        this.wsStatus = 'disconnected'
-        return
-      }
-
-      // add event listeners
-      con.on('close', this.wsClose)
-      con.on('error', this.wsError)
-      con.on('message', this.wsMessage)
-
-      this.wsConnection = con
-
-      this.wsStatus = 'connected'
+    // ignore if no websocket url
+    if (!this.options.websocketUrl) {
+      return
     }
 
+    // attempt to establish a new websocket connection
+    this.wsStatus = 'connecting'
+    let con: connection
+    try {
+      con = await this.getConnection(this.options.websocketUrl)
+    } catch {
+      // check that this is still the legitimate reconnect(), and that there is not a newer one running somewhere else
+      if (reconnectNum == this.reconnectCount) {
+        this.wsStatus = 'disconnected'
+      }
+      return
+    }
+
+    // check that this is still the legitimate reconnect(), and that there is not a newer one running somewhere else
+    if (reconnectNum != this.reconnectCount) {
+      con.close()
+      return
+    }
+
+    // add event listeners
+    con.on('close', this.wsClose)
+    con.on('error', this.wsError)
+    con.on('message', this.wsMessage)
+
+    this.wsConnection = con
+
+    this.wsStatus = 'connected'
+
+    // comeOnline
     if (this.publicKey) {
       try {
         await comeOnline(this, this.publicKey)
@@ -162,10 +189,10 @@ export class HarmonyWebsocketConnection {
     this.wsConnection?.close()
   }
 
-  private getConnection(): Promise<connection> {
+  private getConnection(websocketUrl: string): Promise<connection> {
     const client = new WebSocketClient()
 
-    client.connect(this.options.websocketUrl)
+    client.connect(websocketUrl, [''])
 
     // return a promise so it can be `await`ed
     return new Promise((resolve, reject) => {

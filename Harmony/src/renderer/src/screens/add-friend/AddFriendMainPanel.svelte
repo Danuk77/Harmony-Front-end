@@ -2,7 +2,7 @@
   import * as yup from 'yup'
   import ExpandableBubble from '../../components/ExpandableBubble.svelte'
   import { store } from '../../redux'
-  import { collectYupErrorsByField } from '../../utils'
+  import { collectYupErrorsByField } from '../../misc/utils'
 
   const formSchema = yup.object({
     pk: yup

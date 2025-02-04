@@ -5,6 +5,7 @@
 import { DEBUG } from '.'
 import { Action } from '../common/redux'
 import { FriendWithState, MainToRendererAction } from '../preload'
+import { backendURL } from './connection/config'
 import { HarmonyConnection } from './connection/HarmonyConnection'
 import { WebsocketStatusType } from './connection/model/HarmonyWebsocketConnection'
 import { FriendRequestResult } from './connection/routines/initiated/sendFriendRequest'
@@ -249,7 +250,8 @@ export class Controller {
           action.type == 'friend-change' ||
           action.type == 'remove-friend' ||
           action.type == 'hydrate-friends' ||
-          action.type == 'set-local-pk'
+          action.type == 'set-local-pk' ||
+          action.type == 'set-server-url'
         )
       },
       effect: (_action) => {
@@ -274,9 +276,14 @@ export class Controller {
             this.publicKey = action.payload
             this.db.setLocalPublicKey(action.payload)
             break
+          case 'set-server-url':
+            this.con.websocketUrl = action.payload
         }
       }
     })
+
+    // set backend url
+    storeTypesafe.dispatch({ type: 'set-server-url', payload: backendURL })
 
     // set local pk, which kick-starts everything
     this.db.getLocalPublicKey().then((pk) => {

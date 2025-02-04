@@ -4,15 +4,17 @@
   import { collectYupErrorsByField } from '../../misc/utils'
   import ExpandableBubble from '../../components/ExpandableBubble.svelte'
 
+  const protocolRegex = /^(wss?):\/\//
+
   const schema = yup.object({
-    pk: yup
+    url: yup
       .string()
+      .matches(protocolRegex, 'Please specify protocol ("ws://" or "wss://")')
       .required('This field is required')
-      .matches(/^\s*[0123456789abcdefABCDEF]{128}\s*$/, 'Should be 128 hexadecimal digits')
   })
 
   let values = $state<yup.InferType<typeof schema>>({
-    pk: $store.connection.pk ?? ''
+    url: $store.connection.url ?? ''
   })
 
   let formErrors = $derived(collectYupErrorsByField(schema, values))
@@ -23,10 +25,7 @@
     showErrors = true
 
     if (schema.isValidSync(values)) {
-      // remove whitespace from pk and make lower
-      const pk = values.pk.toLowerCase().replace(/\s/g, '')
-
-      store.dispatch({ type: 'set-local-pk', payload: pk })
+      store.dispatch({ type: 'set-server-url', payload: values.url })
     }
   }
 </script>
@@ -36,9 +35,9 @@
     <div id="form">
       <form onsubmit={handleSubmit}>
         <ExpandableBubble
-          bind:value={values.pk}
-          label="Public Key"
-          error={showErrors && formErrors.pk.length > 0 ? formErrors.pk[0] : undefined}
+          bind:value={values.url}
+          label="Websocket URL"
+          error={showErrors && formErrors.url.length > 0 ? formErrors.url[0] : undefined}
         />
         <input type="submit" id="submit" value="Confirm" />
       </form>

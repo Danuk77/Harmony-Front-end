@@ -1,7 +1,7 @@
 <script lang="ts">
   import '@fortawesome/fontawesome-free/css/all.min.css'
   import '@fortawesome/fontawesome-free/js/all.min.js'
-  import { connectionStatusToBulbColorCssVariable } from '../../misc/misc'
+  import { peerConnectionStatusToBulbColorCssVariable } from '../../misc/misc'
   import { store } from '../../redux'
 
   let fs = $derived.by(() => {
@@ -10,7 +10,9 @@
       : undefined
   })
   let bulbColor = $derived(
-    fs ? connectionStatusToBulbColorCssVariable(fs.connectionStatus) : '--color-lightbulb-connected'
+    fs
+      ? peerConnectionStatusToBulbColorCssVariable(fs.connectionStatus)
+      : '--color-lightbulb-connected'
   )
 </script>
 

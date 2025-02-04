@@ -1,6 +1,7 @@
+import type { WebsocketStatusType } from '../../../main/connection/model/HarmonyWebsocketConnection'
 import type { FriendWithState } from '../../../preload'
 
-export function connectionStatusToBulbColorCssVariable(
+export function peerConnectionStatusToBulbColorCssVariable(
   status: FriendWithState['connectionStatus']
 ) {
   switch (status) {
@@ -24,5 +25,22 @@ export function connectionStatusToBulbColorCssVariable(
       return '--color-lightbulb-offline'
     case 'unset':
       return '--color-lightbulb-offline'
+  }
+}
+
+export function serverConnectionStatusToBulbColorCssVariable(status: WebsocketStatusType) {
+  switch (status) {
+    case 'connecting':
+      return '--color-lightbulb-disconnected'
+    case 'closed':
+      return '--color-lightbulb-offline'
+    case 'disconnected':
+      return '--color-lightbulb-offline'
+    case 'connected':
+      return '--color-lightbulb-connected'
+    case 'logged-in':
+      return '--color-lightbulb-connected'
+    case 'login-failed':
+      return '--color-lightbulb-connected'
   }
 }

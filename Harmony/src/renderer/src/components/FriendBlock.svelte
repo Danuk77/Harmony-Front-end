@@ -1,7 +1,7 @@
 <script lang="ts">
   import '@fortawesome/fontawesome-free/css/all.min.css'
   import '@fortawesome/fontawesome-free/js/all.min.js'
-  import { connectionStatusToBulbColorCssVariable } from '../misc/misc'
+  import { peerConnectionStatusToBulbColorCssVariable } from '../misc/misc'
   import type { FriendState } from '../../../common/redux'
   import { store } from '../redux'
   let { selected, fs, onclick }: { selected: boolean; fs: FriendState; onclick: () => unknown } =
@@ -12,7 +12,7 @@
   )
   let bulbColor = $derived.by(() => {
     if (fs.friend.status == 'accept') {
-      return connectionStatusToBulbColorCssVariable(fs.connectionStatus)
+      return peerConnectionStatusToBulbColorCssVariable(fs.connectionStatus)
     } else {
       return '--color-icon'
     }
@@ -72,7 +72,7 @@
   #bulb {
     margin-left: 5px;
     margin-right: 5px;
-    font-size: 25px;
+    font-size: 20px;
   }
   #nickname {
     text-overflow: ellipsis;

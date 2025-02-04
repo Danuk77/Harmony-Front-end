@@ -7,12 +7,16 @@
   import AddFriendTopBar from './screens/add-friend/AddFriendTopBar.svelte'
   import UserSettingsTopBar from './screens/user-settings/UserSettingsTopBar.svelte'
   import UserSettingsMainPanel from './screens/user-settings/UserSettingsMainPanel.svelte'
+  import ServerStatusBubble from './components/ServerStatusBubble.svelte'
+  import ServerSettingsTopBar from './screens/server-settings/ServerSettingsTopBar.svelte'
+  import ServerSettingsMainPanel from './screens/server-settings/ServerSettingsMainPanel.svelte'
 </script>
 
 <div id="overlay">
   <div id="iconAndLogo">
-    <h1 id="harmonyText">Harmony</h1>
-    <p>{$store.connection.state}</p>
+    <!-- <h1 id="harmonyText">Harmony</h1>
+    <p>{$store.connection.state}</p> -->
+    <ServerStatusBubble />
   </div>
   <div id="top-bar">
     {#if $store.ui.screenMode == 'chat'}
@@ -21,6 +25,8 @@
       <AddFriendTopBar />
     {:else if $store.ui.screenMode == 'user-settings'}
       <UserSettingsTopBar />
+    {:else if $store.ui.screenMode == 'server-settings'}
+      <ServerSettingsTopBar />
     {/if}
   </div>
 
@@ -35,6 +41,8 @@
       <AddFriendMainPanel />
     {:else if $store.ui.screenMode == 'user-settings'}
       <UserSettingsMainPanel />
+    {:else if $store.ui.screenMode == 'server-settings'}
+      <ServerSettingsMainPanel />
     {/if}
   </div>
 </div>
@@ -49,7 +57,7 @@
     right: 0;
     grid-template-columns: 250px auto;
     grid-template-rows: min-content auto;
-    row-gap: 2px;
+    row-gap: 3px;
   }
   #iconAndLogo {
     grid-row: 1;
