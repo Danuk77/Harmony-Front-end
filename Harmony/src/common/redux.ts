@@ -26,7 +26,7 @@ export type FriendState = {
   connectionStatus: FriendConnectionStatus
 }
 
-export type ScreenMode = 'chat' | 'add-friend' | 'user-settings' | 'server-settings'
+export type ScreenMode = 'chat' | 'add-friend' | 'user-settings' | 'server-settings' | 'edit-friend'
 
 export type State = {
   friendStates: FriendState[]

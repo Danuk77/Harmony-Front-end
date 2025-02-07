@@ -10,6 +10,8 @@
   import ServerStatusBubble from './components/ServerStatusBubble.svelte'
   import ServerSettingsTopBar from './screens/server-settings/ServerSettingsTopBar.svelte'
   import ServerSettingsMainPanel from './screens/server-settings/ServerSettingsMainPanel.svelte'
+  import EditFriendMainPanel from './screens/edit-friend/EditFriendMainPanel.svelte'
+  import EditFriendTopBar from './screens/edit-friend/EditFriendTopBar.svelte'
 </script>
 
 <div id="overlay">
@@ -25,6 +27,8 @@
       <UserSettingsTopBar />
     {:else if $store.ui.screenMode == 'server-settings'}
       <ServerSettingsTopBar />
+    {:else if $store.ui.screenMode == 'edit-friend'}
+      <EditFriendTopBar />
     {/if}
   </div>
 
@@ -41,6 +45,8 @@
       <UserSettingsMainPanel />
     {:else if $store.ui.screenMode == 'server-settings'}
       <ServerSettingsMainPanel />
+    {:else if $store.ui.screenMode == 'edit-friend'}
+      <EditFriendMainPanel />
     {/if}
   </div>
 </div>

@@ -1,13 +1,27 @@
-<script>
+<script lang="ts">
   import FriendBlock from './FriendBlock.svelte'
   import { store } from '../redux'
   import '@fortawesome/fontawesome-free/css/all.min.css'
   import '@fortawesome/fontawesome-free/js/all.min.js'
   import HarmonyIcon from './HarmonyIcon.svelte'
   import LocalStatusBubble from './LocalStatusBubble.svelte'
+  import type { FriendState } from '../../../common/redux'
+  import { changeFriendStatus } from '../endpointIoWrappers'
 
   function navigateToAddFriendScreen() {
     store.dispatch({ type: 'set-screen-mode', payload: 'add-friend' })
+  }
+
+  async function friendBlockContextMenu(fs: FriendState) {
+    // make const copy to prevent typescript error
+    const localPk = $store.user.pk
+
+    if (localPk) {
+      const result = await window.api.showFriendBlockContextMenu(fs.friend)
+      if (result) {
+        changeFriendStatus(fs.friend, result)
+      }
+    }
   }
 </script>
 
@@ -34,6 +48,7 @@
                 store.dispatch({ type: 'set-screen-mode', payload: 'chat' })
               }
             }}
+            oncontextmenu={() => friendBlockContextMenu(fs)}
           />
         {/if}
       {/each}
@@ -44,8 +59,9 @@
 
 <style>
   #add-friend-button {
-    float: right;
     padding: 10px;
+    width: fit-content;
+    align-self: flex-end;
   }
   #friend-list-scroll-container {
     width: 100%;
@@ -58,6 +74,8 @@
   }
   #friend-list {
     width: 90%;
+    display: flex;
+    flex-direction: column;
   }
   #sidebar {
     display: flex;

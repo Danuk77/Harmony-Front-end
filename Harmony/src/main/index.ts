@@ -4,6 +4,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { Controller } from './Controller'
 import { ipcMainTypesafe } from './ipcMainTypesafe'
+import { showFriendBlockContextMenu } from './showFriendBlockContextMenu'
 export const DEBUG = true
 
 process.traceProcessWarnings = true
@@ -65,7 +66,7 @@ app.whenReady().then(() => {
 
   // system tray
   const appIcon = new Tray(join(__dirname, '../../resources/smallIcon.png'))
-  const contextMenu = Menu.buildFromTemplate([
+  const trayMenu = Menu.buildFromTemplate([
     { label: 'Harmony Client', type: 'normal', enabled: false },
     { type: 'separator' },
     {
@@ -75,7 +76,7 @@ app.whenReady().then(() => {
     },
     { label: 'Quit', type: 'normal', click: app.quit }
   ])
-  appIcon.setContextMenu(contextMenu)
+  appIcon.setContextMenu(trayMenu)
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
@@ -90,7 +91,14 @@ app.whenReady().then(() => {
   ipcMainTypesafe.handle('getConversation', (_, ...args) => controller.db.getConversation(...args))
   ipcMainTypesafe.handle('sendMessage', (_, ...args) => controller.sendMessage(...args))
   ipcMainTypesafe.handle('sendFriendRequest', (_, ...args) => controller.sendFriendRequest(...args))
+  ipcMainTypesafe.handle('sendFriendRejection', (_, ...args) =>
+    controller.sendFriendRejection(...args)
+  )
   ipcMainTypesafe.handle('showErrorBox', (_, ...args) => dialog.showErrorBox(...args))
+  ipcMainTypesafe.handle('showMessageBox', (_, ...args) => dialog.showMessageBox(...args))
+  ipcMainTypesafe.handle('showFriendBlockContextMenu', (_, ...args) =>
+    showFriendBlockContextMenu(...args)
+  )
 
   // main to renderer
   controller.onMainToRendererAction = (action) => {

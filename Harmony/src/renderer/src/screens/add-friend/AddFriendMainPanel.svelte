@@ -3,6 +3,7 @@
   import ExpandableBubble from '../../components/ExpandableBubble.svelte'
   import { store } from '../../redux'
   import { collectYupErrorsByField } from '../../misc/utils'
+  import { sendFriendRequest } from '../../endpointIoWrappers'
 
   const formSchema = yup.object({
     pk: yup
@@ -47,31 +48,7 @@
         nickname = pk
       }
 
-      window.api.sendFriendRequest($store.user.pk, pk, nickname).then((result) => {
-        switch (result.status) {
-          case 'fail':
-            window.api.showErrorBox('Failed to send friend request', result.msg)
-            break
-          case 'offline':
-            window.api.showErrorBox('Failed to send friend request', 'Friend is offline')
-            break
-          case 'succeed':
-            switch (result.type) {
-              case 'accept':
-                store.dispatch({ type: 'set-screen-mode', payload: 'chat' })
-                break
-              case 'reject':
-                window.api.showErrorBox(
-                  'Request rejected',
-                  'You friend request was rejected by the peer'
-                )
-                break
-              case 'pending':
-                store.dispatch({ type: 'set-screen-mode', payload: 'chat' })
-                break
-            }
-        }
-      })
+      sendFriendRequest($store.user.pk, pk, nickname)
     }
   }
 </script>

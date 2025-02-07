@@ -65,6 +65,14 @@ export class Controller {
       if (friend && friend.status == 'accept') {
         return 'accept'
         /**@todo maybe inform the renderer?*/
+      } else if (friend && friend.status == 'block') {
+        // if we have blocked them, send an explicit friend rejection message
+        // after a short delay to reduce likelihood of race condition in peer client of the friend status of this client
+        ;((localPk) => setTimeout(() => this.sendFriendRejection(localPk, pk), 1000))(
+          this.publicKey
+        )
+
+        return 'reject'
       } else {
         return 'reject'
       }
@@ -123,7 +131,6 @@ export class Controller {
                 statusModified: Date.now()
               }
 
-              // tell the renderer
               storeTypesafe.dispatch({
                 type: 'friend-change',
                 payload: { friend: update }
@@ -137,6 +144,11 @@ export class Controller {
           case 'pending':
             return 'pending'
           case 'block':
+            // if we have blocked them, send an explicit friend rejection message
+            // after a short delay to reduce likelihood of race condition in peer client of the friend status of this client
+            ;((localPk) => setTimeout(() => this.sendFriendRejection(localPk, pk), 1000))(
+              this.publicKey
+            )
             return 'reject'
           case 'awaiting-response':
             {
@@ -147,7 +159,6 @@ export class Controller {
                 statusModified: Date.now()
               }
 
-              // tell the renderer
               storeTypesafe.dispatch({
                 type: 'friend-change',
                 payload: { friend: update }
@@ -260,7 +271,7 @@ export class Controller {
             break
           case 'remove-friend':
             this.friendRoster.removeFriend(action.payload.peerPk)
-            /**@todo delete friend from database! */
+            this.db.removeFriend(action.payload.localPk, action.payload.peerPk)
             break
           case 'hydrate-friends':
             this.friendRoster.setFriends(action.payload)
@@ -417,7 +428,7 @@ export class Controller {
         statusModified: Date.now()
       }
 
-      // inform front ends
+      // modify redux store
       storeTypesafe.dispatch({
         type: 'friend-change',
         payload: { friend: friendUpdate }
@@ -430,7 +441,7 @@ export class Controller {
         status: 'block',
         statusModified: Date.now()
       }
-      // inform front end
+      // add to redux store
       storeTypesafe.dispatch({
         type: 'add-friend',
         payload: friend

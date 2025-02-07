@@ -4,11 +4,24 @@
   import { peerConnectionStatusToBulbColorCssVariable } from '../misc/misc'
   import type { FriendState } from '../../../common/redux'
   import { store } from '../redux'
-  let { selected, fs, onclick }: { selected: boolean; fs: FriendState; onclick: () => unknown } =
-    $props()
+  import HarmonyIcon from './HarmonyIcon.svelte'
+  import { changeFriendStatus } from '../endpointIoWrappers'
+  let {
+    selected,
+    fs,
+    onclick,
+    oncontextmenu
+  }: {
+    selected: boolean
+    fs: FriendState
+    onclick?: HTMLButtonElement['onclick']
+    oncontextmenu?: HTMLButtonElement['oncontextmenu']
+  } = $props()
 
   let backgroundColor = $derived(
-    selected && $store.ui.screenMode == 'chat' ? '--color-block-selected' : '--color-block'
+    selected && ($store.ui.screenMode == 'chat' || $store.ui.screenMode == 'edit-friend')
+      ? '--color-block-selected'
+      : '--color-block'
   )
   let bulbColor = $derived.by(() => {
     if (fs.friend.status == 'accept') {
@@ -33,7 +46,7 @@
   })
 </script>
 
-<button type="button" id="button" {onclick}>
+<a href={undefined} id="button" {onclick} {oncontextmenu}>
   <div id="block" style={`background-color: var(${backgroundColor})`}>
     {#key fs}
       <span title={fs.connectionStatus}>
@@ -41,12 +54,31 @@
       </span>
     {/key}
     <p id="nickname">{fs.friend.nickname}</p>
+    <div id="cog-container">
+      <HarmonyIcon
+        icon="fa-cog"
+        ariaLabel="Edit"
+        onclick={(e) => {
+          e.stopPropagation()
+          changeFriendStatus(fs.friend, 'edit')
+        }}
+      />
+    </div>
   </div>
-</button>
+</a>
 
 <style>
+  #cog-container {
+    position: relative;
+    right: 0px;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+    margin-left: 5px;
+    margin-right: 5px;
+  }
   #button {
-    all: unset;
     width: 100%;
   }
   #block {

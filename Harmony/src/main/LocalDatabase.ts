@@ -124,6 +124,17 @@ export class LocalDatabase {
   }
 
   /**
+   * Deletes a friend from the database
+   * @param localPk
+   * @param peerPk
+   * @returns True if a friend was deleted
+   */
+  public removeFriend = async (localPk: string, peerPk: string) => {
+    const result = await this.friendsDb.removeAsync({ localPk, peerPk }, {})
+    return result >= 1
+  }
+
+  /**
    * Add a new friend to the database.
    * @param friend
    */
