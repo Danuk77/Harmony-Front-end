@@ -10,7 +10,7 @@ import { WebsocketStatusType } from './connection/model/HarmonyWebsocketConnecti
 import { FriendRequestResult } from './connection/routines/initiated/sendFriendRequest'
 import { FriendRoster } from './FriendRoster'
 import { Friend, LocalDatabase, Message } from './LocalDatabase'
-import { getFriendState, startAppListening, storeTypesafe } from './redux'
+import { getFriendState, startAppListening, store, storeTypesafe } from './redux'
 
 export type SendMessageReturnType =
   | {
@@ -38,19 +38,20 @@ export class Controller {
 
   // callback for IPCs to be sent to the renderer.
   public onMainToRendererAction?: (arg0: MainToRendererAction) => unknown
+  // callback for system notifications
+  public onNotification?: (
+    notification: Electron.NotificationConstructorOptions,
+    dontShowIfFocused: boolean
+  ) => unknown
 
   constructor() {
     this.db = new LocalDatabase()
-    this.con = new HarmonyConnection(null)
+    this.con = new HarmonyConnection()
     this.friendRoster = new FriendRoster(this.con)
 
-    // Setting the local pk is what kicks everything off.
-    // The redux store is the source of truth for the local public key.
-    // At the end of this constructor method, a redux action is dispatched to set the pk.
-    // this.publicKey is then set by redux middleware.
-    // The setter for this.publicKey then dispatches another redux action to add the friends to the redux state.
-    // Once again, this is intercepted by redux middleware, and the friends are added to the friend roster.
-    // The friend roster starts attempting to connect to those friends when a server websocket connection is established and logged-in.
+    // How the Controller works: the redux store is the source of truth.
+    // In this constructor, middleware is created to intercept redux actions and update everything here based on that.
+    // At the end of this constructor, the redux action hydrate-user sets everything going.
 
     // con listeners
     this.con.onFailedLogin = (reason) => {
@@ -105,7 +106,8 @@ export class Controller {
           peerPk: pk,
           status: 'reject',
           statusModified: Date.now(),
-          nickname: pk
+          nickname: pk,
+          hasUnreadMessages: false
         }
 
         storeTypesafe.dispatch({
@@ -136,7 +138,10 @@ export class Controller {
                 payload: { friend: update }
               })
 
-              /**@todo send notification */
+              this.onNotification?.(
+                { title: 'Received friend request', body: friend.nickname + ' (' + pk + ')' },
+                true
+              )
             }
             return 'pending'
           case 'accept':
@@ -164,7 +169,7 @@ export class Controller {
                 payload: { friend: update }
               })
 
-              /**@todo send notification */
+              /**@todo send notification maybe? */
             }
             return 'accept'
         }
@@ -175,7 +180,8 @@ export class Controller {
           peerPk: pk,
           status: 'pending',
           nickname: pk,
-          statusModified: Date.now()
+          statusModified: Date.now(),
+          hasUnreadMessages: false
         }
 
         // tell the renderer
@@ -183,6 +189,8 @@ export class Controller {
           type: 'add-friend',
           payload: newFriend
         })
+
+        this.onNotification?.({ title: 'Received friend request', body: pk }, true)
 
         return 'pending'
       }
@@ -226,7 +234,38 @@ export class Controller {
         type: 'receive-message',
         payload: msgObj
       })
-      /**@todo send notification */
+
+      const state = store.getState()
+
+      const notification: Electron.NotificationConstructorOptions = {
+        title:
+          // friend nickname
+          state.user.pk ? (getFriendState(state.user.pk, pk)?.friend.nickname ?? '') : '',
+        body: msg
+      }
+
+      if (!this.con.publicKey) {
+        // type narrowing
+        return
+      }
+
+      // notification and unread! flag
+      if (state.ui.screenMode == 'chat' && state.ui.selectedFriendPk == pk) {
+        this.onNotification?.(notification, true /*dont show if focused */)
+      } else {
+        // if not focused, set unread messages flag for the friend
+        storeTypesafe.dispatch({
+          type: 'friend-change',
+          payload: {
+            friend: {
+              localPk: this.con.publicKey,
+              peerPk: pk,
+              hasUnreadMessages: true
+            }
+          }
+        })
+        this.onNotification?.(notification, false /*display unconditionally*/)
+      }
     }
 
     this.friendRoster.onFriendConnectionStatusChange = (peerPk, status) => {
@@ -402,7 +441,8 @@ export class Controller {
         peerPk: peerPk,
         nickname: nickname,
         status: newStatus,
-        statusModified: Date.now()
+        statusModified: Date.now(),
+        hasUnreadMessages: false
       }
 
       // tell the front end
@@ -439,7 +479,8 @@ export class Controller {
         peerPk,
         nickname: peerPk,
         status: 'block',
-        statusModified: Date.now()
+        statusModified: Date.now(),
+        hasUnreadMessages: false
       }
       // add to redux store
       storeTypesafe.dispatch({

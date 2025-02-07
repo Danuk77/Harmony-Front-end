@@ -69,17 +69,12 @@ export class HarmonyWebsocketConnection {
   ) => FriendRequestResponseType | Promise<FriendRequestResponseType>
   public onReceiveFriendRejection?: (pk: string) => unknown
 
-  constructor(publicKey: string | null, options?: Partial<HarmonyWebsocketConnectionOptions>) {
+  constructor() {
     // override default options
-    this.options = options
-      ? {
-          ...defaultOptions,
-          ...options
-        }
-      : { ...defaultOptions }
+    this.options = { ...defaultOptions }
 
     this.transactionSockets = new Map()
-    this.publicKey = publicKey
+    this.publicKey = null
   }
 
   public set enabled(enabled: boolean) {

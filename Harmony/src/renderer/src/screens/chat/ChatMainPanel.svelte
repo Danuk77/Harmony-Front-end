@@ -183,16 +183,18 @@
       {/each}
     </div>
   </div>
-  <div class="bubble" id="message-input-container" style="background-color: var({inputBoxColor})">
-    <div
-      contenteditable="true"
-      id="message-input"
-      onkeypress={messageBoxKeyEvent}
-      role="textbox"
-      tabindex="0"
-      bind:innerText={textBoxContents}
-    ></div>
-  </div>
+  {#if $store.ui.selectedFriendPk}
+    <div class="bubble" id="message-input-container" style="background-color: var({inputBoxColor})">
+      <div
+        contenteditable="true"
+        id="message-input"
+        onkeypress={messageBoxKeyEvent}
+        role="textbox"
+        tabindex="0"
+        bind:innerText={textBoxContents}
+      ></div>
+    </div>
+  {/if}
 </div>
 
 <style>

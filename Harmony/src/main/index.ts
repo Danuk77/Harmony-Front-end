@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, dialog, Tray, Menu } from 'electron'
+import { app, shell, BrowserWindow, dialog, Tray, Menu, Notification } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -10,6 +10,17 @@ export const DEBUG = true
 process.traceProcessWarnings = true
 
 let mainWindow: BrowserWindow | undefined
+
+// prevent multiple instances
+// if user tries to open another instance, focus/create the main window of the already open one
+const isOnlyInstance = app.requestSingleInstanceLock()
+if (!isOnlyInstance) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    focusMainWindow()
+  })
+}
 
 // focus the main window. If it doesn't exist, create it
 function focusMainWindow() {
@@ -86,6 +97,12 @@ app.whenReady().then(() => {
   })
 
   const controller = new Controller()
+
+  controller.onNotification = (notification, dontShowIfFocused) => {
+    if (!(dontShowIfFocused && mainWindow?.isFocused())) {
+      new Notification(notification).show()
+    }
+  }
 
   // 2 way, initiated by renderer
   ipcMainTypesafe.handle('getConversation', (_, ...args) => controller.db.getConversation(...args))

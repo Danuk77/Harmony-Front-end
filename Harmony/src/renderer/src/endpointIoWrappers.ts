@@ -74,7 +74,8 @@ export function sendFriendRequest(localPk: string, peerPk: string, nickname: str
 export async function blockFriend(friend: Friend) {
   const confirm = await window.api.showMessageBox({
     message: `Are you sure you want to block "${friend.nickname}"?`,
-    detail: 'This will send a friend rejection message to the friend via the server.',
+    detail:
+      'This will send a friend rejection message to the friend via the server, and hide this friend in this client.',
     type: 'question',
     buttons: ['Cancel', 'Confirm']
   })

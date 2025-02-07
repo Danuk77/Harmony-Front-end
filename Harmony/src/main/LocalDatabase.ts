@@ -36,6 +36,7 @@ export type Friend = {
   // ms since UNIX epoch
   statusModified: number
   nickname: string // initially set the same as publickey
+  hasUnreadMessages: boolean
 }
 type FriendDoc = Friend & {
   _id?: string // nedb
