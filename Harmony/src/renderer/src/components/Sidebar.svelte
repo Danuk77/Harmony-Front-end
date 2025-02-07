@@ -39,6 +39,7 @@
       {#each $store.friendStates as fs}
         {#if fs.friend.status != 'block'}
           <FriendBlock
+            hasUnreadMessages={fs.friend.hasUnreadMessages}
             selected={fs.friend.peerPk == $store.ui.selectedFriendPk}
             {fs}
             onclick={() => {
@@ -46,6 +47,20 @@
               // set mode to chat
               if ($store.ui.screenMode != 'chat') {
                 store.dispatch({ type: 'set-screen-mode', payload: 'chat' })
+              }
+
+              // unset hasUnreadMessages
+              if (fs.friend.hasUnreadMessages) {
+                store.dispatch({
+                  type: 'friend-change',
+                  payload: {
+                    friend: {
+                      localPk: fs.friend.localPk,
+                      peerPk: fs.friend.peerPk,
+                      hasUnreadMessages: false
+                    }
+                  }
+                })
               }
             }}
             oncontextmenu={() => friendBlockContextMenu(fs)}

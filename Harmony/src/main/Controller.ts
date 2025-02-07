@@ -254,16 +254,18 @@ export class Controller {
         this.onNotification?.(notification, true /*dont show if focused */)
       } else {
         // if not focused, set unread messages flag for the friend
-        storeTypesafe.dispatch({
-          type: 'friend-change',
-          payload: {
-            friend: {
-              localPk: this.con.publicKey,
-              peerPk: pk,
-              hasUnreadMessages: true
+        if (!getFriendState(this.con.publicKey, pk)?.friend.hasUnreadMessages) {
+          storeTypesafe.dispatch({
+            type: 'friend-change',
+            payload: {
+              friend: {
+                localPk: this.con.publicKey,
+                peerPk: pk,
+                hasUnreadMessages: true
+              }
             }
-          }
-        })
+          })
+        }
         this.onNotification?.(notification, false /*display unconditionally*/)
       }
     }

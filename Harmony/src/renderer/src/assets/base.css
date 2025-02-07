@@ -17,6 +17,8 @@
   --ev-c-green-1: #298200;
 
   --ev-c-amber-1: #AD7302;
+  --ev-c-amber-2: #573E26;
+  --ev-c-amber-3: #805C3C;
 
   --ev-c-text-white: #ffffff;
   --ev-c-text-gray: #6D6D6D;
@@ -38,6 +40,8 @@
   --color-text-error: var(--ev-c-amber-1);
   --color-block-selected: var(--ev-c-gray-2);
   --color-block: var(--ev-c-gray-3);
+  --color-block-highlighted: var(--ev-c-amber-2);
+  --color-block-highlighted-selected: var(--ev-c-amber-3);
   --color-input-box: var(--ev-c-gray-0);
   --color-input-box-disabled: var(--ev-c-gray-1);
 

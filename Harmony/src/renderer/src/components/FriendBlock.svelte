@@ -8,21 +8,38 @@
   import { changeFriendStatus } from '../endpointIoWrappers'
   let {
     selected,
+    hasUnreadMessages: hasUnreadMessages,
     fs,
     onclick,
     oncontextmenu
   }: {
     selected: boolean
+    hasUnreadMessages: boolean
     fs: FriendState
     onclick?: HTMLButtonElement['onclick']
     oncontextmenu?: HTMLButtonElement['oncontextmenu']
   } = $props()
 
-  let backgroundColor = $derived(
-    selected && ($store.ui.screenMode == 'chat' || $store.ui.screenMode == 'edit-friend')
-      ? '--color-block-selected'
-      : '--color-block'
-  )
+  let backgroundColor = $derived.by(() => {
+    const lighten =
+      selected && ($store.ui.screenMode == 'chat' || $store.ui.screenMode == 'edit-friend')
+    const amber = hasUnreadMessages
+
+    if (amber) {
+      if (lighten) {
+        return '--color-block-highlighted-selected'
+      } else {
+        return '--color-block-highlighted'
+      }
+    } else {
+      if (lighten) {
+        return '--color-block-selected'
+      } else {
+        return '--color-block'
+      }
+    }
+  })
+
   let bulbColor = $derived.by(() => {
     if (fs.friend.status == 'accept') {
       return peerConnectionStatusToBulbColorCssVariable(fs.connectionStatus)
