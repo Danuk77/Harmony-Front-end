@@ -162,7 +162,9 @@ export class LocalDatabase {
 
   public getUser = async (): Promise<User> => {
     try {
-      return await this.usersDb.findOneAsync({})
+      const user = await this.usersDb.findOneAsync({})
+      if (!user) return defaultUser
+      return user
     } catch {
       return defaultUser
     }
