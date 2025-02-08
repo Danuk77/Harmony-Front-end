@@ -1,7 +1,17 @@
-import { app, shell, BrowserWindow, dialog, Tray, Menu, Notification } from 'electron'
+import {
+  app,
+  shell,
+  BrowserWindow,
+  dialog,
+  Tray,
+  Menu,
+  Notification,
+  NativeImage,
+  nativeImage
+} from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import icon from '../../resources/icon.png?asset'
+import icon from '../../build/icon.png?asset'
 import { Controller } from './Controller'
 import { ipcMainTypesafe } from './ipcMainTypesafe'
 import { showFriendBlockContextMenu } from './showFriendBlockContextMenu'
@@ -76,7 +86,19 @@ app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.electron')
 
   // system tray
-  const appIcon = new Tray(join(__dirname, '../../resources/smallIcon.png'))
+  let appIconImage: NativeImage | undefined = undefined
+  if (process.platform == 'darwin') {
+    // on macos use pure-black image template
+    appIconImage = nativeImage.createFromPath(
+      join(__dirname, '../../resources/icon-mac-Template.png')
+    )
+  } else if (process.platform == 'win32') {
+    appIconImage = nativeImage.createFromPath(join(__dirname, '../../resources/icon.ico'))
+  }
+  if (!appIconImage) {
+    appIconImage = nativeImage.createFromPath(join(__dirname, '../../resources/icon.png'))
+  }
+  const appIcon = new Tray(appIconImage)
   const trayMenu = Menu.buildFromTemplate([
     { label: 'Harmony Client', type: 'normal', enabled: false },
     { type: 'separator' },
