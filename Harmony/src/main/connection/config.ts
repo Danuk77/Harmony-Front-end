@@ -12,5 +12,6 @@ export const rtcConfig: Partial<PeerConfig> = {
       urls: 'stun:stun.ekiga.net:3478'
     }
   ],
+
   iceTransportPolicy: 'all'
 }

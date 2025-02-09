@@ -2,10 +2,9 @@
   "name": "harmony",
   "productName": "Harmony Client",
   "version": "1.0.0",
-  "description": "An Electron application with Svelte and TypeScript",
+  "description": "Front end for Harmony",
   "main": "./out/main/index.js",
-  "author": "example.com",
-  "homepage": "https://electron-vite.org",
+  "author": "ZiadAmr",
   "scripts": {
     "format": "prettier --plugin prettier-plugin-svelte --write .",
     "lint": "eslint . --ext .js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix",

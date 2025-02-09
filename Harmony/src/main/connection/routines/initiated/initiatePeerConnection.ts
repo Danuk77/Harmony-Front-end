@@ -209,8 +209,8 @@ async function setupInitiatedPeerConnection(
   }
   // only remains accept and offer case.
   // peerResponse is typed correctly :)
-  rtc.setConfiguration(rtcConfig)
   await rtc.setRemoteDescription(peerResponse.forwarded.payload)
+  rtc.setConfiguration(rtcConfig)
   const rtcAnswer = await rtc.createAnswer()
   await send({
     forward: {
