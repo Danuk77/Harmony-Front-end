@@ -1,10 +1,10 @@
 {
   "name": "harmony",
+  "productName": "Harmony Client",
   "version": "1.0.0",
-  "description": "An Electron application with Svelte and TypeScript",
+  "description": "Front end for Harmony",
   "main": "./out/main/index.js",
-  "author": "example.com",
-  "homepage": "https://electron-vite.org",
+  "author": "ZiadAmr",
   "scripts": {
     "format": "prettier --plugin prettier-plugin-svelte --write .",
     "lint": "eslint . --ext .js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix",
@@ -23,29 +23,37 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.1",
     "@electron-toolkit/utils": "^3.0.0",
-    "@roamhq/wrtc": "^0.8.0",
+    "@fortawesome/fontawesome-free": "^6.7.2",
+    "@reduxjs/toolkit": "^2.5.0",
     "@seald-io/nedb": "^4.0.4",
     "@types/websocket": "^1.0.10",
+    "electron-redux": "^2.0.0",
     "electron-updater": "^6.1.7",
-    "websocket": "^1.0.35"
+    "jsonschema": "^1.5.0",
+    "websocket": "^1.0.35",
+    "werift": "^0.21.12",
+    "yup": "^1.6.1"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config-prettier": "^2.0.0",
     "@electron-toolkit/eslint-config-ts": "^2.0.0",
     "@electron-toolkit/tsconfig": "^1.0.1",
-    "@sveltejs/vite-plugin-svelte": "^3.1.1",
+    "@sveltejs/vite-plugin-svelte": "^4.0.4",
     "@types/node": "^20.14.8",
-    "electron": "^31.0.2",
+    "electron": "^34.0.2",
     "electron-builder": "^24.13.3",
     "electron-vite": "^2.3.0",
     "eslint": "^8.57.0",
     "eslint-plugin-svelte": "^2.41.0",
+    "json-schema-to-ts": "^3.1.1",
     "prettier": "^3.3.2",
     "prettier-plugin-svelte": "^3.2.5",
-    "svelte": "^4.2.18",
-    "svelte-check": "^3.8.2",
+    "svelte": "^5.16.0",
+    "svelte-awesome-icons": "^2.0.1",
+    "svelte-check": "^4.1.1",
     "tslib": "^2.6.3",
     "typescript": "^5.5.2",
-    "vite": "^5.3.1"
+    "vite": "^5.3.1",
+    "vite-plugin-resolve": "^2.5.2"
   }
 }

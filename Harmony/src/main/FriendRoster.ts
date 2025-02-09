@@ -11,6 +11,7 @@ import { DEBUG } from '.'
  * Combines methods and callbacks from the friends.
  */
 export class FriendRoster {
+  // peerPk -> FriendConnectionHandler
   private friends: Map<string, FriendConnectionHandler> = new Map<string, FriendConnectionHandler>()
   private con: HarmonyConnection
   private _paused: boolean = true
@@ -40,7 +41,61 @@ export class FriendRoster {
   }
 
   /**
+   * Diff friends
+   * IMPORTANT - wanted must be EXACTLY of type Friend[] - no extra properties. This will mess things up
+   * @param wanted
+   */
+  public setFriends = (wanted: Friend[]) => {
+    // this also removes duplicate peerPks
+    const wantedMap = new Map(wanted.map((friend) => [friend.peerPk, friend]))
+
+    const wantedPks = Array.from(wantedMap.keys())
+    const gotPks = Array.from(this.friends.keys())
+
+    // venn diagram
+    // only check peer pk. local pk may have changed as well - if so we'll find out in the toUpdate loop
+    const toUpdate = wantedPks.filter((pk) => this.friends.has(pk))
+    const toDelete = gotPks.filter((pk) => !wantedMap.has(pk))
+    const toAdd = wantedPks.filter((pk) => !this.friends.has(pk))
+
+    /**@todo must be certain that the websocket connection has been recreated with the new local pk at this point*/
+
+    for (const pk of toUpdate) {
+      const currentHandler = this.friends.get(pk)
+      const newFriend = wantedMap.get(pk)
+
+      if (!currentHandler || !newFriend) {
+        // just to coerce the types.
+        // this should not happen unless the friends somehow change during this function
+        throw new Error()
+      }
+
+      // check local pk matches
+      if (currentHandler.friend.localPk != newFriend.localPk) {
+        // if not, recreate the friend with the new local pk
+        toDelete.push(pk)
+        toAdd.push(pk)
+        continue
+      }
+
+      currentHandler.friend = newFriend
+    }
+
+    for (const pk of toDelete) {
+      this.removeFriend(pk)
+    }
+
+    for (const pk of toAdd) {
+      const friend = wantedMap.get(pk)
+      if (friend) {
+        this.addOrUpdateFriend(friend)
+      }
+    }
+  }
+
+  /**
    * Add a new friend for connections, or update the friend
+   * Returns true if the friend already existed
    * @param friend
    */
   public addOrUpdateFriend = (friend: Friend) => {
@@ -48,6 +103,7 @@ export class FriendRoster {
 
     if (existingFriendHandler) {
       existingFriendHandler.friend = friend
+      return true
     } else {
       const friendHandler = new FriendConnectionHandler(
         this.con,
@@ -57,6 +113,7 @@ export class FriendRoster {
       )
       this.friends.set(friend.peerPk, friendHandler)
       friendHandler.paused = this.paused
+      return false
     }
   }
   /**
@@ -115,5 +172,14 @@ export class FriendRoster {
       throw new Error('Friend does not exist')
     }
     friendHandler.sendMessage(msg) // might throw an error.
+  }
+
+  /**
+   * Gracefully close all rtc connections
+   */
+  public closeAll = () => {
+    for (const friend of this.friends.values()) {
+      friend.close()
+    }
   }
 }

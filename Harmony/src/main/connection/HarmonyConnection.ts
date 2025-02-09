@@ -2,10 +2,7 @@
  * Facade for code in this directory.
  */
 
-import {
-  HarmonyWebsocketConnection,
-  HarmonyWebsocketConnectionOptions
-} from './model/HarmonyWebsocketConnection'
+import { HarmonyWebsocketConnection } from './model/HarmonyWebsocketConnection'
 import { initiatePeerConnection } from './routines/initiated/initiatePeerConnection'
 import { sendFriendRejection } from './routines/initiated/sendFriendRejection'
 import { sendFriendRequest } from './routines/initiated/sendFriendRequest'
@@ -18,9 +15,34 @@ export class HarmonyConnection {
    * @param publicKey This client's public key
    * @param websocketConnectionOptions Additional options for the websocket.
    */
-  constructor(publicKey: string, websocketConnectionOptions?: HarmonyWebsocketConnectionOptions) {
+  constructor() {
     // create websocket
-    this.websocket = new HarmonyWebsocketConnection(publicKey, websocketConnectionOptions)
+    this.websocket = new HarmonyWebsocketConnection()
+  }
+
+  public get wsStatus() {
+    return this.websocket.wsStatus
+  }
+
+  public set publicKey(publicKey: string | null) {
+    this.websocket.publicKey = publicKey
+  }
+  public get publicKey() {
+    return this.websocket.publicKey
+  }
+
+  public set serverUrl(serverUrl: string | null) {
+    this.websocket.serverUrl = serverUrl
+  }
+  public get serverUrl() {
+    return this.websocket.serverUrl
+  }
+
+  public set enabled(enabled: boolean) {
+    this.websocket.enabled = enabled
+  }
+  public get enabled() {
+    return this.websocket.enabled
   }
 
   /**

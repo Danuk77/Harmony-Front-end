@@ -1,3 +1,4 @@
+import { eToStr } from '../../../Controller'
 import { HarmonyWebsocketConnection } from '../../model/HarmonyWebsocketConnection'
 
 type FriendRejectionResult =
@@ -9,6 +10,21 @@ type FriendRejectionResult =
       status: 'offline' | 'succeed'
       msg?: undefined
     }
+
+const responseSchema = {
+  $schema: 'https://json-schema.org/draft/2020-12/schema',
+  type: 'object',
+  properties: {
+    peerStatus: {
+      enum: ['offline', 'online']
+    },
+    terminate: {
+      const: 'done'
+    }
+  },
+  additionalProperties: false,
+  required: ['peerStatus', 'terminate']
+} as const
 
 /**
  * Sends a friend rejection to a peer and returns the result
@@ -31,10 +47,7 @@ export function sendFriendRejection(
         })
 
         // get response
-        const resp = (await recv()) as {
-          peerStatus: 'offline' | 'online'
-          terminate: 'done'
-        }
+        const resp = await recv(responseSchema)
 
         // process response
         switch (resp.peerStatus) {
@@ -54,7 +67,7 @@ export function sendFriendRejection(
       .catch((reason) => {
         resolve({
           status: 'fail',
-          msg: (reason as Error).message
+          msg: eToStr(reason)
         })
       })
   })

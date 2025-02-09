@@ -1,4 +1,4 @@
-import { RTCPeerConnection, RTCDataChannel } from '@roamhq/wrtc'
+import { RTCPeerConnection, RTCDataChannel } from 'werift'
 
 export class HarmonyPeerConnection {
   rtc: RTCPeerConnection

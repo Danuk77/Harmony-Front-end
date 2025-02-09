@@ -9,20 +9,24 @@ import {
 import { AsyncBlockingQueue } from './AsyncBlockingQueue'
 import { comeOnline } from '../routines/initiated/comeOnline'
 import { masterRoutine } from '../routines/received/masterRoutine'
-import { backendURL } from '../config'
 import { PeerConnectionCreationResult } from './HarmonyPeerConnection'
+import { eToStr } from '../../Controller'
+import { Validator } from 'jsonschema'
+import { FromSchema, JSONSchema } from 'json-schema-to-ts'
 
-const TRANSACTION_SOCKET_TIMEOUT = 3000 //ms
+const TRANSACTION_SOCKET_TIMEOUT = 20000 //ms
 const WS_RECONNECT_TIMEOUT = 10000 // ms
+
+export const validator = new Validator()
 
 export type HarmonyWebsocketConnectionOptions = {
   /**
    * Url of the signalling server websocket endpoint.
    */
-  websocketUrl: string
+  serverUrl: string | null
 }
 const defaultOptions: HarmonyWebsocketConnectionOptions = {
-  websocketUrl: backendURL
+  serverUrl: null
 }
 
 export type FriendRequestResponseType = 'accept' | 'reject' | 'pending'
@@ -47,7 +51,9 @@ export class HarmonyWebsocketConnection {
   private _wsStatus: WebsocketStatusType = 'disconnected'
   private transactionSockets: Map<string, HarmonyTransactionSocket>
   private reconnectTimeout?: NodeJS.Timeout
-  public publicKey: string
+  private _publicKey: string | null = null
+  private reconnectCount = 0
+  private _enabled: boolean = false
 
   // callback functions - may be added to the object.
   public onWsStatusChange?: (status: WebsocketStatusType) => unknown
@@ -63,17 +69,38 @@ export class HarmonyWebsocketConnection {
   ) => FriendRequestResponseType | Promise<FriendRequestResponseType>
   public onReceiveFriendRejection?: (pk: string) => unknown
 
-  constructor(publicKey: string, options?: Partial<HarmonyWebsocketConnectionOptions>) {
+  constructor() {
     // override default options
-    this.options = options
-      ? {
-          ...defaultOptions,
-          ...options
-        }
-      : { ...defaultOptions }
+    this.options = { ...defaultOptions }
 
-    this.publicKey = publicKey
     this.transactionSockets = new Map()
+    this.publicKey = null
+  }
+
+  public set enabled(enabled: boolean) {
+    this._enabled = enabled
+    this.reconnect()
+  }
+  public get enabled() {
+    return this._enabled
+  }
+
+  public set serverUrl(websocketUrl: string | null) {
+    this.options.serverUrl = websocketUrl
+    this.reconnect()
+  }
+
+  public get serverUrl() {
+    return this.options.serverUrl
+  }
+
+  public set publicKey(publicKey: string | null) {
+    this._publicKey = publicKey
+    this.reconnect()
+  }
+
+  public get publicKey() {
+    return this._publicKey
   }
 
   private set wsStatus(status: WebsocketStatusType) {
@@ -104,38 +131,63 @@ export class HarmonyWebsocketConnection {
    * Attempt to reconnect to the websocket and run comeOnline
    * @returns
    */
-  public async reconnect(): Promise<void> {
-    if (this.wsStatus == 'closed' || this.wsStatus == 'connecting') {
+  public reconnect = async (): Promise<void> => {
+    // bump and keep track of reconnect attempt.
+    // use this num to detect whether this is the newest reconnect attempt
+    // and cancel if not.
+    const reconnectNum = ++this.reconnectCount
+
+    if (this.wsStatus == 'closed') {
       // ignore
       return
     }
-    if (this.wsStatus != 'login-failed') {
-      // attempt to establish a new websocket connection
-      this.wsStatus = 'connecting'
-      let con: connection
-      try {
-        con = await this.getConnection()
-      } catch {
-        this.wsStatus = 'disconnected'
-        return
-      }
 
-      // add event listeners
-      con.on('close', this.wsClose)
-      con.on('error', this.wsError)
-      con.on('message', this.wsMessage)
+    // close connection if already open
+    this.wsConnection?.close()
 
-      this.wsConnection = con
-
-      this.wsStatus = 'connected'
+    // ignore if no websocket url or not enabled
+    if (!this.options.serverUrl || !this.enabled) {
+      return
     }
 
+    // attempt to establish a new websocket connection
+    this.wsStatus = 'connecting'
+    let con: connection
     try {
-      await comeOnline(this, this.publicKey)
-      this.wsStatus = 'logged-in'
+      con = await this.getConnection(this.options.serverUrl)
     } catch (e) {
-      this.wsStatus = 'login-failed'
-      this.onFailedLogin?.((e as Error).message)
+      // check that this is still the legitimate reconnect(), and that there is not a newer one running somewhere else
+      console.error(eToStr(e))
+      if (reconnectNum == this.reconnectCount) {
+        this.wsStatus = 'disconnected'
+      }
+      return
+    }
+
+    // check that this is still the legitimate reconnect(), and that there is not a newer one running somewhere else
+    if (reconnectNum != this.reconnectCount) {
+      con.close()
+      return
+    }
+
+    // add event listeners
+    con.on('close', this.wsClose)
+    con.on('error', this.wsError)
+    con.on('message', this.wsMessage)
+
+    this.wsConnection = con
+
+    this.wsStatus = 'connected'
+
+    // comeOnline
+    if (this.publicKey) {
+      try {
+        await comeOnline(this, this.publicKey)
+        this.wsStatus = 'logged-in'
+      } catch (e) {
+        this.wsStatus = 'login-failed'
+        this.onFailedLogin?.((e as Error).message)
+      }
     }
   }
 
@@ -147,15 +199,15 @@ export class HarmonyWebsocketConnection {
     this.wsConnection?.close()
   }
 
-  private getConnection(): Promise<connection> {
+  private getConnection(websocketUrl: string): Promise<connection> {
     const client = new WebSocketClient()
 
-    client.connect(this.options.websocketUrl)
+    client.connect(websocketUrl)
 
     // return a promise so it can be `await`ed
     return new Promise((resolve, reject) => {
       client.on('connect', resolve)
-      client.on('connectFailed', () => reject(new Error('Connection failed')))
+      client.on('connectFailed', (error) => reject(error))
     })
   }
 
@@ -169,6 +221,8 @@ export class HarmonyWebsocketConnection {
     for (const { messageCallback } of this.transactionSockets.values()) {
       messageCallback?.(null)
     }
+    // clear map
+    this.transactionSockets = new Map()
     console.log('Websocket closed')
   }
   private wsMessage = (message: Message): void => {
@@ -259,7 +313,7 @@ export class HarmonyWebsocketConnection {
     /**
      * @throws HarmonyError if the server sends a `{terminate:"error"}` property
      */
-    const recv = async (): Promise<object> => {
+    const recv = async <S extends JSONSchema, T = FromSchema<S>>(schema?: S): Promise<T> => {
       if (tsIsClosed) {
         throw new HarmonyError('recv on closed transaction socket')
       }
@@ -289,7 +343,15 @@ export class HarmonyWebsocketConnection {
         }
         msg = maybeMessage
       }
-      const parsed = JSON.parse(msg)
+
+      // parse
+      // let parsed: S extends JSONSchema ? FromSchema<S> : object
+      let parsed: object
+      try {
+        parsed = JSON.parse(msg)
+      } catch (e) {
+        throw new HarmonyError(eToStr(e))
+      }
 
       // check if the server is terminating
       if (Object.prototype.hasOwnProperty.call(parsed, 'terminate')) {
@@ -312,21 +374,28 @@ export class HarmonyWebsocketConnection {
         console.log(errorMsg.error)
 
         // terminate the connection anyway. don't bother with re-sending messages for now.
-        /**@todo maybe change - sort out this tsIsClosed thing, it's a mess */
-        tsIsClosed = true
-
-        await send({
-          terminate: 'cancel'
-        })
         throw new HarmonyError(errorMsg.error)
       }
 
-      return parsed
+      // compare against schema
+      if (schema) {
+        const result = validator.validate(parsed, schema as object)
+        if (!result.valid) {
+          throw new HarmonyError(
+            'Error on incoming message: ' + result.errors.map((err) => err.toString()).join(', ')
+          )
+        }
+      }
+      // apply typings
+      return parsed as T
     }
 
     try {
       return await routine({ recv, send })
     } finally {
+      if (!tsIsClosed) {
+        send({ terminate: 'cancel' })
+      }
       tsIsClosed = true
       this.transactionSockets.delete(routineOptions.id)
     }

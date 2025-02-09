@@ -1,5 +1,5 @@
 appId: com.electron.app
-productName: harmony
+productName: Harmony Client
 directories:
   buildResources: build
 files:
@@ -9,10 +9,11 @@ files:
   - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+includeSubNodeModules: true # fix bug with @shinyoshiaki/binary-data 
 asarUnpack:
   - resources/**
 win:
-  executableName: harmony
+  executableName: harmonyclient
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
@@ -37,9 +38,10 @@ linux:
   category: Utility
 appImage:
   artifactName: ${name}-${version}.${ext}
-npmRebuild: false
+npmRebuild: true
 publish:
   provider: generic
   url: https://example.com/auto-updates
 electronDownload:
   mirror: https://npmmirror.com/mirrors/electron/
+

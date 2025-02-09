@@ -7,7 +7,7 @@ import {
 
 const offlineReconnectPeriod = 300_000 // ms (5 minutes)
 const disconnectedReconnectPeriod = 10_000 //ms
-const failedReconnectPeriod = 10_000 // ms
+const failedReconnectPeriod = 300_000 // ms
 const rejectedReconnectPeriod = 10_000 // ms
 
 export type FriendConnectionStatus =
@@ -55,7 +55,7 @@ export class FriendConnectionHandler {
     return this._friend
   }
   /**
-   * Set this.friendInternal and update the connection status too.
+   * Set this._friend and update the connection status too.
    */
   public set friend(friend: Friend) {
     // pk must NOT change.
@@ -93,9 +93,9 @@ export class FriendConnectionHandler {
       }
     } else {
       if (this.shouldReconnectWhenUnpaused) {
-        this.shouldReconnectWhenUnpaused = false
         this.attemptConnection()
       }
+      this.shouldReconnectWhenUnpaused = false
     }
   }
   public get paused() {
@@ -111,7 +111,8 @@ export class FriendConnectionHandler {
   }
   private set connectionStatus(status: FriendConnectionStatus) {
     if (this._connectionStatus == 'closed') {
-      throw new Error("Can't change closed connection status")
+      return // ignore
+      // throw new Error("Can't change closed connection status")
     }
 
     const hasChanged = status != this._connectionStatus
@@ -207,19 +208,22 @@ export class FriendConnectionHandler {
         this.peerConnection = result.peerConnection
 
         // add event listeners
-        this.peerConnection.chatChannel.onmessage = (msg) => {
-          this.onReceiveMessage?.(msg.data)
-        }
-        this.peerConnection.chatChannel.onclose = () => {
-          // check chat channel has not changed
-          if (this.peerConnection == result.peerConnection) {
-            // in future we could get an explicit disconnect message from the user.
-            this.connectionStatus = 'online-disconnected'
+        this.peerConnection.chatChannel.onMessage.subscribe((msg) => {
+          this.onReceiveMessage?.(msg.toString())
+        })
+        this.peerConnection.chatChannel.stateChanged.subscribe((state) => {
+          if (state == 'closing' || state == 'closed') {
+            // check chat channel has not changed
+            if (this.peerConnection == result.peerConnection) {
+              // in future we could get an explicit disconnect message from the user.
+              this.connectionStatus = 'online-disconnected'
+            }
+            // remove listeners
+            result.peerConnection.chatChannel.stateChanged.allUnsubscribe()
+            result.peerConnection.rtc.connectionStateChange.allUnsubscribe()
           }
-          // remove this listener
-          result.peerConnection.rtc.onconnectionstatechange = null
-        }
-        result.peerConnection.rtc.onconnectionstatechange = () => {
+        })
+        result.peerConnection.rtc.connectionStateChange.subscribe(() => {
           if (
             ['closed', 'disconnected', 'failed'].includes(result.peerConnection.rtc.connectionState)
           ) {
@@ -227,10 +231,11 @@ export class FriendConnectionHandler {
             if (this.peerConnection == result.peerConnection) {
               this.connectionStatus = 'online-disconnected'
             }
-            // remove this listener
-            result.peerConnection.rtc.onconnectionstatechange = null
+            // remove these listeners
+            result.peerConnection.chatChannel.stateChanged.allUnsubscribe()
+            result.peerConnection.rtc.connectionStateChange.allUnsubscribe()
           }
-        }
+        })
 
         this.connectionStatus = 'online-connected'
         break
@@ -254,5 +259,7 @@ export class FriendConnectionHandler {
   // close the connection and prevent reconnections.
   public close() {
     this.connectionStatus = 'closed'
+    this.peerConnection?.chatChannel.close()
+    this.peerConnection?.rtc.close()
   }
 }

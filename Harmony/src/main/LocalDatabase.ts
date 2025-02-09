@@ -10,10 +10,18 @@ export const DB_FRIENDS_LOC = path.join(DB_LOC, '/friends.db')
 console.log(DB_LOC)
 
 export type User = {
-  pk: string
+  pk: string | null
+  serverUrl: string | null
+  serverEnabled: boolean
 }
 type UserDoc = User & {
   _id?: string // nedb thing
+}
+
+const defaultUser: User = {
+  pk: null,
+  serverUrl: null,
+  serverEnabled: true
 }
 
 export type Friend = {
@@ -25,8 +33,10 @@ export type Friend = {
     | 'pending' // they are waiting for us to reply.
     | 'block' // we rejected them
     | 'awaiting-response' // we want to become friends; waiting for peer's response
-  statusModified: Date
+  // ms since UNIX epoch
+  statusModified: number
   nickname: string // initially set the same as publickey
+  hasUnreadMessages: boolean
 }
 type FriendDoc = Friend & {
   _id?: string // nedb
@@ -36,8 +46,10 @@ export type Message = {
   fromPk: string
   toPk: string
   text: string
-  date: Date
+  // ms since UNIX epoch
+  date: number
 }
+
 type MessageDoc = Message & {
   _id?: string // nedb
 }
@@ -57,6 +69,24 @@ export class LocalDatabase {
     await this.messagesDb.insertAsync(msg)
   }
 
+  public getConversation = async (pk0: string, pk1: string) => {
+    const friends = await this.messagesDb
+      .findAsync({
+        $or: [
+          {
+            fromPk: pk0,
+            toPk: pk1
+          },
+          {
+            fromPk: pk1,
+            toPk: pk0
+          }
+        ]
+      })
+      .sort({ date: 1 })
+    return friends
+  }
+
   public getFriend = async (localPk: string, peerPk: string) => {
     const friend = await this.friendsDb.findOneAsync({
       localPk: localPk,
@@ -70,8 +100,10 @@ export class LocalDatabase {
     }
   }
 
-  public getAllFriends = async () => {
-    return await this.friendsDb.findAsync({})
+  public getAllFriends = async (localPk: string) => {
+    return await this.friendsDb.findAsync({
+      localPk
+    })
   }
 
   /**
@@ -93,10 +125,49 @@ export class LocalDatabase {
   }
 
   /**
+   * Deletes a friend from the database
+   * @param localPk
+   * @param peerPk
+   * @returns True if a friend was deleted
+   */
+  public removeFriend = async (localPk: string, peerPk: string) => {
+    const result = await this.friendsDb.removeAsync({ localPk, peerPk }, {})
+    return result >= 1
+  }
+
+  /**
    * Add a new friend to the database.
    * @param friend
    */
   public insertFriend = async (friend: Friend) => {
     await this.friendsDb.insertAsync(friend)
+  }
+
+  public updateUser = async (fields: Partial<User>) => {
+    const result = await this.usersDb.updateAsync({}, { $set: fields })
+    if (result.numAffected == 0) {
+      // create doc
+      const newDoc: User = {
+        ...defaultUser,
+        ...fields
+      }
+      await this.usersDb.insertAsync(newDoc)
+    } else if (result.numAffected > 1) {
+      throw new Error(
+        'Multiple user documents in ' +
+          DB_USERS_LOC +
+          '\nDelete the file or remove all but 1 entry from within'
+      )
+    }
+  }
+
+  public getUser = async (): Promise<User> => {
+    try {
+      const user = await this.usersDb.findOneAsync({})
+      if (!user) return defaultUser
+      return user
+    } catch {
+      return defaultUser
+    }
   }
 }

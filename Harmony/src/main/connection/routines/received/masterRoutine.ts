@@ -3,6 +3,19 @@ import { receiveFriendRequest } from './receiveFriendRequest'
 import { receivePeerConnection } from './receivePeerConnection'
 import { HarmonyRoutineParams } from '../../model/routine'
 import { receiveFriendRejection } from './receiveFriendRejection'
+import { FromSchema } from 'json-schema-to-ts'
+import { eToStr } from '../../../Controller'
+
+const initiateSchema = {
+  $schema: 'https://json-schema.org/draft/2020-12/schema',
+  type: 'object',
+  properties: {
+    initiate: {
+      enum: ['receiveConnectionRequest', 'receiveFriendRequest', 'receiveFriendRejection']
+    }
+  },
+  required: ['initiate']
+} as const
 
 /**
  * any incoming transaction socket initiated by the server gets routed through here.
@@ -11,25 +24,23 @@ export async function masterRoutine(
   con: HarmonyWebsocketConnection,
   { send, recv }: HarmonyRoutineParams
 ) {
-  let firstMsg: {
-    initiate: 'receiveConnectionRequest' | 'receiveFriendRequest' | 'receiveFriendRejection'
-  }
+  let firstMsg: FromSchema<typeof initiateSchema>
   try {
-    firstMsg = (await recv()) as typeof firstMsg
+    firstMsg = await recv(initiateSchema)
   } catch (e) {
-    console.error((e as Error).message)
+    console.error(eToStr(e))
     return
   }
 
   switch (firstMsg.initiate) {
     case 'receiveConnectionRequest':
-      await receivePeerConnection(con, firstMsg as object, { send, recv })
+      await receivePeerConnection(con, firstMsg, { send, recv })
       break
     case 'receiveFriendRequest':
-      await receiveFriendRequest(con, firstMsg as object, { send, recv })
+      await receiveFriendRequest(con, firstMsg, { send, recv })
       break
     case 'receiveFriendRejection':
-      await receiveFriendRejection(con, firstMsg as object)
+      await receiveFriendRejection(con, firstMsg)
       break
     default:
       try {
