@@ -5,14 +5,25 @@
   import ExpandableBubble from '../../components/ExpandableBubble.svelte'
 
   const schema = yup.object({
-    pk: yup
+    publicKey: yup
       .string()
       .required('This field is required')
-      .matches(/^\s*[0123456789abcdefABCDEF]{128}\s*$/, 'Should be 128 hexadecimal digits')
+      .matches(
+        /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/,
+        'Public key should be a base64-encoded ed25519 verifying key exported in DER format.'
+      ),
+    privateKey: yup
+      .string()
+      .required('This field is required')
+      .matches(
+        /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/,
+        'Private key should be a base64-encoded ed25519 signing key exported in DER format.'
+      )
   })
 
   let values = $state<yup.InferType<typeof schema>>({
-    pk: $store.user.pk ?? ''
+    publicKey: $store.user.keyPair?.publicKey ?? '',
+    privateKey: $store.user.keyPair?.privateKey ?? ''
   })
 
   let formErrors = $derived(collectYupErrorsByField(schema, values))
@@ -23,10 +34,15 @@
     showErrors = true
 
     if (schema.isValidSync(values)) {
-      // remove whitespace from pk and make lower
-      const pk = values.pk.toLowerCase().replace(/\s/g, '')
+      /**@todo check that the keys match*/
 
-      store.dispatch({ type: 'set-local-pk', payload: pk })
+      store.dispatch({
+        type: 'set-key-pair',
+        payload: {
+          privateKey: values.privateKey,
+          publicKey: values.publicKey
+        }
+      })
     }
   }
 </script>
@@ -36,9 +52,18 @@
     <div id="form">
       <form onsubmit={handleSubmit}>
         <ExpandableBubble
-          bind:value={values.pk}
+          bind:value={values.publicKey}
           label="Public Key"
-          error={showErrors && formErrors.pk.length > 0 ? formErrors.pk[0] : undefined}
+          error={showErrors && formErrors.publicKey.length > 0
+            ? formErrors.publicKey[0]
+            : undefined}
+        />
+        <ExpandableBubble
+          bind:value={values.privateKey}
+          label="Private Key"
+          error={showErrors && formErrors.privateKey.length > 0
+            ? formErrors.privateKey[0]
+            : undefined}
         />
         <input type="submit" id="submit" value="Confirm" />
       </form>

@@ -10,8 +10,8 @@
       .string()
       .required('This field is required')
       .matches(
-        /^\s*[0123456789abcdefABCDEF]{128}\s*$/,
-        'Public key should be 128 hexadecimal digits'
+        /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/,
+        'Public key should be a base64-encoded ed25519 verifying key exported in DER format.'
       ),
     nickname: yup.string()
   })
@@ -33,7 +33,7 @@
     event.preventDefault()
     showErrors = true
 
-    if (!$store.user.pk) {
+    if (!$store.user.keyPair) {
       window.api.showErrorBox('Your public key is not set', 'Please set a public key and try again')
       return
     }
@@ -48,7 +48,7 @@
         nickname = pk
       }
 
-      sendFriendRequest($store.user.pk, pk, nickname)
+      sendFriendRequest($store.user.keyPair.publicKey, pk, nickname)
     }
   }
 </script>

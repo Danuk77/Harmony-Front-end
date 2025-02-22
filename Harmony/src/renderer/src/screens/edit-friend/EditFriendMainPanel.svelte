@@ -9,7 +9,9 @@
 
   const friendState = $derived.by(() =>
     $store.friendStates.find(
-      (fs) => fs.friend.peerPk == $store.ui.selectedFriendPk && fs.friend.localPk == $store.user.pk
+      (fs) =>
+        fs.friend.peerPk == $store.ui.selectedFriendPk &&
+        fs.friend.localPk == $store.user.keyPair?.publicKey
     )
   )
 

@@ -14,7 +14,7 @@
 
   async function friendBlockContextMenu(fs: FriendState) {
     // make const copy to prevent typescript error
-    const localPk = $store.user.pk
+    const localPk = $store.user.keyPair?.publicKey
 
     if (localPk) {
       const result = await window.api.showFriendBlockContextMenu(fs.friend)

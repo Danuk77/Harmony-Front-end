@@ -11,7 +11,7 @@ export const defaultState: State = {
     failedLoginMsg: null
   },
   user: {
-    pk: null,
+    keyPair: null,
     serverEnabled: true,
     serverUrl: null
   },
@@ -19,6 +19,11 @@ export const defaultState: State = {
     selectedFriendPk: null,
     screenMode: 'chat'
   }
+}
+
+export type KeyPair = {
+  publicKey: string
+  privateKey: string
 }
 
 export type FriendState = {
@@ -77,7 +82,7 @@ export type Action =
   | { type: 'hydrate-friends'; payload: Friend[] }
   | { type: 'hydrate-user'; payload: User }
   | { type: 'set-screen-mode'; payload: ScreenMode }
-  | { type: 'set-local-pk'; payload: string | null }
+  | { type: 'set-key-pair'; payload: KeyPair }
   | { type: 'set-server-url'; payload: string | null }
   | { type: 'set-server-enabled'; payload: boolean }
   | { type: 'set-failed-login-msg'; payload: string | null }
@@ -175,12 +180,12 @@ export function reducer(state: State | undefined = defaultState, action: Action)
           screenMode: action.payload
         }
       }
-    case 'set-local-pk':
+    case 'set-key-pair':
       return {
         ...state,
         user: {
           ...state.user,
-          pk: action.payload
+          keyPair: action.payload
         }
       }
     case 'set-server-url':

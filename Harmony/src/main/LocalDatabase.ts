@@ -1,6 +1,7 @@
 import DataStore from '@seald-io/nedb'
 import { app } from '.'
 import path from 'path'
+import { KeyPair } from '../common/redux'
 
 export const DB_LOC = path.join(app.getPath('userData'), '/UserData/')
 export const DB_MESSAGES_LOC = path.join(DB_LOC, '/messages.db')
@@ -10,7 +11,7 @@ export const DB_FRIENDS_LOC = path.join(DB_LOC, '/friends.db')
 console.log(DB_LOC)
 
 export type User = {
-  pk: string | null
+  keyPair: KeyPair | null
   serverUrl: string | null
   serverEnabled: boolean
 }
@@ -19,7 +20,7 @@ type UserDoc = User & {
 }
 
 const defaultUser: User = {
-  pk: null,
+  keyPair: null,
   serverUrl: null,
   serverEnabled: true
 }
