@@ -1,8 +1,8 @@
 <script lang="ts">
   import * as yup from 'yup'
   import { store } from '../../redux'
-  import { collectYupErrorsByField } from '../../misc/utils'
-  import ExpandableBubble from '../../components/ExpandableBubble.svelte'
+  import MenuForm from '../../components/MenuForm.svelte'
+  import type { ComponentProps } from 'svelte'
 
   const schema = yup.object({
     publicKey: yup
@@ -10,63 +10,94 @@
       .required('This field is required')
       .matches(
         /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/,
-        'Public key should be a base64-encoded ed25519 verifying key exported in DER format.'
+        'Public key should be a base64-encoded ed25519 verifying key exported in SPKI/DER format.'
       ),
     privateKey: yup
       .string()
       .required('This field is required')
       .matches(
         /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/,
-        'Private key should be a base64-encoded ed25519 signing key exported in DER format.'
+        'Private key should be a base64-encoded ed25519 signing key exported in PKCS#8/DER format.'
       )
   })
 
-  let values = $state<yup.InferType<typeof schema>>({
+  let keyPairForm: MenuForm<typeof schema>
+
+  // compare current values against these to see if the form is dirty
+  let cleanValues: yup.InferType<typeof schema> = $derived({
     publicKey: $store.user.keyPair?.publicKey ?? '',
     privateKey: $store.user.keyPair?.privateKey ?? ''
   })
 
-  let formErrors = $derived(collectYupErrorsByField(schema, values))
-  let showErrors = $state(false)
+  const onSubmit: ComponentProps<typeof keyPairForm>['onSubmit'] = async (values) => {
+    // check that keys match cryptographically
+    const result = await window.api.verifyKeyPair({
+      privateKey: values.privateKey,
+      publicKey: values.publicKey
+    })
 
-  const handleSubmit: HTMLFormElement['onsubmit'] = (event) => {
-    event.preventDefault()
-    showErrors = true
-
-    if (schema.isValidSync(values)) {
-      /**@todo check that the keys match*/
-
-      store.dispatch({
-        type: 'set-key-pair',
-        payload: {
-          privateKey: values.privateKey,
-          publicKey: values.publicKey
-        }
+    if (!result.isValid) {
+      await window.api.showMessageBox({
+        message: 'New key not set',
+        detail: result.message,
+        type: 'error'
       })
+      return
     }
+
+    const promptResult = await window.api.showMessageBox({
+      message: 'Setting a new key pair will replace your current one.',
+      detail: 'You will need to re-add all friends using the new public key. Proceed?',
+      buttons: ['Cancel', 'Continue'],
+      type: 'warning'
+    })
+
+    if (promptResult.response != 1) {
+      return
+    }
+
+    store.dispatch({
+      type: 'set-key-pair',
+      payload: {
+        privateKey: values.privateKey,
+        publicKey: values.publicKey
+      }
+    })
+  }
+
+  const generateNewKeyPair = async () => {
+    const result = await window.api.showMessageBox({
+      message: 'Generating a new key pair will replace your current one.',
+      detail: 'You will need to re-add all friends using the new public key. Proceed?',
+      buttons: ['Cancel', 'Continue'],
+      type: 'warning'
+    })
+
+    if (result.response != 1) {
+      return
+    }
+
+    const keyPair = await window.api.generateKeyPair()
+
+    store.dispatch({ type: 'set-key-pair', payload: keyPair })
+    keyPairForm.reset() // replace values in form with new ones
   }
 </script>
 
 <div id="container">
   <div id="scroll-container">
     <div id="form">
-      <form onsubmit={handleSubmit}>
-        <ExpandableBubble
-          bind:value={values.publicKey}
-          label="Public Key"
-          error={showErrors && formErrors.publicKey.length > 0
-            ? formErrors.publicKey[0]
-            : undefined}
-        />
-        <ExpandableBubble
-          bind:value={values.privateKey}
-          label="Private Key"
-          error={showErrors && formErrors.privateKey.length > 0
-            ? formErrors.privateKey[0]
-            : undefined}
-        />
-        <input type="submit" id="submit" value="Confirm" />
-      </form>
+      <MenuForm
+        {schema}
+        labels={{ privateKey: 'Private Key', publicKey: 'Public Key' }}
+        {cleanValues}
+        {onSubmit}
+        bind:this={keyPairForm}
+      />
+
+      <a href={undefined} class="option" onclick={generateNewKeyPair}
+        >Generate new public/private keypair</a
+      >
     </div>
   </div>
 </div>
@@ -96,5 +127,13 @@
     max-width: 700px;
     display: flex;
     flex-direction: column;
+  }
+
+  .option {
+    font-weight: bolder;
+  }
+  .option:hover {
+    opacity: 0.8;
+    cursor: pointer;
   }
 </style>

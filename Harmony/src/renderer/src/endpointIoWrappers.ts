@@ -45,12 +45,16 @@ export function sendFriendRequest(localPk: string, peerPk: string, nickname: str
     switch (result.status) {
       case 'fail':
         window.api.showMessageBox({
-          message: 'Failed to send friend request. Reason: ' + result.msg
+          message: 'Failed to send friend request',
+          detail: result.msg,
+          type: 'warning'
         })
         break
       case 'offline':
         window.api.showMessageBox({
-          message: 'Failed to send friend request. Friend is offline'
+          message: 'Failed to send friend request',
+          detail: 'Friend is offline',
+          type: 'warning'
         })
         break
       case 'succeed':
@@ -60,7 +64,9 @@ export function sendFriendRequest(localPk: string, peerPk: string, nickname: str
             break
           case 'reject':
             window.api.showMessageBox({
-              message: 'Your friend request was rejected by the peer'
+              message: 'Friend request not successful',
+              detail: 'Your friend request was rejected by the peer',
+              type: 'info'
             })
             break
           case 'pending':

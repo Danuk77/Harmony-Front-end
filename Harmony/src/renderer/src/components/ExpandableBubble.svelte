@@ -49,7 +49,7 @@
     font-size: inherit;
     border-radius: 18px;
     background-color: var(--color-input-box);
-    margin-bottom: 20px;
+    margin-bottom: 10px;
     /* margin-top: 20px; */
     width: 100%;
     padding: 7px;

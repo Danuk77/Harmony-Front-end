@@ -15,6 +15,7 @@ import icon from '../../build/icon.png?asset'
 import { Controller } from './Controller'
 import { ipcMainTypesafe } from './ipcMainTypesafe'
 import { showFriendBlockContextMenu } from './showFriendBlockContextMenu'
+import { generateKeyPair, verifyKeyPair } from './generateKeyPair'
 export const DEBUG = true
 
 process.traceProcessWarnings = true
@@ -138,6 +139,8 @@ app.whenReady().then(() => {
   ipcMainTypesafe.handle('showFriendBlockContextMenu', (_, ...args) =>
     showFriendBlockContextMenu(...args)
   )
+  ipcMainTypesafe.handle('generateKeyPair', (_, ...args) => generateKeyPair(...args))
+  ipcMainTypesafe.handle('verifyKeyPair', (_, ...args) => verifyKeyPair(...args))
 
   // main to renderer
   controller.onMainToRendererAction = (action) => {

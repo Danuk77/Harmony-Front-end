@@ -32,6 +32,8 @@
 
   --color-sender-bubble: var(--ev-c-purple-1);
   --color-background: var(--ev-c-purple-2);
+  --color-form-panel-background: var(--ev-c-purple-3);
+  --color-form-panel-border: var(--ev-c-gray-1);
   --color-sidebar: var(--ev-c-purple-3);
   --color-receiver-bubble: var(--ev-c-pink-1);
   --color-text-black: var(--ev-c-black);
@@ -53,6 +55,10 @@
   --color-local-status-bubble-selected: var(--ev-c-purple-1);
 
   --color-icon: var(--ev-c-white);
+}
+
+:root {
+  user-select: none;
 }
 
 
@@ -109,3 +115,16 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #555;
 }
+
+
+form {
+  background-color: var(--color-form-panel-background);
+  padding: 5px;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  box-shadow: 1px 1px 3px black;
+}
+
+/* border-style: solid;
+  border-width: 1px;
+  border-color: var(--color-form-panel-border); */

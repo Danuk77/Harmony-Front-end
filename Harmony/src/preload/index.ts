@@ -5,6 +5,7 @@ import { Friend, LocalDatabase, Message } from '../main/LocalDatabase'
 import { FriendConnectionStatus } from '../main/FriendConnectionHandler'
 import { Controller } from '../main/Controller'
 import { showFriendBlockContextMenu } from '../main/showFriendBlockContextMenu'
+import { generateKeyPair, verifyKeyPair } from '../main/generateKeyPair'
 
 export type FriendWithState = Friend & {
   connectionStatus: FriendConnectionStatus
@@ -52,7 +53,11 @@ const api = {
   ),
   showFriendBlockContextMenu: <typeof showFriendBlockContextMenu>(
     ((...args) => ipcRenderer.invoke('showFriendBlockContextMenu', ...args))
-  )
+  ),
+  generateKeyPair: <typeof generateKeyPair>(
+    ((...args) => ipcRenderer.invoke('generateKeyPair', ...args))
+  ),
+  verifyKeyPair: <typeof verifyKeyPair>((...args) => ipcRenderer.invoke('verifyKeyPair', ...args))
 }
 
 export type Api = typeof api

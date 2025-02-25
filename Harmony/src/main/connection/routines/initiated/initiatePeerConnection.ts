@@ -218,10 +218,10 @@ async function setupInitiatedPeerConnection(
       payload: rtcAnswer
     }
   })
-  rtc.onIceCandidate.subscribe((candidate) => {
+  rtc.onIceCandidate.subscribe(async (candidate) => {
     if (candidate) {
       try {
-        send({
+        await send({
           forward: {
             type: 'ICECandidate',
             payload: {

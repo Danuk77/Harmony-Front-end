@@ -82,7 +82,7 @@ export async function comeOnline(con: HarmonyWebsocketConnection, keyPair: KeyPa
       const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
 
       // send to server
-      send({ signature: signatureBase64 })
+      await send({ signature: signatureBase64 })
 
       const welcome = await recv(welcomeResponseSchema)
       console.log(welcome.welcome)

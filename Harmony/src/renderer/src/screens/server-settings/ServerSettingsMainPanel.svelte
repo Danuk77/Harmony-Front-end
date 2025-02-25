@@ -35,7 +35,6 @@
     <div id="form">
       <form onsubmit={handleSubmit}>
         <ExpandableBubble
-          bottomMargin={false}
           bind:value={values.url}
           label="Websocket URL"
           error={showErrors && formErrors.url.length > 0 ? formErrors.url[0] : undefined}

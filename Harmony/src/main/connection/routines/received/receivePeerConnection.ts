@@ -168,10 +168,10 @@ async function setupReceivedPeerConnection(
 
   const peerReply = await recv(answerSchema)
 
-  rtc.onIceCandidate.subscribe((candidate) => {
+  rtc.onIceCandidate.subscribe(async (candidate) => {
     if (candidate) {
       try {
-        send({
+        await send({
           forward: {
             type: 'ICECandidate',
             payload: {

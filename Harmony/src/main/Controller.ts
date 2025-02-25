@@ -499,7 +499,6 @@ export class Controller {
   public set keyPair(keyPair: KeyPair | null) {
     this._keyPair = keyPair
     this.con.keyPair = keyPair
-    console.log(keyPair)
 
     if (keyPair) {
       // update friend roster with correct friends

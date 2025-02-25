@@ -11,7 +11,7 @@
       .required('This field is required')
       .matches(
         /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/,
-        'Public key should be a base64-encoded ed25519 verifying key exported in DER format.'
+        'Public key should be a base64-encoded ed25519 verifying key exported in SPKI/DER format.'
       ),
     nickname: yup.string()
   })
