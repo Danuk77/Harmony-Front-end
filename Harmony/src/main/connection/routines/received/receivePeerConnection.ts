@@ -8,6 +8,7 @@ import { HarmonyWebsocketConnection, validator } from '../../model/HarmonyWebsoc
 import { HarmonyError, HarmonyRoutineParams } from '../../model/routine'
 import { RTCIceCandidate, RTCPeerConnection } from 'werift'
 import { iceCandidateSchema } from '../initiated/initiatePeerConnection'
+import { base64RegexString } from '../../../../common/types'
 
 const initiateSchema = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',
@@ -18,7 +19,7 @@ const initiateSchema = {
     },
     key: {
       type: 'string',
-      pattern: '^[0123456789abcdef]{128}$'
+      pattern: base64RegexString
     }
   },
   required: ['initiate', 'key'],

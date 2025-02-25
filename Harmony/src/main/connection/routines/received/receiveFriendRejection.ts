@@ -1,6 +1,7 @@
 import { FromSchema } from 'json-schema-to-ts'
 import { HarmonyWebsocketConnection, validator } from '../../model/HarmonyWebsocketConnection'
 import { HarmonyError } from '../../model/routine'
+import { base64RegexString } from '../../../../common/types'
 
 const schema = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',
@@ -14,7 +15,7 @@ const schema = {
     },
     key: {
       type: 'string',
-      pattern: '^[0123456789abcdef]{128}$'
+      pattern: base64RegexString
     }
   },
   additionalProperties: false,

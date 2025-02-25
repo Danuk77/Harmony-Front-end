@@ -3,20 +3,21 @@
   import { store } from '../../redux'
   import MenuForm from '../../components/MenuForm.svelte'
   import type { ComponentProps } from 'svelte'
+  import { base64Regex } from '../../../../common/types'
 
   const schema = yup.object({
     publicKey: yup
       .string()
       .required('This field is required')
       .matches(
-        /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/,
+        base64Regex,
         'Public key should be a base64-encoded ed25519 verifying key exported in SPKI/DER format.'
       ),
     privateKey: yup
       .string()
       .required('This field is required')
       .matches(
-        /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/,
+        base64Regex,
         'Private key should be a base64-encoded ed25519 signing key exported in PKCS#8/DER format.'
       )
   })
