@@ -229,6 +229,7 @@
     margin-bottom: 2px;
     word-break: break-word;
     white-space: break-spaces;
+    user-select: text;
   }
   .name {
     margin-top: 4px;

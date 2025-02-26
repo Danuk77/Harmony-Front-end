@@ -87,6 +87,7 @@
   }
 
   #row1 {
+    z-index: 1;
     grid-row: 1;
     grid-column: 1 / 3;
     display: grid;
@@ -95,9 +96,11 @@
   }
 
   #row2 {
+    min-height: 0;
     grid-row: 2;
     grid-column: 1 / 3;
     display: grid;
     grid-template-columns: subgrid;
+    pointer-events: visible;
   }
 </style>

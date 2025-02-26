@@ -44,9 +44,16 @@
             {fs}
             onclick={() => {
               store.dispatch({ type: 'setSelectedFriendPk', payload: { pk: fs.friend.peerPk } })
-              // set mode to chat
-              if ($store.ui.screenMode != 'chat') {
-                store.dispatch({ type: 'set-screen-mode', payload: 'chat' })
+              if (fs.friend.status == 'pending') {
+                // if friend invitation, set mode to edit
+                if ($store.ui.screenMode != 'edit-friend') {
+                  store.dispatch({ type: 'set-screen-mode', payload: 'edit-friend' })
+                }
+              } else {
+                // set mode to chat
+                if ($store.ui.screenMode != 'chat') {
+                  store.dispatch({ type: 'set-screen-mode', payload: 'chat' })
+                }
               }
 
               // unset hasUnreadMessages
