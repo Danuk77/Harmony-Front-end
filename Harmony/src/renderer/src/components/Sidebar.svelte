@@ -37,14 +37,14 @@
       </div>
 
       {#each $store.friendStates as fs}
-        {#if fs.friend.status != 'block'}
+        {#if fs.friend.status != 'blocked'}
           <FriendBlock
             hasUnreadMessages={fs.friend.hasUnreadMessages}
             selected={fs.friend.peerPk == $store.ui.selectedFriendPk}
             {fs}
             onclick={() => {
               store.dispatch({ type: 'setSelectedFriendPk', payload: { pk: fs.friend.peerPk } })
-              if (fs.friend.status == 'pending') {
+              if (fs.friend.status == 'friend-request:awaiting-our-response') {
                 // if friend invitation, set mode to edit
                 if ($store.ui.screenMode != 'edit-friend') {
                   store.dispatch({ type: 'set-screen-mode', payload: 'edit-friend' })

@@ -134,6 +134,13 @@ app.whenReady().then(() => {
   ipcMainTypesafe.handle('sendFriendRejection', (_, ...args) =>
     controller.sendFriendRejection(...args)
   )
+  ipcMainTypesafe.handle('unblockFriend', (_, ...args) => controller.unblockFriend(...args))
+  ipcMainTypesafe.handle('withdrawFriendRequest', (_, ...args) =>
+    controller.withdrawFriendRequest(...args)
+  )
+  ipcMainTypesafe.handle('withdrawFriendAccept', (_, ...args) =>
+    controller.withdrawFriendAccept(...args)
+  )
   ipcMainTypesafe.handle('showErrorBox', (_, ...args) => dialog.showErrorBox(...args))
   ipcMainTypesafe.handle('showMessageBox', (_, ...args) => dialog.showMessageBox(...args))
   ipcMainTypesafe.handle('showFriendBlockContextMenu', (_, ...args) =>

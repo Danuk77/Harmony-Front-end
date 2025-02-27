@@ -45,6 +45,15 @@ const api = {
   sendFriendRejection: <Controller['sendFriendRejection']>(
     ((...args) => ipcRenderer.invoke('sendFriendRejection', ...args))
   ),
+  unblockFriend: <Controller['unblockFriend']>(
+    ((...args) => ipcRenderer.invoke('unblockFriend', ...args))
+  ),
+  withdrawFriendRequest: <Controller['withdrawFriendRequest']>(
+    ((...args) => ipcRenderer.invoke('withdrawFriendRequest', ...args))
+  ),
+  withdrawFriendAccept: <Controller['withdrawFriendAccept']>(
+    ((...args) => ipcRenderer.invoke('withdrawFriendAccept', ...args))
+  ),
   showErrorBox: <typeof dialog.showErrorBox>(
     ((...args) => ipcRenderer.invoke('showErrorBox', ...args))
   ),

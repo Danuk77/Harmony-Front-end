@@ -17,16 +17,30 @@
 
   const optionToText = (option: FriendBlockContextMenuOptions) => {
     switch (option) {
-      case 'delete':
-        return 'Delete friend record'
       case 'edit':
         return ''
       case 'block':
         return 'Block friend'
+      case 'delete':
+        return 'Delete friend record'
       case 'unblock':
-        return 'Unblock and send friend request'
+        return 'Unblock friend (without sending a new friend request)'
+      case 'send':
+        return 'Send a friend request'
       case 'accept':
         return 'Accept friend request'
+      case 'sendAnother':
+        return 'Send another friend request'
+      case 'sendNow':
+        return 'Attempt to resend request now'
+      case 'renew':
+        return 'Resend friend request'
+      case 'acceptNow':
+        return 'Attempt to resend accept now'
+      case 'withdrawRequest':
+        return 'Withdraw unsent friend request'
+      case 'withdrawAccept':
+        return 'Withdraw unsent accept'
     }
   }
 

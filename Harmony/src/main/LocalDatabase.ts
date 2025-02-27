@@ -29,11 +29,14 @@ export type Friend = {
   peerPk: string
   localPk: string
   status:
-    | 'reject' // they rejected us.
-    | 'accept' // they are friends with us.
-    | 'pending' // they are waiting for us to reply.
-    | 'block' // we rejected them
-    | 'awaiting-response' // we want to become friends; waiting for peer's response
+    | 'accept' // we are friends.
+    | 'blocking' // they have blocked us
+    | 'blocked' // we have blocked them
+    | 'none' // we have unblocked them
+    | 'friend-request:awaiting-our-response'
+    | 'friend-request:considering-our-request'
+    | 'friend-request:offline-and-our-friend-request-unsent'
+    | 'friend-request:offline-and-our-friend-accept-unsent'
   // ms since UNIX epoch
   statusModified: number
   nickname: string // initially set the same as publickey
