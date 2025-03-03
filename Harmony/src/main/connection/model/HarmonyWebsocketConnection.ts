@@ -59,6 +59,7 @@ export class HarmonyWebsocketConnection {
   // callback functions - may be added to the object.
   public onWsStatusChange?: (status: WebsocketStatusType) => unknown
   public onFailedLogin?: (reason: string) => unknown
+  public onFailedConnect?: (reason: string) => unknown
   public onIncomingConnectionRequest?: (
     publicKey: string
   ) => 'accept' | 'reject' | Promise<'accept' | 'reject'>
@@ -157,8 +158,8 @@ export class HarmonyWebsocketConnection {
     try {
       con = await this.getConnection(this.options.serverUrl)
     } catch (e) {
+      this.onFailedConnect?.(eToStr(e))
       // check that this is still the legitimate reconnect(), and that there is not a newer one running somewhere else
-      console.error(eToStr(e))
       if (reconnectNum == this.reconnectCount) {
         this.wsStatus = 'disconnected'
       }

@@ -60,7 +60,15 @@ export class Controller {
 
     // con listeners
     this.con.onFailedLogin = (reason) => {
-      storeTypesafe.dispatch({ type: 'set-failed-login-msg', payload: reason })
+      if (reason != store.getState().connection.failedLoginMsg) {
+        storeTypesafe.dispatch({ type: 'set-failed-login-msg', payload: reason })
+      }
+    }
+
+    this.con.onFailedConnect = (reason) => {
+      if (reason != store.getState().connection.failedConnectMsg) {
+        storeTypesafe.dispatch({ type: 'set-failed-connect-msg', payload: reason })
+      }
     }
 
     this.con.onIncomingConnectionRequest = async (pk) => {

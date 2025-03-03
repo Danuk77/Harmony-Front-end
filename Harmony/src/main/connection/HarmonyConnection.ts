@@ -67,6 +67,16 @@ export class HarmonyConnection {
   }
 
   /**
+   * Callback for when the websocket connection fails to be established
+   */
+  public set onFailedConnect(callback) {
+    this.websocket.onFailedConnect = callback
+  }
+  public get onFailedConnect() {
+    return this.websocket.onFailedConnect
+  }
+
+  /**
    * Callback to accept/reject incoming connection requests.
    */
   public set onIncomingConnectionRequest(callback) {

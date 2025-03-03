@@ -12,6 +12,8 @@
   import ServerSettingsMainPanel from './screens/server-settings/ServerSettingsMainPanel.svelte'
   import EditFriendMainPanel from './screens/edit-friend/EditFriendMainPanel.svelte'
   import EditFriendTopBar from './screens/edit-friend/EditFriendTopBar.svelte'
+  import EditKeyPairTopBar from './screens/edit-keypair/EditKeyPairTopBar.svelte'
+  import EditKeyPairMainPanel from './screens/edit-keypair/EditKeyPairMainPanel.svelte'
 </script>
 
 <div id="overlay">
@@ -30,6 +32,8 @@
         <ServerSettingsTopBar />
       {:else if $store.ui.screenMode == 'edit-friend'}
         <EditFriendTopBar />
+      {:else if $store.ui.screenMode == 'edit-keypair'}
+        <EditKeyPairTopBar />
       {/if}
     </div>
   </div>
@@ -50,6 +54,8 @@
         <ServerSettingsMainPanel />
       {:else if $store.ui.screenMode == 'edit-friend'}
         <EditFriendMainPanel />
+      {:else if $store.ui.screenMode == 'edit-keypair'}
+        <EditKeyPairMainPanel />
       {/if}
     </div>
   </div>
