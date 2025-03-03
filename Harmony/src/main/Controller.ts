@@ -46,7 +46,8 @@ export class Controller {
   // callback for system notifications
   public onNotification?: (
     notification: Electron.NotificationConstructorOptions,
-    dontShowIfFocused: boolean
+    dontShowIfFocused: boolean,
+    onclick?: () => unknown
   ) => unknown
 
   constructor() {
@@ -164,7 +165,11 @@ export class Controller {
 
               this.onNotification?.(
                 { title: 'Received friend request', body: friend.nickname + ' (' + pk + ')' },
-                true
+                true,
+                () => {
+                  storeTypesafe.dispatch({ type: 'setSelectedFriendPk', payload: { pk } })
+                  storeTypesafe.dispatch({ type: 'set-screen-mode', payload: 'edit-friend' })
+                }
               )
             }
             return 'pending'
@@ -214,7 +219,10 @@ export class Controller {
           payload: newFriend
         })
 
-        this.onNotification?.({ title: 'Received friend request', body: pk }, true)
+        this.onNotification?.({ title: 'Received friend request', body: pk }, true, () => {
+          storeTypesafe.dispatch({ type: 'setSelectedFriendPk', payload: { pk } })
+          storeTypesafe.dispatch({ type: 'set-screen-mode', payload: 'edit-friend' })
+        })
 
         return 'pending'
       }
@@ -276,6 +284,19 @@ export class Controller {
         body: msg
       }
 
+      const onClickNotification = () => {
+        storeTypesafe.dispatch({ type: 'setSelectedFriendPk', payload: { pk } })
+        storeTypesafe.dispatch({ type: 'set-screen-mode', payload: 'chat' })
+        if (!this.keyPair) return
+        // remove unread message marker from friend
+        storeTypesafe.dispatch({
+          type: 'friend-change',
+          payload: {
+            friend: { localPk: this.keyPair.publicKey, peerPk: pk, hasUnreadMessages: false }
+          }
+        })
+      }
+
       if (!this.con.keyPair) {
         // type narrowing
         return
@@ -283,7 +304,7 @@ export class Controller {
 
       // notification and unread! flag
       if (state.ui.screenMode == 'chat' && state.ui.selectedFriendPk == pk) {
-        this.onNotification?.(notification, true /*dont show if focused */)
+        this.onNotification?.(notification, true /*dont show if focused */, onClickNotification)
       } else {
         // if not focused, set unread messages flag for the friend
         if (!getFriendState(this.con.keyPair.publicKey, pk)?.friend.hasUnreadMessages) {
@@ -298,7 +319,7 @@ export class Controller {
             }
           })
         }
-        this.onNotification?.(notification, false /*display unconditionally*/)
+        this.onNotification?.(notification, false /*display unconditionally*/, onClickNotification)
       }
     }
 

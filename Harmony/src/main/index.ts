@@ -41,6 +41,10 @@ function focusMainWindow() {
       mainWindow = undefined
     })
   } else {
+    if (mainWindow.isMinimized()) {
+      mainWindow.restore()
+    }
+    mainWindow.moveTop()
     mainWindow.focus()
   }
 }
@@ -121,9 +125,14 @@ app.whenReady().then(() => {
 
   const controller = new Controller()
 
-  controller.onNotification = (notification, dontShowIfFocused) => {
+  controller.onNotification = (notification, dontShowIfFocused, onclick) => {
     if (!(dontShowIfFocused && mainWindow?.isFocused())) {
-      new Notification(notification).show()
+      const notif = new Notification(notification)
+      notif.on('click', () => {
+        onclick?.()
+        focusMainWindow()
+      })
+      notif.show()
     }
   }
 
