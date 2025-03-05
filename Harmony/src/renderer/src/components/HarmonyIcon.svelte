@@ -19,6 +19,11 @@
     opacity: 50%;
     cursor: pointer;
   }
+  #icon:focus-visible {
+    opacity: 50%;
+    cursor: pointer;
+    outline: auto;
+  }
   #icon:active {
     scale: 90%;
   }

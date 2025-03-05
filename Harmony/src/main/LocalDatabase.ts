@@ -1,7 +1,7 @@
 import DataStore from '@seald-io/nedb'
 import { app } from '.'
 import path from 'path'
-import { KeyPair } from '../common/redux'
+import { IceServer, KeyPair } from '../common/redux'
 
 export const DB_LOC = path.join(app.getPath('userData'), '/UserData/')
 export const DB_MESSAGES_LOC = path.join(DB_LOC, '/messages.db')
@@ -14,6 +14,7 @@ export type User = {
   keyPair: KeyPair | null
   serverUrl: string | null
   serverEnabled: boolean
+  iceServers: IceServer[]
 }
 type UserDoc = User & {
   _id?: string // nedb thing
@@ -22,7 +23,8 @@ type UserDoc = User & {
 const defaultUser: User = {
   keyPair: null,
   serverUrl: null,
-  serverEnabled: true
+  serverEnabled: true,
+  iceServers: []
 }
 
 export type Friend = {
@@ -169,7 +171,7 @@ export class LocalDatabase {
     try {
       const user = await this.usersDb.findOneAsync({})
       if (!user) return defaultUser
-      return user
+      return { ...defaultUser /**add extra fields if missing */, ...user }
     } catch {
       return defaultUser
     }

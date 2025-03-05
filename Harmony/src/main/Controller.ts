@@ -337,6 +337,7 @@ export class Controller {
 
     //update friend roster and database when redux store changes
     // redux store is considered the main source of truth
+    // middleware propegates updates
     // so only update the redux store and the rest should be done automatically
     startAppListening({
       predicate: (_action) => {
@@ -349,7 +350,8 @@ export class Controller {
           action.type == 'hydrate-user' ||
           action.type == 'set-key-pair' ||
           action.type == 'set-server-url' ||
-          action.type == 'set-server-enabled'
+          action.type == 'set-server-enabled' ||
+          action.type == 'set-ice-servers'
         )
       },
       effect: (_action) => {
@@ -401,6 +403,10 @@ export class Controller {
           case 'set-server-enabled':
             this.con.enabled = action.payload
             this.db.updateUser({ serverEnabled: action.payload })
+            break
+          case 'set-ice-servers':
+            this.db.updateUser({ iceServers: action.payload })
+            break
         }
       }
     })

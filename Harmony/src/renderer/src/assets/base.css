@@ -51,6 +51,8 @@
   --color-lightbulb-disconnected: var(--ev-c-amber-1);
   --color-lightbulb-offline: var(--ev-c-gray-4);
 
+  --color-border: var(--ev-c-gray-1);
+
   --color-local-status-bubble: var(--ev-c-purple-2);
   --color-local-status-bubble-selected: var(--ev-c-purple-1);
 
@@ -117,14 +119,6 @@ body {
   background: #555;
 }
 
-
-form {
-  background-color: var(--color-form-panel-background);
-  padding: 5px;
-  border-radius: 10px;
-  margin-bottom: 10px;
-  box-shadow: 1px 1px 3px black;
-}
 
 /* border-style: solid;
   border-width: 1px;

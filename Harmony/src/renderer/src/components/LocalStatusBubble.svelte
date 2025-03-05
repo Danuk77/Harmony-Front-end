@@ -43,6 +43,11 @@
   #button {
     all: unset;
     width: 50%;
+    margin-top: 1px;
+    margin-bottom: 20px;
+  }
+  #button:focus-visible {
+    outline: auto;
   }
   #block {
     background-color: var(--color-block);
@@ -50,8 +55,7 @@
     padding-bottom: 3px;
 
     border-radius: 20px;
-    margin-top: 1px;
-    margin-bottom: 20px;
+
     display: flex;
     align-items: center;
     /* height: 25px; */

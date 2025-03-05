@@ -13,6 +13,7 @@
     cleanValues: yup.InferType<S>
     // eslint-disable-next-line
     onSubmit: (values: yup.InferType<S>, reset: () => void) => unknown
+    legend?: string
   }
 
   const props: Props = $props()
@@ -49,18 +50,39 @@
 </script>
 
 <form onsubmit={handleSubmit}>
-  {#each Object.keys(props.cleanValues) as field}
-    <ExpandableBubble
-      bind:value={values[field] as string}
-      label={props.labels[field]}
-      error={showErrors && formErrors[field].length > 0 ? formErrors[field][0] : undefined}
+  <fieldset>
+    {#if props.legend}
+      <legend>{props.legend}</legend>
+    {/if}
+    {#each Object.keys(props.cleanValues) as field}
+      <ExpandableBubble
+        bind:value={values[field] as string}
+        label={props.labels[field]}
+        error={showErrors && formErrors[field].length > 0 ? formErrors[field][0] : undefined}
+      />
+    {/each}
+    <input
+      type="submit"
+      id="submit"
+      value="Save"
+      disabled={!isDirty || (showErrors && !props.schema.isValidSync(values))}
     />
-  {/each}
-
-  <input
-    type="submit"
-    id="submit"
-    value="Save"
-    disabled={!isDirty || (showErrors && !props.schema.isValidSync(values))}
-  />
+  </fieldset>
 </form>
+
+<style>
+  legend {
+    font-size: medium;
+  }
+
+  fieldset {
+    border: solid;
+    border-width: 1px;
+    border-color: var(--color-border);
+    background-color: var(--color-form-panel-background);
+    /* padding: 5px; */
+    border-radius: 10px;
+    margin-bottom: 10px;
+    box-shadow: 1px 1px 3px black;
+  }
+</style>

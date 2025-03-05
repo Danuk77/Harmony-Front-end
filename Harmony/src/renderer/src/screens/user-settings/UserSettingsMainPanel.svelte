@@ -2,6 +2,7 @@
   import { store } from '../../redux'
   import ScrollContainer from '../../components/ScrollContainer.svelte'
   import ExpandableBubble from '../../components/ExpandableBubble.svelte'
+  import SettingsOption from '../../components/SettingsOption.svelte'
 
   let privateKeyShown = $state(false)
 
@@ -73,23 +74,9 @@
       readonly={true}
     />
   {/if}
-  <a href={undefined} class="option" onclick={showOrHidePrivateKey}
-    >{privateKeyShown ? 'Hide' : 'Show'} private key</a
+  <SettingsOption onclick={showOrHidePrivateKey}
+    >{privateKeyShown ? 'Hide' : 'Show'} private key</SettingsOption
   >
-  <a href={undefined} class="option" onclick={generateNewKeyPair}
-    >Generate new public/private keypair</a
-  >
-  <a href={undefined} class="option" onclick={editKeyPairManually}
-    >Edit public/private key manually</a
-  >
+  <SettingsOption onclick={generateNewKeyPair}>Generate new public/private keypair</SettingsOption>
+  <SettingsOption onclick={editKeyPairManually}>Edit public/private key manually</SettingsOption>
 </ScrollContainer>
-
-<style>
-  .option {
-    font-weight: bolder;
-  }
-  .option:hover {
-    opacity: 0.8;
-    cursor: pointer;
-  }
-</style>

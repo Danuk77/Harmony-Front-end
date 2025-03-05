@@ -9,6 +9,7 @@ import { HarmonyError, HarmonyRoutineParams } from '../../model/routine'
 import { RTCIceCandidate, RTCPeerConnection } from 'werift'
 import { iceCandidateSchema } from '../initiated/initiatePeerConnection'
 import { base64RegexString } from '../../../../common/types'
+import { store } from '../../../redux'
 
 const initiateSchema = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',
@@ -154,7 +155,12 @@ async function setupReceivedPeerConnection(
   }
 
   // accept
-  rtc.setConfiguration(rtcConfig)
+  const iceServers = store.getState().user.iceServers
+  rtc.setConfiguration({
+    ...rtcConfig,
+    // prepend user's ice servers.
+    iceServers: [...iceServers, ...(rtcConfig.iceServers ?? [])]
+  })
 
   const localDescription = await rtc.createOffer()
   await send({

@@ -14,7 +14,8 @@ export const defaultState: State = {
   user: {
     keyPair: null,
     serverEnabled: true,
-    serverUrl: null
+    serverUrl: null,
+    iceServers: []
   },
   ui: {
     selectedFriendPk: null,
@@ -30,6 +31,12 @@ export type KeyPair = {
 export type FriendState = {
   friend: Friend
   connectionStatus: FriendConnectionStatus
+}
+
+export type IceServer = {
+  urls: string
+  credential?: string
+  username?: string
 }
 
 export type ScreenMode =
@@ -95,6 +102,7 @@ export type Action =
   | { type: 'set-server-enabled'; payload: boolean }
   | { type: 'set-failed-login-msg'; payload: string | null }
   | { type: 'set-failed-connect-msg'; payload: string | null }
+  | { type: 'set-ice-servers'; payload: IceServer[] }
 
 export function reducer(state: State | undefined = defaultState, action: Action): State {
   switch (action.type) {
@@ -230,6 +238,14 @@ export function reducer(state: State | undefined = defaultState, action: Action)
         connection: {
           ...state.connection,
           failedConnectMsg: action.payload
+        }
+      }
+    case 'set-ice-servers':
+      return {
+        ...state,
+        user: {
+          ...state.user,
+          iceServers: action.payload
         }
       }
   }

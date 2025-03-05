@@ -16,7 +16,7 @@
     selected: boolean
     hasUnreadMessages: boolean
     fs: FriendState
-    onclick?: HTMLButtonElement['onclick']
+    onclick?: () => unknown
     oncontextmenu?: HTMLButtonElement['oncontextmenu']
   } = $props()
 
@@ -70,9 +70,15 @@
         return 'fa-envelope'
     }
   })
+
+  const onkeyup: HTMLAnchorElement['onkeyup'] = (event) => {
+    if (event.key == ' ' || event.key == 'Enter') {
+      onclick?.()
+    }
+  }
 </script>
 
-<a href={undefined} id="button" {onclick} {oncontextmenu}>
+<a href={undefined} id="button" tabindex="0" {onclick} {onkeyup} {oncontextmenu}>
   <div id="block" style={`background-color: var(${backgroundColor})`}>
     {#key fs}
       <span title={fs.connectionStatus}>

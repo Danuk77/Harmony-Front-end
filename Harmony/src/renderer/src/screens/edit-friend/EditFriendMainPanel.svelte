@@ -6,6 +6,7 @@
     type FriendBlockContextMenuOptions
   } from '../../../../common/friendBlockContextMenu'
   import { changeFriendStatus } from '../../endpointIoWrappers'
+  import SettingsOption from '../../components/SettingsOption.svelte'
 
   const friendState = $derived.by(() =>
     $store.friendStates.find(
@@ -72,8 +73,8 @@
 
         {#each friendBlockContextMenuAvailableOptions(friendState.friend) as option}
           {#if option != 'edit'}
-            <a href={undefined} class="option" onclick={() => onclickOption(option)}
-              >{optionToText(option)}</a
+            <SettingsOption onclick={() => onclickOption(option)}
+              >{optionToText(option)}</SettingsOption
             >
           {/if}
         {/each}
@@ -107,12 +108,5 @@
     max-width: 700px;
     display: flex;
     flex-direction: column;
-  }
-  .option {
-    font-weight: bolder;
-  }
-  .option:hover {
-    opacity: 0.8;
-    cursor: pointer;
   }
 </style>

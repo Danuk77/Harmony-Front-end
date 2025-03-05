@@ -41,6 +41,7 @@
   rows="1"
   bind:this={textarea}
   {readonly}
+  spellcheck="false"
 ></textarea>
 
 <style>
@@ -58,9 +59,6 @@
     resize: none;
   }
 
-  #message-input:focus {
-    outline: none;
-  }
   #error {
     color: var(--color-text-error);
   }
