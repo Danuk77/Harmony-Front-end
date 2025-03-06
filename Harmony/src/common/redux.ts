@@ -8,12 +8,14 @@ export const defaultState: State = {
   friendStates: [],
   connection: {
     state: 'disconnected',
-    failedLoginMsg: null
+    failedLoginMsg: null,
+    failedConnectMsg: null
   },
   user: {
-    pk: null,
+    keyPair: null,
     serverEnabled: true,
-    serverUrl: null
+    serverUrl: null,
+    iceServers: []
   },
   ui: {
     selectedFriendPk: null,
@@ -21,18 +23,36 @@ export const defaultState: State = {
   }
 }
 
+export type KeyPair = {
+  publicKey: string
+  privateKey: string
+}
+
 export type FriendState = {
   friend: Friend
   connectionStatus: FriendConnectionStatus
 }
 
-export type ScreenMode = 'chat' | 'add-friend' | 'user-settings' | 'server-settings' | 'edit-friend'
+export type IceServer = {
+  urls: string
+  credential?: string
+  username?: string
+}
+
+export type ScreenMode =
+  | 'chat'
+  | 'add-friend'
+  | 'user-settings'
+  | 'server-settings'
+  | 'edit-friend'
+  | 'edit-keypair'
 
 export type State = {
   friendStates: FriendState[]
   connection: {
     state: WebsocketStatusType
     failedLoginMsg: string | null
+    failedConnectMsg: string | null
   }
   user: User
   ui: {
@@ -77,10 +97,12 @@ export type Action =
   | { type: 'hydrate-friends'; payload: Friend[] }
   | { type: 'hydrate-user'; payload: User }
   | { type: 'set-screen-mode'; payload: ScreenMode }
-  | { type: 'set-local-pk'; payload: string | null }
+  | { type: 'set-key-pair'; payload: KeyPair }
   | { type: 'set-server-url'; payload: string | null }
   | { type: 'set-server-enabled'; payload: boolean }
   | { type: 'set-failed-login-msg'; payload: string | null }
+  | { type: 'set-failed-connect-msg'; payload: string | null }
+  | { type: 'set-ice-servers'; payload: IceServer[] }
 
 export function reducer(state: State | undefined = defaultState, action: Action): State {
   switch (action.type) {
@@ -125,7 +147,10 @@ export function reducer(state: State | undefined = defaultState, action: Action)
           ...state.connection,
           state: action.payload,
           // clear failed login message if no longer in a failed login state
-          failedLoginMsg: action.payload != 'login-failed' ? null : state.connection.failedLoginMsg
+          failedLoginMsg: action.payload != 'login-failed' ? null : state.connection.failedLoginMsg,
+          // clear failed connect message
+          failedConnectMsg:
+            action.payload != 'disconnected' ? null : state.connection.failedConnectMsg
         }
       }
     }
@@ -175,12 +200,12 @@ export function reducer(state: State | undefined = defaultState, action: Action)
           screenMode: action.payload
         }
       }
-    case 'set-local-pk':
+    case 'set-key-pair':
       return {
         ...state,
         user: {
           ...state.user,
-          pk: action.payload
+          keyPair: action.payload
         }
       }
     case 'set-server-url':
@@ -205,6 +230,22 @@ export function reducer(state: State | undefined = defaultState, action: Action)
         connection: {
           ...state.connection,
           failedLoginMsg: action.payload
+        }
+      }
+    case 'set-failed-connect-msg':
+      return {
+        ...state,
+        connection: {
+          ...state.connection,
+          failedConnectMsg: action.payload
+        }
+      }
+    case 'set-ice-servers':
+      return {
+        ...state,
+        user: {
+          ...state.user,
+          iceServers: action.payload
         }
       }
   }

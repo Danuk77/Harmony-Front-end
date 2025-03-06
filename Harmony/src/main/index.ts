@@ -15,6 +15,7 @@ import icon from '../../build/icon.png?asset'
 import { Controller } from './Controller'
 import { ipcMainTypesafe } from './ipcMainTypesafe'
 import { showFriendBlockContextMenu } from './showFriendBlockContextMenu'
+import { generateKeyPair, verifyKeyPair } from './generateKeyPair'
 export const DEBUG = true
 
 process.traceProcessWarnings = true
@@ -40,6 +41,10 @@ function focusMainWindow() {
       mainWindow = undefined
     })
   } else {
+    if (mainWindow.isMinimized()) {
+      mainWindow.restore()
+    }
+    mainWindow.moveTop()
     mainWindow.focus()
   }
 }
@@ -120,9 +125,14 @@ app.whenReady().then(() => {
 
   const controller = new Controller()
 
-  controller.onNotification = (notification, dontShowIfFocused) => {
+  controller.onNotification = (notification, dontShowIfFocused, onclick) => {
     if (!(dontShowIfFocused && mainWindow?.isFocused())) {
-      new Notification(notification).show()
+      const notif = new Notification(notification)
+      notif.on('click', () => {
+        onclick?.()
+        focusMainWindow()
+      })
+      notif.show()
     }
   }
 
@@ -133,11 +143,20 @@ app.whenReady().then(() => {
   ipcMainTypesafe.handle('sendFriendRejection', (_, ...args) =>
     controller.sendFriendRejection(...args)
   )
+  ipcMainTypesafe.handle('unblockFriend', (_, ...args) => controller.unblockFriend(...args))
+  ipcMainTypesafe.handle('withdrawFriendRequest', (_, ...args) =>
+    controller.withdrawFriendRequest(...args)
+  )
+  ipcMainTypesafe.handle('withdrawFriendAccept', (_, ...args) =>
+    controller.withdrawFriendAccept(...args)
+  )
   ipcMainTypesafe.handle('showErrorBox', (_, ...args) => dialog.showErrorBox(...args))
   ipcMainTypesafe.handle('showMessageBox', (_, ...args) => dialog.showMessageBox(...args))
   ipcMainTypesafe.handle('showFriendBlockContextMenu', (_, ...args) =>
     showFriendBlockContextMenu(...args)
   )
+  ipcMainTypesafe.handle('generateKeyPair', (_, ...args) => generateKeyPair(...args))
+  ipcMainTypesafe.handle('verifyKeyPair', (_, ...args) => verifyKeyPair(...args))
 
   // main to renderer
   controller.onMainToRendererAction = (action) => {

@@ -16,7 +16,7 @@
     selected: boolean
     hasUnreadMessages: boolean
     fs: FriendState
-    onclick?: HTMLButtonElement['onclick']
+    onclick?: () => unknown
     oncontextmenu?: HTMLButtonElement['oncontextmenu']
   } = $props()
 
@@ -43,27 +43,42 @@
   let bulbColor = $derived.by(() => {
     if (fs.friend.status == 'accept') {
       return peerConnectionStatusToBulbColorCssVariable(fs.connectionStatus)
+    } else if (
+      fs.friend.status == 'friend-request:offline-and-our-friend-accept-unsent' ||
+      fs.friend.status == 'friend-request:offline-and-our-friend-request-unsent'
+    ) {
+      return '--color-lightbulb-offline'
     } else {
       return '--color-icon'
     }
   })
   let icon = $derived.by(() => {
     switch (fs.friend.status) {
-      case 'reject':
-        return 'fa-x'
       case 'accept':
         return 'fa-lightbulb'
-      case 'pending':
-        return 'fa-envelope'
-      case 'block':
+      case 'blocking':
+        return 'fa-x'
+      case 'blocked':
         return 'fa-ban'
-      case 'awaiting-response':
+      case 'none':
+        return '' /**@todo*/
+      case 'friend-request:considering-our-request':
+      case 'friend-request:offline-and-our-friend-request-unsent':
         return 'fa-hourglass-half'
+      case 'friend-request:awaiting-our-response':
+      case 'friend-request:offline-and-our-friend-accept-unsent':
+        return 'fa-envelope'
     }
   })
+
+  const onkeyup: HTMLAnchorElement['onkeyup'] = (event) => {
+    if (event.key == ' ' || event.key == 'Enter') {
+      onclick?.()
+    }
+  }
 </script>
 
-<a href={undefined} id="button" {onclick} {oncontextmenu}>
+<a href={undefined} id="button" tabindex="0" {onclick} {onkeyup} {oncontextmenu}>
   <div id="block" style={`background-color: var(${backgroundColor})`}>
     {#key fs}
       <span title={fs.connectionStatus}>

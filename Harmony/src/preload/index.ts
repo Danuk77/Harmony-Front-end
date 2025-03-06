@@ -5,6 +5,7 @@ import { Friend, LocalDatabase, Message } from '../main/LocalDatabase'
 import { FriendConnectionStatus } from '../main/FriendConnectionHandler'
 import { Controller } from '../main/Controller'
 import { showFriendBlockContextMenu } from '../main/showFriendBlockContextMenu'
+import { generateKeyPair, verifyKeyPair } from '../main/generateKeyPair'
 
 export type FriendWithState = Friend & {
   connectionStatus: FriendConnectionStatus
@@ -44,6 +45,15 @@ const api = {
   sendFriendRejection: <Controller['sendFriendRejection']>(
     ((...args) => ipcRenderer.invoke('sendFriendRejection', ...args))
   ),
+  unblockFriend: <Controller['unblockFriend']>(
+    ((...args) => ipcRenderer.invoke('unblockFriend', ...args))
+  ),
+  withdrawFriendRequest: <Controller['withdrawFriendRequest']>(
+    ((...args) => ipcRenderer.invoke('withdrawFriendRequest', ...args))
+  ),
+  withdrawFriendAccept: <Controller['withdrawFriendAccept']>(
+    ((...args) => ipcRenderer.invoke('withdrawFriendAccept', ...args))
+  ),
   showErrorBox: <typeof dialog.showErrorBox>(
     ((...args) => ipcRenderer.invoke('showErrorBox', ...args))
   ),
@@ -52,7 +62,11 @@ const api = {
   ),
   showFriendBlockContextMenu: <typeof showFriendBlockContextMenu>(
     ((...args) => ipcRenderer.invoke('showFriendBlockContextMenu', ...args))
-  )
+  ),
+  generateKeyPair: <typeof generateKeyPair>(
+    ((...args) => ipcRenderer.invoke('generateKeyPair', ...args))
+  ),
+  verifyKeyPair: <typeof verifyKeyPair>((...args) => ipcRenderer.invoke('verifyKeyPair', ...args))
 }
 
 export type Api = typeof api

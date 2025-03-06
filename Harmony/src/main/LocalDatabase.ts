@@ -1,6 +1,7 @@
 import DataStore from '@seald-io/nedb'
 import { app } from '.'
 import path from 'path'
+import { IceServer, KeyPair } from '../common/redux'
 
 export const DB_LOC = path.join(app.getPath('userData'), '/UserData/')
 export const DB_MESSAGES_LOC = path.join(DB_LOC, '/messages.db')
@@ -10,29 +11,34 @@ export const DB_FRIENDS_LOC = path.join(DB_LOC, '/friends.db')
 console.log(DB_LOC)
 
 export type User = {
-  pk: string | null
+  keyPair: KeyPair | null
   serverUrl: string | null
   serverEnabled: boolean
+  iceServers: IceServer[]
 }
 type UserDoc = User & {
   _id?: string // nedb thing
 }
 
 const defaultUser: User = {
-  pk: null,
+  keyPair: null,
   serverUrl: null,
-  serverEnabled: true
+  serverEnabled: true,
+  iceServers: []
 }
 
 export type Friend = {
   peerPk: string
   localPk: string
   status:
-    | 'reject' // they rejected us.
-    | 'accept' // they are friends with us.
-    | 'pending' // they are waiting for us to reply.
-    | 'block' // we rejected them
-    | 'awaiting-response' // we want to become friends; waiting for peer's response
+    | 'accept' // we are friends.
+    | 'blocking' // they have blocked us
+    | 'blocked' // we have blocked them
+    | 'none' // we have unblocked them
+    | 'friend-request:awaiting-our-response'
+    | 'friend-request:considering-our-request'
+    | 'friend-request:offline-and-our-friend-request-unsent'
+    | 'friend-request:offline-and-our-friend-accept-unsent'
   // ms since UNIX epoch
   statusModified: number
   nickname: string // initially set the same as publickey
@@ -165,7 +171,7 @@ export class LocalDatabase {
     try {
       const user = await this.usersDb.findOneAsync({})
       if (!user) return defaultUser
-      return user
+      return { ...defaultUser /**add extra fields if missing */, ...user }
     } catch {
       return defaultUser
     }

@@ -2,6 +2,7 @@
  * Facade for code in this directory.
  */
 
+import { KeyPair } from '../../common/redux'
 import { HarmonyWebsocketConnection } from './model/HarmonyWebsocketConnection'
 import { initiatePeerConnection } from './routines/initiated/initiatePeerConnection'
 import { sendFriendRejection } from './routines/initiated/sendFriendRejection'
@@ -24,11 +25,11 @@ export class HarmonyConnection {
     return this.websocket.wsStatus
   }
 
-  public set publicKey(publicKey: string | null) {
-    this.websocket.publicKey = publicKey
+  public set keyPair(keyPair: KeyPair | null) {
+    this.websocket.keyPair = keyPair
   }
-  public get publicKey() {
-    return this.websocket.publicKey
+  public get keyPair() {
+    return this.websocket.keyPair
   }
 
   public set serverUrl(serverUrl: string | null) {
@@ -63,6 +64,16 @@ export class HarmonyConnection {
   }
   public get onFailedLogin() {
     return this.websocket.onFailedLogin
+  }
+
+  /**
+   * Callback for when the websocket connection fails to be established
+   */
+  public set onFailedConnect(callback) {
+    this.websocket.onFailedConnect = callback
+  }
+  public get onFailedConnect() {
+    return this.websocket.onFailedConnect
   }
 
   /**

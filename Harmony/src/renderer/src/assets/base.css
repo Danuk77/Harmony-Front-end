@@ -32,6 +32,8 @@
 
   --color-sender-bubble: var(--ev-c-purple-1);
   --color-background: var(--ev-c-purple-2);
+  --color-form-panel-background: var(--ev-c-purple-3);
+  --color-form-panel-border: var(--ev-c-gray-1);
   --color-sidebar: var(--ev-c-purple-3);
   --color-receiver-bubble: var(--ev-c-pink-1);
   --color-text-black: var(--ev-c-black);
@@ -49,10 +51,16 @@
   --color-lightbulb-disconnected: var(--ev-c-amber-1);
   --color-lightbulb-offline: var(--ev-c-gray-4);
 
+  --color-border: var(--ev-c-gray-1);
+
   --color-local-status-bubble: var(--ev-c-purple-2);
   --color-local-status-bubble-selected: var(--ev-c-purple-1);
 
   --color-icon: var(--ev-c-white);
+}
+
+:root {
+  user-select: none;
 }
 
 
@@ -103,9 +111,15 @@ body {
 /* Handle */
 ::-webkit-scrollbar-thumb {
   background: #888;
+  border-radius: 100px;
 }
 
 /* Handle on hover */
 ::-webkit-scrollbar-thumb:hover {
   background: #555;
 }
+
+
+/* border-style: solid;
+  border-width: 1px;
+  border-color: var(--color-form-panel-border); */

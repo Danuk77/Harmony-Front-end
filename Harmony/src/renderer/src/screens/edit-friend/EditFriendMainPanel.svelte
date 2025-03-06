@@ -6,25 +6,42 @@
     type FriendBlockContextMenuOptions
   } from '../../../../common/friendBlockContextMenu'
   import { changeFriendStatus } from '../../endpointIoWrappers'
+  import SettingsOption from '../../components/SettingsOption.svelte'
 
   const friendState = $derived.by(() =>
     $store.friendStates.find(
-      (fs) => fs.friend.peerPk == $store.ui.selectedFriendPk && fs.friend.localPk == $store.user.pk
+      (fs) =>
+        fs.friend.peerPk == $store.ui.selectedFriendPk &&
+        fs.friend.localPk == $store.user.keyPair?.publicKey
     )
   )
 
   const optionToText = (option: FriendBlockContextMenuOptions) => {
     switch (option) {
-      case 'delete':
-        return 'Delete friend record'
       case 'edit':
         return ''
       case 'block':
         return 'Block friend'
+      case 'delete':
+        return 'Delete friend record'
       case 'unblock':
-        return 'Unblock and send friend request'
+        return 'Unblock friend (without sending a new friend request)'
+      case 'send':
+        return 'Send a friend request'
       case 'accept':
         return 'Accept friend request'
+      case 'sendAnother':
+        return 'Send another friend request'
+      case 'sendNow':
+        return 'Attempt to resend request now'
+      case 'renew':
+        return 'Resend friend request'
+      case 'acceptNow':
+        return 'Attempt to resend accept now'
+      case 'withdrawRequest':
+        return 'Withdraw unsent friend request'
+      case 'withdrawAccept':
+        return 'Withdraw unsent accept'
     }
   }
 
@@ -56,8 +73,8 @@
 
         {#each friendBlockContextMenuAvailableOptions(friendState.friend) as option}
           {#if option != 'edit'}
-            <a href={undefined} class="option" onclick={() => onclickOption(option)}
-              >{optionToText(option)}</a
+            <SettingsOption onclick={() => onclickOption(option)}
+              >{optionToText(option)}</SettingsOption
             >
           {/if}
         {/each}
@@ -91,12 +108,5 @@
     max-width: 700px;
     display: flex;
     flex-direction: column;
-  }
-  .option {
-    font-weight: bolder;
-  }
-  .option:hover {
-    opacity: 0.8;
-    cursor: pointer;
   }
 </style>

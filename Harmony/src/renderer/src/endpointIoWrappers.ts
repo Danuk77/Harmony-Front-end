@@ -4,9 +4,6 @@ import { store } from './redux'
 
 export function changeFriendStatus(friend: Friend, option: FriendBlockContextMenuOptions) {
   switch (option) {
-    case 'delete':
-      deleteFriendRecord(friend)
-      break
     case 'edit':
       store.dispatch({ type: 'setSelectedFriendPk', payload: { pk: friend.peerPk } })
       store.dispatch({ type: 'set-screen-mode', payload: 'edit-friend' })
@@ -14,11 +11,27 @@ export function changeFriendStatus(friend: Friend, option: FriendBlockContextMen
     case 'block':
       blockFriend(friend)
       break
+    case 'delete':
+      deleteFriendRecord(friend)
+      break
     case 'unblock':
+      unblockFriend(friend)
+      break
+    case 'send':
+    case 'sendAnother':
+    case 'sendNow':
+    case 'renew':
       sendFriendRequest(friend.localPk, friend.peerPk, friend.nickname)
       break
     case 'accept':
+    case 'acceptNow':
       acceptFriendRequest(friend)
+      break
+    case 'withdrawRequest':
+      withdrawFriendRequest(friend)
+      break
+    case 'withdrawAccept':
+      withdrawFriendAccept(friend)
       break
   }
 }
@@ -45,12 +58,16 @@ export function sendFriendRequest(localPk: string, peerPk: string, nickname: str
     switch (result.status) {
       case 'fail':
         window.api.showMessageBox({
-          message: 'Failed to send friend request. Reason: ' + result.msg
+          message: 'Failed to send friend request',
+          detail: result.msg,
+          type: 'error'
         })
         break
       case 'offline':
         window.api.showMessageBox({
-          message: 'Failed to send friend request. Friend is offline'
+          message: 'Friend is currently offline',
+          detail: 'The request will be periodically resent.',
+          type: 'info'
         })
         break
       case 'succeed':
@@ -60,7 +77,9 @@ export function sendFriendRequest(localPk: string, peerPk: string, nickname: str
             break
           case 'reject':
             window.api.showMessageBox({
-              message: 'Your friend request was rejected by the peer'
+              message: 'Friend request not successful',
+              detail: 'Your friend request was rejected by the peer',
+              type: 'info'
             })
             break
           case 'pending':
@@ -87,12 +106,16 @@ export async function blockFriend(friend: Friend) {
   switch (result.status) {
     case 'fail':
       window.api.showMessageBox({
-        message: `The friend rejection failed to be delivered (reason: ${result.msg}). If the friend ever tries to connect to us, another rejection will be sent.`
+        message: `The friend rejection failed to be delivered.`,
+        detail: `If the friend ever tries to connect to us, another rejection will be sent. Reason: ${result.msg}`,
+        type: 'error'
       })
       return false
     case 'offline':
       window.api.showMessageBox({
-        message: `The friend is currently offline, so the rejection was not delivered. If the friend ever tries to connect to us, another rejection will be sent.`
+        message: `The friend is currently offline, so the rejection was not delivered.`,
+        detail: `If the friend ever tries to connect to us, another rejection will be sent.`,
+        type: 'info'
       })
       return false
     case 'succeed':
@@ -105,12 +128,16 @@ export async function acceptFriendRequest(friend: Friend) {
   switch (result.status) {
     case 'fail':
       window.api.showMessageBox({
-        message: 'Failed to send friend acceptance. Reason: ' + result.msg
+        message: 'Failed to send friend acceptance.',
+        detail: `Reason: ${result.msg}`,
+        type: 'error'
       })
       break
     case 'offline':
       window.api.showMessageBox({
-        message: 'Failed to send friend acceptance. Friend is offline.'
+        message: 'Friend is currently offline.',
+        detail: 'The acceptance will be periodically resent.',
+        type: 'info'
       })
       break
     case 'succeed':
@@ -120,16 +147,30 @@ export async function acceptFriendRequest(friend: Friend) {
           break
         case 'reject':
           window.api.showMessageBox({
-            message: 'Your friend acceptance was rejected by the peer.'
+            message: 'Your friend acceptance was rejected by the peer.',
+            type: 'info'
           })
           break
         case 'pending':
           window.api.showMessageBox({
             message:
-              'The friend has deleted their original friend request. A new friend request has been sent to them.'
+              'The friend has deleted their original friend request. A new friend request has been sent to them.',
+            type: 'info'
           })
           store.dispatch({ type: 'set-screen-mode', payload: 'chat' })
           break
       }
   }
+}
+
+export async function unblockFriend(friend: Friend) {
+  await window.api.unblockFriend(friend.localPk, friend.peerPk)
+}
+
+export async function withdrawFriendRequest(friend: Friend) {
+  await window.api.withdrawFriendRequest(friend.localPk, friend.peerPk)
+}
+
+export async function withdrawFriendAccept(friend: Friend) {
+  await window.api.withdrawFriendAccept(friend.localPk, friend.peerPk)
 }

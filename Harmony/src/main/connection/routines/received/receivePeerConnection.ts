@@ -8,6 +8,8 @@ import { HarmonyWebsocketConnection, validator } from '../../model/HarmonyWebsoc
 import { HarmonyError, HarmonyRoutineParams } from '../../model/routine'
 import { RTCIceCandidate, RTCPeerConnection } from 'werift'
 import { iceCandidateSchema } from '../initiated/initiatePeerConnection'
+import { base64RegexString } from '../../../../common/types'
+import { store } from '../../../redux'
 
 const initiateSchema = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',
@@ -18,7 +20,7 @@ const initiateSchema = {
     },
     key: {
       type: 'string',
-      pattern: '^[0123456789abcdef]{128}$'
+      pattern: base64RegexString
     }
   },
   required: ['initiate', 'key'],
@@ -153,7 +155,12 @@ async function setupReceivedPeerConnection(
   }
 
   // accept
-  rtc.setConfiguration(rtcConfig)
+  const iceServers = store.getState().user.iceServers
+  rtc.setConfiguration({
+    ...rtcConfig,
+    // prepend user's ice servers.
+    iceServers: [...iceServers, ...(rtcConfig.iceServers ?? [])]
+  })
 
   const localDescription = await rtc.createOffer()
   await send({
@@ -168,10 +175,10 @@ async function setupReceivedPeerConnection(
 
   const peerReply = await recv(answerSchema)
 
-  rtc.onIceCandidate.subscribe((candidate) => {
+  rtc.onIceCandidate.subscribe(async (candidate) => {
     if (candidate) {
       try {
-        send({
+        await send({
           forward: {
             type: 'ICECandidate',
             payload: {

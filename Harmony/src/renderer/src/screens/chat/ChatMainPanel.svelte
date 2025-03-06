@@ -12,7 +12,7 @@
 
   // update messages when ui changes
   $effect(() => {
-    if ($store.ui.selectedFriendPk != null && $store.user.pk != null) {
+    if ($store.ui.selectedFriendPk != null && $store.user.keyPair != null) {
       window.api
         .getConversation('local', $store.ui.selectedFriendPk)
         .then((_messages) => (messages = _messages))
@@ -117,7 +117,7 @@
       if (textBoxContents == '') {
         return
       }
-      if (!$store.user.pk) {
+      if (!$store.user.keyPair) {
         return
       }
       window.api.sendMessage($store.ui.selectedFriendPk, textBoxContents).then(({ msg, error }) => {
@@ -184,16 +184,18 @@
     </div>
   </div>
   {#if $store.ui.selectedFriendPk}
-    <div class="bubble" id="message-input-container" style="background-color: var({inputBoxColor})">
-      <div
-        contenteditable="true"
-        id="message-input"
-        onkeypress={messageBoxKeyEvent}
-        role="textbox"
-        tabindex="0"
-        bind:innerText={textBoxContents}
-      ></div>
-    </div>
+    <!-- <div class="bubble" id="message-input-container" style="background-color: var({inputBoxColor})"> -->
+    <div
+      class="bubble"
+      id="message-input-container"
+      style="background-color: var({inputBoxColor})"
+      contenteditable="true"
+      onkeypress={messageBoxKeyEvent}
+      role="textbox"
+      tabindex="0"
+      bind:innerText={textBoxContents}
+    ></div>
+    <!-- </div> -->
   {/if}
 </div>
 
@@ -229,6 +231,7 @@
     margin-bottom: 2px;
     word-break: break-word;
     white-space: break-spaces;
+    user-select: text;
   }
   .name {
     margin-top: 4px;
@@ -257,14 +260,7 @@
     margin-top: 20px;
     min-height: 30px;
     height: max-content;
-  }
-  #message-input {
-    height: 100%;
     color: var(--color-text-black);
-    white-space: normal;
     overflow-y: scroll;
-  }
-  #message-input:focus {
-    outline: none;
   }
 </style>

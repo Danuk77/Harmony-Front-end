@@ -44,7 +44,7 @@ export async function masterRoutine(
       break
     default:
       try {
-        send({
+        await send({
           terminate: 'cancel'
         })
       } catch {

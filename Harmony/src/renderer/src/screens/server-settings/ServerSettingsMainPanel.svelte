@@ -1,90 +1,92 @@
 <script lang="ts">
   import * as yup from 'yup'
   import { store } from '../../redux'
-  import { collectYupErrorsByField } from '../../misc/utils'
-  import ExpandableBubble from '../../components/ExpandableBubble.svelte'
+  import ScrollContainer from '../../components/ScrollContainer.svelte'
+  import MenuForm from '../../components/MenuForm.svelte'
 
   const protocolRegex = /^(wss?):\/\//
 
-  const schema = yup.object({
+  const harmonyServerSchema = yup.object({
     url: yup
       .string()
       .matches(protocolRegex, 'Please specify protocol ("ws://" or "wss://")')
       .required('This field is required')
   })
 
-  let values = $state<yup.InferType<typeof schema>>({
-    url: $store.user.serverUrl ?? ''
+  const onSubmitHarmonyServer = (values: yup.InferType<typeof harmonyServerSchema>) => {
+    store.dispatch({ type: 'set-server-url', payload: values.url })
+  }
+
+  const iceServerRegex = /^(((?:stun|turn):[^\n]+)(\n(?:stun|turn):[^\n]+)*)?$/
+
+  const iceServerSchema = yup.object({
+    servers: yup.string().matches(iceServerRegex, 'Each should begin with "stun:" or "turn:"')
   })
 
-  let formErrors = $derived(collectYupErrorsByField(schema, values))
-  let showErrors = $state(false)
+  let cleanIceServerValues: yup.InferType<typeof iceServerSchema> = $derived({
+    servers: $store.user.iceServers.map(({ urls }) => urls).join('\n')
+  })
 
-  const handleSubmit: HTMLFormElement['onsubmit'] = (event) => {
-    event.preventDefault()
-    showErrors = true
+  let iceServerForm = $state<MenuForm<typeof iceServerSchema>>()
 
-    if (schema.isValidSync(values)) {
-      store.dispatch({ type: 'set-server-url', payload: values.url })
+  const onSubmitICEServers = (values: yup.InferType<typeof iceServerSchema>) => {
+    let serverURLs = values.servers?.split('\n') ?? []
+    if (values.servers == '') {
+      serverURLs = []
     }
+    store.dispatch({
+      type: 'set-ice-servers',
+      payload: serverURLs.map((serverURL) => ({ urls: serverURL }))
+    })
+    iceServerForm?.reset()
   }
 </script>
 
-<div id="container">
-  <div id="scroll-container">
-    <div id="form">
-      <form onsubmit={handleSubmit}>
-        <ExpandableBubble
-          bottomMargin={false}
-          bind:value={values.url}
-          label="Websocket URL"
-          error={showErrors && formErrors.url.length > 0 ? formErrors.url[0] : undefined}
-        />
-        <input type="submit" id="submit" value="Confirm" />
-      </form>
-    </div>
+<ScrollContainer>
+  <MenuForm
+    legend="Harmony Server"
+    schema={harmonyServerSchema}
+    cleanValues={{
+      url: $store.user.serverUrl ?? ''
+    }}
+    labels={{ url: 'Websocket URL' }}
+    onSubmit={onSubmitHarmonyServer}
+  />
 
-    <div id="checkboxes">
-      <input
-        id="serverEnabled"
-        name="serverEnabled"
-        bind:checked={() => $store.user.serverEnabled,
-        (v) => store.dispatch({ type: 'set-server-enabled', payload: v })}
-        type="checkbox"
-      />
-      <label for="serverEnabled">Enable server</label>
-    </div>
+  {#if $store.connection.state == 'disconnected' && $store.connection.failedConnectMsg}
+    <p id="connectError">Failed: {$store.connection.failedConnectMsg}</p>
+  {/if}
+
+  <div id="checkboxes">
+    <input
+      id="serverEnabled"
+      name="serverEnabled"
+      bind:checked={() => $store.user.serverEnabled,
+      (v) => store.dispatch({ type: 'set-server-enabled', payload: v })}
+      type="checkbox"
+    />
+    <label for="serverEnabled">Enable Harmony server</label>
   </div>
-</div>
+
+  <br />
+
+  <MenuForm
+    bind:this={iceServerForm}
+    legend="ICE Servers"
+    schema={iceServerSchema}
+    cleanValues={cleanIceServerValues}
+    labels={{ servers: 'STUN/TURN server URLs - one per line' }}
+    onSubmit={onSubmitICEServers}
+  />
+</ScrollContainer>
 
 <style>
-  #container {
-    height: 100%;
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    overflow: hidden;
-  }
-  #scroll-container {
-    width: 100%;
-    overflow-y: scroll;
-    align-items: center;
-    display: flex;
-    flex-direction: column;
-    flex-grow: 1;
-  }
-  #form {
-    /* margin-top: auto; bottom-justifys content */
-    margin-top: 20px;
-    margin-bottom: 20px;
-    width: 90%;
-    max-width: 700px;
-    display: flex;
-    flex-direction: column;
-  }
   #checkboxes {
     width: 90%;
     max-width: 700px;
+  }
+  #connectError {
+    color: var(--color-text-error);
+    margin-bottom: 10px;
   }
 </style>

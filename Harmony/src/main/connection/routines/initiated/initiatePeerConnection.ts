@@ -7,6 +7,7 @@ import {
 import { HarmonyWebsocketConnection } from '../../model/HarmonyWebsocketConnection'
 import { HarmonyRoutineParams } from '../../model/routine'
 import { RTCPeerConnection, RTCIceCandidate } from 'werift'
+import { store } from '../../../redux'
 
 // export this cos it's reused in sendFriendRequest
 export const offlineResponseSchema = {
@@ -210,7 +211,12 @@ async function setupInitiatedPeerConnection(
   // only remains accept and offer case.
   // peerResponse is typed correctly :)
   await rtc.setRemoteDescription(peerResponse.forwarded.payload)
-  rtc.setConfiguration(rtcConfig)
+  // prepend user's ice servers.
+  const iceServers = store.getState().user.iceServers
+  rtc.setConfiguration({
+    ...rtcConfig,
+    iceServers: [...iceServers, ...(rtcConfig.iceServers ?? [])]
+  })
   const rtcAnswer = await rtc.createAnswer()
   await send({
     forward: {
@@ -218,10 +224,10 @@ async function setupInitiatedPeerConnection(
       payload: rtcAnswer
     }
   })
-  rtc.onIceCandidate.subscribe((candidate) => {
+  rtc.onIceCandidate.subscribe(async (candidate) => {
     if (candidate) {
       try {
-        send({
+        await send({
           forward: {
             type: 'ICECandidate',
             payload: {

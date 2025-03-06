@@ -1,9 +1,10 @@
 /**
- * Links the database, con, and friend roster.f
+ * Links the database, con, and friend roster.
+ * @todo: make resendFriendRequestTimers be controlled ONLY by redux middleware
  */
 
 import { DEBUG } from '.'
-import { Action } from '../common/redux'
+import { Action, KeyPair } from '../common/redux'
 import { FriendWithState, MainToRendererAction } from '../preload'
 import { HarmonyConnection } from './connection/HarmonyConnection'
 import { WebsocketStatusType } from './connection/model/HarmonyWebsocketConnection'
@@ -29,19 +30,24 @@ export type ControllerState = {
   friends: FriendWithState[]
 }
 
+const resendFriendRequestTimeout = 300_000 // ms
+
 // links database and connections.
 export class Controller {
   private friendRoster: FriendRoster
   private con: HarmonyConnection
   public db: LocalDatabase
-  private _publicKey: string | null = null
+  private _keyPair: KeyPair | null = null
+
+  private friendRequestTimers = new Map<string, NodeJS.Timeout>()
 
   // callback for IPCs to be sent to the renderer.
   public onMainToRendererAction?: (arg0: MainToRendererAction) => unknown
   // callback for system notifications
   public onNotification?: (
     notification: Electron.NotificationConstructorOptions,
-    dontShowIfFocused: boolean
+    dontShowIfFocused: boolean,
+    onclick?: () => unknown
   ) => unknown
 
   constructor() {
@@ -55,24 +61,38 @@ export class Controller {
 
     // con listeners
     this.con.onFailedLogin = (reason) => {
-      storeTypesafe.dispatch({ type: 'set-failed-login-msg', payload: reason })
+      if (reason != store.getState().connection.failedLoginMsg) {
+        storeTypesafe.dispatch({ type: 'set-failed-login-msg', payload: reason })
+      }
+    }
+
+    this.con.onFailedConnect = (reason) => {
+      if (reason != store.getState().connection.failedConnectMsg) {
+        storeTypesafe.dispatch({ type: 'set-failed-connect-msg', payload: reason })
+      }
     }
 
     this.con.onIncomingConnectionRequest = async (pk) => {
-      if (!this.publicKey) return 'reject'
+      if (!this.keyPair) return 'reject'
 
-      const friend = getFriendState(this.publicKey, pk)?.friend
+      const friend = getFriendState(this.keyPair.publicKey, pk)?.friend
 
       if (friend && friend.status == 'accept') {
         return 'accept'
         /**@todo maybe inform the renderer?*/
-      } else if (friend && friend.status == 'block') {
+      } else if (friend && friend.status == 'blocked') {
         // if we have blocked them, send an explicit friend rejection message
         // after a short delay to reduce likelihood of race condition in peer client of the friend status of this client
-        ;((localPk) => setTimeout(() => this.sendFriendRejection(localPk, pk), 1000))(
-          this.publicKey
+        ;((localPk) => setTimeout(() => this.sendFriendRejection(localPk.publicKey, pk), 1000))(
+          this.keyPair
         )
 
+        return 'reject'
+      } else if (friend && this.friendRequestTimers.has(pk)) {
+        // we are not friends, but we are scheduled to send them a friend request.
+        // bring that forward to now.
+        // They will probably accept it, given that they are trying to connect to us.
+        this.sendFriendRequest(this.keyPair.publicKey, pk, friend.nickname)
         return 'reject'
       } else {
         return 'reject'
@@ -85,15 +105,15 @@ export class Controller {
     }
 
     this.con.onReceiveFriendRejection = async (pk) => {
-      if (!this.publicKey) return
+      if (!this.keyPair) return
 
-      const friend = getFriendState(this.publicKey, pk)?.friend
+      const friend = getFriendState(this.keyPair.publicKey, pk)?.friend
       let updatedFriend: Friend
 
       // update the friend
       if (friend) {
-        const updatedFields = {
-          status: 'reject' as const,
+        const updatedFields: Partial<Friend> = {
+          status: 'blocking' as const,
           statusModified: Date.now()
         }
         updatedFriend = { ...friend, ...updatedFields }
@@ -102,9 +122,9 @@ export class Controller {
         storeTypesafe.dispatch({ type: 'friend-change', payload: { friend: updatedFriend } })
       } else {
         updatedFriend = {
-          localPk: this.publicKey,
+          localPk: this.keyPair.publicKey,
           peerPk: pk,
-          status: 'reject',
+          status: 'blocking',
           statusModified: Date.now(),
           nickname: pk,
           hasUnreadMessages: false
@@ -117,19 +137,24 @@ export class Controller {
       }
     }
     this.con.onReceiveFriendRequest = async (pk) => {
-      if (!this.publicKey) {
+      // this shouldn't happen - just for type narrowing
+      if (!this.keyPair) {
         return 'reject'
       }
 
-      const friend = getFriendState(this.publicKey, pk)?.friend
+      const friend = getFriendState(this.keyPair.publicKey, pk)?.friend
       if (friend) {
         switch (friend.status) {
-          case 'reject':
+          case 'accept':
+            return 'accept'
+          case 'none':
+          case 'blocking':
             {
+              // if they had previously blocked us, treat it like a new "clean" request
               const update = {
-                localPk: this.publicKey,
+                localPk: this.keyPair.publicKey,
                 peerPk: pk,
-                status: 'pending' as const,
+                status: 'friend-request:awaiting-our-response' as const,
                 statusModified: Date.now()
               }
 
@@ -140,25 +165,30 @@ export class Controller {
 
               this.onNotification?.(
                 { title: 'Received friend request', body: friend.nickname + ' (' + pk + ')' },
-                true
+                true,
+                () => {
+                  storeTypesafe.dispatch({ type: 'setSelectedFriendPk', payload: { pk } })
+                  storeTypesafe.dispatch({ type: 'set-screen-mode', payload: 'edit-friend' })
+                }
               )
             }
             return 'pending'
-          case 'accept':
-            return 'accept'
-          case 'pending':
-            return 'pending'
-          case 'block':
+          case 'blocked':
             // if we have blocked them, send an explicit friend rejection message
             // after a short delay to reduce likelihood of race condition in peer client of the friend status of this client
-            ;((localPk) => setTimeout(() => this.sendFriendRejection(localPk, pk), 1000))(
-              this.publicKey
+            ;((localPk) => setTimeout(() => this.sendFriendRejection(localPk.publicKey, pk), 1000))(
+              this.keyPair
             )
             return 'reject'
-          case 'awaiting-response':
+          case 'friend-request:awaiting-our-response':
+            return 'pending'
+          case 'friend-request:considering-our-request':
+          case 'friend-request:offline-and-our-friend-accept-unsent':
+          case 'friend-request:offline-and-our-friend-request-unsent':
+            // accept
             {
               const update = {
-                localPk: this.publicKey,
+                localPk: this.keyPair.publicKey,
                 peerPk: pk,
                 status: 'accept' as const,
                 statusModified: Date.now()
@@ -168,7 +198,6 @@ export class Controller {
                 type: 'friend-change',
                 payload: { friend: update }
               })
-
               /**@todo send notification maybe? */
             }
             return 'accept'
@@ -176,9 +205,9 @@ export class Controller {
       } else {
         // insert a new friend obj
         const newFriend: Friend = {
-          localPk: this.publicKey,
+          localPk: this.keyPair.publicKey,
           peerPk: pk,
-          status: 'pending',
+          status: 'friend-request:awaiting-our-response',
           nickname: pk,
           statusModified: Date.now(),
           hasUnreadMessages: false
@@ -190,7 +219,10 @@ export class Controller {
           payload: newFriend
         })
 
-        this.onNotification?.({ title: 'Received friend request', body: pk }, true)
+        this.onNotification?.({ title: 'Received friend request', body: pk }, true, () => {
+          storeTypesafe.dispatch({ type: 'setSelectedFriendPk', payload: { pk } })
+          storeTypesafe.dispatch({ type: 'set-screen-mode', payload: 'edit-friend' })
+        })
 
         return 'pending'
       }
@@ -212,6 +244,12 @@ export class Controller {
       if (status == 'logged-in') {
         // start connecting to friends
         this.friendRoster.paused = false
+        // immmediately resend any friend requests
+        if (this.keyPair /*Definitely set if we're logged in. For type narrowing */) {
+          for (const pk of Array.from(this.friendRequestTimers.keys())) {
+            this.sendFriendRequest(this.keyPair?.publicKey, pk)
+          }
+        }
       } else {
         this.friendRoster.paused = true
       }
@@ -240,33 +278,48 @@ export class Controller {
       const notification: Electron.NotificationConstructorOptions = {
         title:
           // friend nickname
-          state.user.pk ? (getFriendState(state.user.pk, pk)?.friend.nickname ?? '') : '',
+          state.user.keyPair
+            ? (getFriendState(state.user.keyPair.publicKey, pk)?.friend.nickname ?? '')
+            : '',
         body: msg
       }
 
-      if (!this.con.publicKey) {
+      const onClickNotification = () => {
+        storeTypesafe.dispatch({ type: 'setSelectedFriendPk', payload: { pk } })
+        storeTypesafe.dispatch({ type: 'set-screen-mode', payload: 'chat' })
+        if (!this.keyPair) return
+        // remove unread message marker from friend
+        storeTypesafe.dispatch({
+          type: 'friend-change',
+          payload: {
+            friend: { localPk: this.keyPair.publicKey, peerPk: pk, hasUnreadMessages: false }
+          }
+        })
+      }
+
+      if (!this.con.keyPair) {
         // type narrowing
         return
       }
 
       // notification and unread! flag
       if (state.ui.screenMode == 'chat' && state.ui.selectedFriendPk == pk) {
-        this.onNotification?.(notification, true /*dont show if focused */)
+        this.onNotification?.(notification, true /*dont show if focused */, onClickNotification)
       } else {
         // if not focused, set unread messages flag for the friend
-        if (!getFriendState(this.con.publicKey, pk)?.friend.hasUnreadMessages) {
+        if (!getFriendState(this.con.keyPair.publicKey, pk)?.friend.hasUnreadMessages) {
           storeTypesafe.dispatch({
             type: 'friend-change',
             payload: {
               friend: {
-                localPk: this.con.publicKey,
+                localPk: this.con.keyPair.publicKey,
                 peerPk: pk,
                 hasUnreadMessages: true
               }
             }
           })
         }
-        this.onNotification?.(notification, false /*display unconditionally*/)
+        this.onNotification?.(notification, false /*display unconditionally*/, onClickNotification)
       }
     }
 
@@ -284,6 +337,7 @@ export class Controller {
 
     //update friend roster and database when redux store changes
     // redux store is considered the main source of truth
+    // middleware propegates updates
     // so only update the redux store and the rest should be done automatically
     startAppListening({
       predicate: (_action) => {
@@ -294,9 +348,10 @@ export class Controller {
           action.type == 'remove-friend' ||
           action.type == 'hydrate-friends' ||
           action.type == 'hydrate-user' ||
-          action.type == 'set-local-pk' ||
+          action.type == 'set-key-pair' ||
           action.type == 'set-server-url' ||
-          action.type == 'set-server-enabled'
+          action.type == 'set-server-enabled' ||
+          action.type == 'set-ice-servers'
         )
       },
       effect: (_action) => {
@@ -305,26 +360,41 @@ export class Controller {
           case 'add-friend':
             this.friendRoster.addOrUpdateFriend(action.payload)
             this.db.insertFriend(action.payload)
+            this.updateFriendRequestSchedule(action.payload, false)
             break
           case 'friend-change':
             this.friendRoster.updateFriend(action.payload.friend)
             this.db.updateFriend(action.payload.friend)
+            action.payload.friend.status &&
+              this.updateFriendRequestSchedule(
+                {
+                  // do this instead of just passing action.payload.friend because typescript doesn't notice that .status is definitely defined here
+                  status: action.payload.friend.status,
+                  ...action.payload.friend
+                },
+                false /*don't send request immediately */
+              )
             break
           case 'remove-friend':
             this.friendRoster.removeFriend(action.payload.peerPk)
             this.db.removeFriend(action.payload.localPk, action.payload.peerPk)
+            // stop sending friend requests
+            this.clearFriendRequestTimer(action.payload.peerPk)
             break
           case 'hydrate-friends':
             this.friendRoster.setFriends(action.payload)
+            // reset friend requests
+            this.clearFriendRequestTimers()
+            action.payload.forEach((friend) => this.updateFriendRequestSchedule(friend))
             break
           case 'hydrate-user':
-            this.publicKey = action.payload.pk
+            this.keyPair = action.payload.keyPair
             this.con.serverUrl = action.payload.serverUrl
             this.con.enabled = action.payload.serverEnabled
             break
-          case 'set-local-pk':
-            this.publicKey = action.payload
-            this.db.updateUser({ pk: action.payload })
+          case 'set-key-pair':
+            this.keyPair = action.payload // propagates in setter. Causes a hydrate-friends action
+            this.db.updateUser({ keyPair: action.payload })
             break
           case 'set-server-url':
             this.con.serverUrl = action.payload
@@ -333,6 +403,10 @@ export class Controller {
           case 'set-server-enabled':
             this.con.enabled = action.payload
             this.db.updateUser({ serverEnabled: action.payload })
+            break
+          case 'set-ice-servers':
+            this.db.updateUser({ iceServers: action.payload })
+            break
         }
       }
     })
@@ -342,6 +416,24 @@ export class Controller {
       .getUser()
       .then((user) => storeTypesafe.dispatch({ type: 'hydrate-user', payload: user }))
   }
+
+  // start or stop sending friend requests based on the friend status.
+  private updateFriendRequestSchedule = (
+    friend: Partial<Friend> & Pick<Friend, 'peerPk' | 'status'>,
+    immediate: boolean = true
+  ) => {
+    this.clearFriendRequestTimer(friend.peerPk)
+    if (
+      friend.status == 'friend-request:offline-and-our-friend-accept-unsent' ||
+      friend.status == 'friend-request:offline-and-our-friend-request-unsent'
+    ) {
+      this.resetFriendRequestTimer(friend.peerPk)
+      if (immediate) {
+        this.keyPair && immediate && this.sendFriendRequest(this.keyPair.publicKey, friend.peerPk)
+      }
+    }
+  }
+
   /**
    * Send a message to a peer, update the database, return a message to the front end.
    */
@@ -385,8 +477,25 @@ export class Controller {
   public sendFriendRequest = async (
     localPk: string,
     peerPk: string,
-    nickname: string
+    nickname?: string
   ): Promise<FriendRequestResult> => {
+    // reset interval
+    if (this.friendRequestTimers.has(peerPk)) this.resetFriendRequestTimer(peerPk)
+
+    if (this.con.wsStatus != 'logged-in') {
+      return {
+        status: 'fail',
+        msg: 'You are not logged in'
+      }
+    }
+
+    if (!this.keyPair || localPk != this.keyPair.publicKey) {
+      return {
+        status: 'fail',
+        msg: 'Local public key has changed'
+      }
+    }
+
     let result: FriendRequestResult
     try {
       result = await this.con.sendFriendRequest(peerPk)
@@ -402,48 +511,68 @@ export class Controller {
       console.error(result.msg)
       return result
     }
-    if (result.status == 'offline') {
-      return result
+
+    // work out whether message is a request or a response (the server protocol does not distinguish, but the client does.)
+    let requestType: 'request' | 'response'
+    let friendObj = getFriendState(localPk, peerPk)?.friend
+    if (!friendObj) {
+      requestType = 'request'
+    } else {
+      // check if we have received a request
+      if (
+        friendObj.status == 'friend-request:awaiting-our-response' ||
+        friendObj.status == 'friend-request:offline-and-our-friend-accept-unsent'
+      ) {
+        requestType = 'response'
+      } else {
+        requestType = 'request'
+      }
     }
 
-    // new friend status depends on response from peer
-    let newStatus: Friend['status']
-    switch (result.type) {
-      case 'accept':
-        newStatus = 'accept'
-        break
-      case 'reject':
-        newStatus = 'reject'
-        break
-      case 'pending':
-        newStatus = 'awaiting-response'
-        break
+    // new friend status depends on response from peer, and what the curret status is.
+    let newStatus: Friend['status'] | undefined = undefined
+    if (result.status == 'offline') {
+      switch (requestType) {
+        case 'request':
+          newStatus = 'friend-request:offline-and-our-friend-request-unsent'
+          break
+        case 'response':
+          newStatus = 'friend-request:offline-and-our-friend-accept-unsent'
+          break
+      }
+    } else {
+      switch (result.type) {
+        case 'accept':
+          newStatus = 'accept'
+          break
+        case 'reject':
+          newStatus = 'none'
+          break
+        case 'pending':
+          newStatus = 'friend-request:considering-our-request'
+          break
+      }
     }
 
     // update db and friend roster
-    // check if friend already exists
-    /**@todo this might cause an error */
-    let friendObj = getFriendState(localPk, peerPk)?.friend
+    const friendUpdate = {
+      peerPk,
+      localPk,
+      status: newStatus,
+      statusModified: Date.now(),
+      ...(nickname && { nickname })
+    }
     if (friendObj) {
-      const friendUpdate = {
-        peerPk,
-        localPk,
-        nickname,
-        status: newStatus,
-        statusModified: Date.now()
-      }
       // tell the front end
       storeTypesafe.dispatch({
         type: 'friend-change',
         payload: { friend: friendUpdate }
       })
     } else {
+      // new friend obj
       friendObj = {
-        localPk: localPk,
-        peerPk: peerPk,
-        nickname: nickname,
-        status: newStatus,
-        statusModified: Date.now(),
+        nickname: peerPk,
+        ...friendUpdate, // may overwrite nickname
         hasUnreadMessages: false
       }
 
@@ -462,14 +591,13 @@ export class Controller {
     // update the friend roster and databse.
     /**@todo next line might raise an error */
     const friendObj = getFriendState(localPk, peerPk)?.friend
+    const friendUpdate = {
+      localPk: localPk,
+      peerPk: peerPk,
+      status: 'blocked' as const,
+      statusModified: Date.now()
+    }
     if (friendObj) {
-      const friendUpdate = {
-        localPk: localPk,
-        peerPk: peerPk,
-        status: 'block' as const,
-        statusModified: Date.now()
-      }
-
       // modify redux store
       storeTypesafe.dispatch({
         type: 'friend-change',
@@ -477,11 +605,8 @@ export class Controller {
       })
     } else {
       const friend: Friend = {
-        localPk,
-        peerPk,
+        ...friendUpdate,
         nickname: peerPk,
-        status: 'block',
-        statusModified: Date.now(),
         hasUnreadMessages: false
       }
       // add to redux store
@@ -494,14 +619,65 @@ export class Controller {
     return result
   }
 
-  public set publicKey(publicKey: string | null) {
-    this._publicKey = publicKey
-    this.con.publicKey = publicKey
-    console.log(publicKey)
+  public unblockFriend = async (localPk: string, peerPk: string) => {
+    const friendObj = getFriendState(localPk, peerPk)?.friend
+    if (!friendObj) return
 
-    if (publicKey) {
+    storeTypesafe.dispatch({
+      type: 'friend-change',
+      payload: {
+        friend: {
+          localPk,
+          peerPk,
+          status: 'none',
+          statusModified: Date.now()
+        }
+      }
+    })
+  }
+
+  public withdrawFriendRequest = async (localPk: string, peerPk: string) => {
+    // update
+    const friendObj = getFriendState(localPk, peerPk)?.friend
+    if (!friendObj) return
+    storeTypesafe.dispatch({
+      type: 'friend-change',
+      payload: {
+        friend: {
+          localPk,
+          peerPk,
+          status: 'none'
+        }
+      }
+    })
+  }
+
+  public withdrawFriendAccept = async (localPk: string, peerPk: string) => {
+    // update
+    const friendObj = getFriendState(localPk, peerPk)?.friend
+    if (!friendObj) return
+    storeTypesafe.dispatch({
+      type: 'friend-change',
+      payload: {
+        friend: {
+          localPk,
+          peerPk,
+          status: 'friend-request:awaiting-our-response'
+        }
+      }
+    })
+  }
+
+  public set keyPair(keyPair: KeyPair | null) {
+    // remove all friend request resends
+    this.clearFriendRequestTimers()
+
+    this._keyPair = keyPair
+    this.con.keyPair = keyPair
+
+    if (keyPair) {
       // update friend roster with correct friends
-      this.db.getAllFriends(publicKey).then((friends) => {
+      this.db.getAllFriends(keyPair.publicKey).then((friends) => {
         storeTypesafe.dispatch({ type: 'hydrate-friends', payload: friends })
       })
     } else {
@@ -510,14 +686,36 @@ export class Controller {
     }
   }
 
-  public get publicKey() {
-    return this._publicKey
+  public get keyPair() {
+    return this._keyPair
+  }
+
+  private clearFriendRequestTimer = (peerPk: string) => {
+    clearInterval(this.friendRequestTimers.get(peerPk))
+    this.friendRequestTimers.delete(peerPk)
+  }
+
+  private clearFriendRequestTimers = () => {
+    for (const pk of this.friendRequestTimers.keys()) {
+      this.clearFriendRequestTimer(pk)
+    }
+  }
+
+  private resetFriendRequestTimer = (peerPk: string) => {
+    this.clearFriendRequestTimer(peerPk)
+    const interval = setInterval(
+      () => this.keyPair && this.sendFriendRequest(this.keyPair.publicKey, peerPk),
+      resendFriendRequestTimeout
+    )
+    this.friendRequestTimers.set(peerPk, interval)
   }
 
   /**
    * Gracefully stop everything
    */
   public close() {
+    // remove all friend request resends
+    this.clearFriendRequestTimers()
     this.friendRoster.closeAll()
     this.con.close()
   }
