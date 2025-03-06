@@ -17,7 +17,7 @@
     store.dispatch({ type: 'set-server-url', payload: values.url })
   }
 
-  const iceServerRegex = /^((?:stun|turn):[^\n]+)(\n(?:stun|turn):[^\n]+)*$/
+  const iceServerRegex = /^(((?:stun|turn):[^\n]+)(\n(?:stun|turn):[^\n]+)*)?$/
 
   const iceServerSchema = yup.object({
     servers: yup.string().matches(iceServerRegex, 'Each should begin with "stun:" or "turn:"')
@@ -30,7 +30,10 @@
   let iceServerForm = $state<MenuForm<typeof iceServerSchema>>()
 
   const onSubmitICEServers = (values: yup.InferType<typeof iceServerSchema>) => {
-    const serverURLs = values.servers?.split('\n') ?? []
+    let serverURLs = values.servers?.split('\n') ?? []
+    if (values.servers == '') {
+      serverURLs = []
+    }
     store.dispatch({
       type: 'set-ice-servers',
       payload: serverURLs.map((serverURL) => ({ urls: serverURL }))
