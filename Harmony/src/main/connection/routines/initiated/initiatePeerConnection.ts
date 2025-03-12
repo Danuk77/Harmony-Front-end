@@ -141,7 +141,16 @@ export function initiatePeerConnection(
   con: HarmonyWebsocketConnection,
   peerPk: string
 ): Promise<PeerConnectionCreationResult> {
-  const rtc = new RTCPeerConnection()
+  // prepend user's ICE servers
+  const { stunServer, turnServer } = store.getState().user
+  const rtc = new RTCPeerConnection({
+    ...rtcConfig,
+    iceServers: [
+      ...(stunServer ? [stunServer] : []),
+      ...(turnServer ? [turnServer] : []),
+      ...(rtcConfig.iceServers ?? [])
+    ]
+  })
 
   // the connection has been successfully created when we get an event on the .ondatachannel channel
   // but the connection can fail for a number of reasons
@@ -211,12 +220,12 @@ async function setupInitiatedPeerConnection(
   // only remains accept and offer case.
   // peerResponse is typed correctly :)
   await rtc.setRemoteDescription(peerResponse.forwarded.payload)
-  // prepend user's ice servers.
-  const iceServers = store.getState().user.iceServers
-  rtc.setConfiguration({
-    ...rtcConfig,
-    iceServers: [...iceServers, ...(rtcConfig.iceServers ?? [])]
-  })
+  // // prepend user's ice servers.
+  // const iceServers = store.getState().user.iceServers
+  // rtc.setConfiguration({
+  //   ...rtcConfig,
+  //   iceServers: [...iceServers, ...(rtcConfig.iceServers ?? [])]
+  // })
   const rtcAnswer = await rtc.createAnswer()
   await send({
     forward: {

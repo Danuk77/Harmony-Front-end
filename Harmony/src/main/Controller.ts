@@ -351,7 +351,8 @@ export class Controller {
           action.type == 'set-key-pair' ||
           action.type == 'set-server-url' ||
           action.type == 'set-server-enabled' ||
-          action.type == 'set-ice-servers'
+          action.type == 'set-stun-server' ||
+          action.type == 'set-turn-server'
         )
       },
       effect: (_action) => {
@@ -404,8 +405,11 @@ export class Controller {
             this.con.enabled = action.payload
             this.db.updateUser({ serverEnabled: action.payload })
             break
-          case 'set-ice-servers':
-            this.db.updateUser({ iceServers: action.payload })
+          case 'set-stun-server':
+            this.db.updateUser({ stunServer: action.payload })
+            break
+          case 'set-turn-server':
+            this.db.updateUser({ turnServer: action.payload })
             break
         }
       }

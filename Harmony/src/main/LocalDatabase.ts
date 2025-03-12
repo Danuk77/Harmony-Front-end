@@ -14,7 +14,8 @@ export type User = {
   keyPair: KeyPair | null
   serverUrl: string | null
   serverEnabled: boolean
-  iceServers: IceServer[]
+  stunServer: IceServer | null
+  turnServer: IceServer | null
 }
 type UserDoc = User & {
   _id?: string // nedb thing
@@ -24,7 +25,8 @@ const defaultUser: User = {
   keyPair: null,
   serverUrl: null,
   serverEnabled: true,
-  iceServers: []
+  stunServer: null,
+  turnServer: null
 }
 
 export type Friend = {
