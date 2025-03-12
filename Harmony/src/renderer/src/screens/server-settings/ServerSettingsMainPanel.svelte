@@ -3,6 +3,7 @@
   import { store } from '../../redux'
   import ScrollContainer from '../../components/ScrollContainer.svelte'
   import MenuForm from '../../components/MenuForm.svelte'
+  import type { IceServer } from '../../../../common/redux'
 
   const protocolRegex = /^(wss?):\/\//
 
@@ -17,27 +18,77 @@
     store.dispatch({ type: 'set-server-url', payload: values.url })
   }
 
-  const iceServerRegex = /^(((?:stun|turn):[^\n]+)(\n(?:stun|turn):[^\n]+)*)?$/
+  // const iceServerRegex = /^(((?:stun|turn):[^\n]+)(\n(?:stun|turn):[^\n]+)*)?$/
 
   const iceServerSchema = yup.object({
-    servers: yup.string().matches(iceServerRegex, 'Each should begin with "stun:" or "turn:"')
+    stunServerURL: yup.string(),
+    turnServerURL: yup.string(),
+    turnServerUsername: yup.string(),
+    turnServerCredential: yup.string()
   })
 
   let cleanIceServerValues: yup.InferType<typeof iceServerSchema> = $derived({
-    servers: $store.user.iceServers.map(({ urls }) => urls).join('\n')
+    stunServerURL: $store.user.stunServer?.urls.slice(5) ?? '',
+    turnServerURL: $store.user.turnServer?.urls.slice(5) ?? '',
+    turnServerUsername: $store.user.turnServer?.username ?? '',
+    turnServerCredential: $store.user.turnServer?.credential ?? ''
   })
 
   let iceServerForm = $state<MenuForm<typeof iceServerSchema>>()
 
-  const onSubmitICEServers = (values: yup.InferType<typeof iceServerSchema>) => {
-    let serverURLs = values.servers?.split('\n') ?? []
-    if (values.servers == '') {
-      serverURLs = []
+  const onSubmitICEServers = (_values: yup.InferType<typeof iceServerSchema>) => {
+    const values = {
+      stunServerURL: _values.stunServerURL ?? '',
+      turnServerCredential: _values.turnServerCredential ?? '',
+      turnServerURL: _values.turnServerURL ?? '',
+      turnServerUsername: _values.turnServerUsername ?? ''
     }
-    store.dispatch({
-      type: 'set-ice-servers',
-      payload: serverURLs.map((serverURL) => ({ urls: serverURL }))
-    })
+
+    let setSTUN = false
+    let setTURN = false
+
+    if (values.stunServerURL != '') {
+      setSTUN = true
+      // add "stun:"
+      if (values.stunServerURL.slice(0, 5) != 'stun:') {
+        values.stunServerURL = 'stun:' + values.stunServerURL
+      }
+    }
+
+    if (values.turnServerURL != '') {
+      setTURN = true
+      if (values.turnServerURL.slice(0, 5) != 'turn:') {
+        // add "turn:"
+        values.turnServerURL = 'turn:' + values.turnServerURL
+      }
+    } else {
+      // give error if there are credentials provided without stun server addr.
+      if (values.turnServerCredential != '' || values.turnServerUsername != '') {
+        window.api.showMessageBox({
+          message: 'TURN credentials provided, but no TURN server specified!',
+          type: 'error'
+        })
+        return
+      }
+    }
+
+    const newSTUN: IceServer | null = setSTUN
+      ? {
+          urls: values.stunServerURL
+        }
+      : null
+
+    const newTURN: IceServer | null = setTURN
+      ? {
+          urls: values.turnServerURL,
+          credential: values.turnServerCredential != '' ? values.turnServerCredential : undefined,
+          username: values.turnServerUsername != '' ? values.turnServerUsername : undefined
+        }
+      : null
+
+    store.dispatch({ type: 'set-stun-server', payload: newSTUN })
+    store.dispatch({ type: 'set-turn-server', payload: newTURN })
+
     iceServerForm?.reset()
   }
 </script>
@@ -75,7 +126,12 @@
     legend="ICE Servers"
     schema={iceServerSchema}
     cleanValues={cleanIceServerValues}
-    labels={{ servers: 'STUN/TURN server URLs - one per line' }}
+    labels={{
+      stunServerURL: 'STUN Server URL (optional) - required for connections outside LAN',
+      turnServerURL: 'TURN Server URL (optional)',
+      turnServerUsername: 'TURN Server Username (optional)',
+      turnServerCredential: 'TURN Server Credential (optional)'
+    }}
     onSubmit={onSubmitICEServers}
   />
 </ScrollContainer>

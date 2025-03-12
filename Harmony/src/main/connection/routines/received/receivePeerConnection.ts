@@ -86,7 +86,19 @@ export async function receivePeerConnection(
     // wrap all the cases for the PeerConnectionCreationResult in a promise. Promises can only be resolved once, so this ensures at most one onIncomingConnectionResult event is fired.
     // the `done` promise is separate to this.
     new Promise<PeerConnectionCreationResult>((resolve) => {
-      const rtc = new RTCPeerConnection()
+      // accept
+
+      // create RTCPeerConnection
+      const { stunServer, turnServer } = store.getState().user
+      const rtc = new RTCPeerConnection({
+        ...rtcConfig,
+        iceServers: [
+          ...(stunServer ? [stunServer] : []),
+          ...(turnServer ? [turnServer] : []),
+          ...(rtcConfig.iceServers ?? [])
+        ]
+      })
+
       // create data channel
       const dataChannel = rtc.createDataChannel('chat', { ordered: true })
       // resolve promise when channel opens
@@ -153,14 +165,6 @@ async function setupReceivedPeerConnection(
     await recv() // terminate:"done"
     return 'reject'
   }
-
-  // accept
-  const iceServers = store.getState().user.iceServers
-  rtc.setConfiguration({
-    ...rtcConfig,
-    // prepend user's ice servers.
-    iceServers: [...iceServers, ...(rtcConfig.iceServers ?? [])]
-  })
 
   const localDescription = await rtc.createOffer()
   await send({
