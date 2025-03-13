@@ -12,10 +12,21 @@ index eff8509..9e15c4e 100644
          ];
          this.turnServer = (0, iceBase_1.validateAddress)(turnServer);
 diff --git a/node_modules/werift/lib/ice/src/iceBase.js b/node_modules/werift/lib/ice/src/iceBase.js
-index 400769c..e19b639 100644
+index 400769c..acd2ba8 100644
 --- a/node_modules/werift/lib/ice/src/iceBase.js
 +++ b/node_modules/werift/lib/ice/src/iceBase.js
-@@ -146,7 +146,8 @@ async function serverReflexiveCandidate(protocol, stunServer) {
+@@ -139,6 +139,10 @@ async function serverReflexiveCandidate(protocol, stunServer) {
+     // Query STUN server to obtain a server-reflexive candidate.
+     // """
+     // # perform STUN query
++
++    // stop if no stun server (Harmony Client patch)
++    if (stunServer[0] == "") return
++    
+     const request = new message_1.Message(const_1.methods.BINDING, const_1.classes.REQUEST);
+     try {
+         const [response] = await protocol.request(request, stunServer);
+@@ -146,7 +150,8 @@ async function serverReflexiveCandidate(protocol, stunServer) {
          if (!localCandidate) {
              throw new Error("not exist");
          }
