@@ -1,6 +1,6 @@
 // stores are synced  between main and renderer processes. Both need access to these types and functions.
 
-import type { WebsocketStatusType } from '../main/connection/model/HarmonyWebsocketConnection'
+import type { WebsocketStatusType } from 'node-harmonyclient'
 import { Friend, User } from '../main/LocalDatabase'
 import { FriendConnectionStatus } from '../main/FriendConnectionHandler'
 

@@ -1,9 +1,8 @@
 // stores a list of friends and corresponding rtc connections and periodically sends connection requests
 
-import { HarmonyConnection } from './connection/HarmonyConnection'
+import { HarmonyConnection, PeerConnectionCreationResult } from 'node-harmonyclient'
 import { Friend } from './LocalDatabase'
 import { FriendConnectionStatus, FriendConnectionHandler } from './FriendConnectionHandler'
-import { PeerConnectionCreationResult } from './connection/model/HarmonyPeerConnection'
 import { DEBUG } from '.'
 
 /**

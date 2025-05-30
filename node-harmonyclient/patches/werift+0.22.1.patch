@@ -1,5 +1,5 @@
 diff --git a/node_modules/werift/lib/ice/src/ice.js b/node_modules/werift/lib/ice/src/ice.js
-index eff8509..9e15c4e 100644
+index f25671e..a213406 100644
 --- a/node_modules/werift/lib/ice/src/ice.js
 +++ b/node_modules/werift/lib/ice/src/ice.js
 @@ -436,7 +436,7 @@ class Connection {
@@ -12,17 +12,17 @@ index eff8509..9e15c4e 100644
          ];
          this.turnServer = (0, iceBase_1.validateAddress)(turnServer);
 diff --git a/node_modules/werift/lib/ice/src/iceBase.js b/node_modules/werift/lib/ice/src/iceBase.js
-index 400769c..acd2ba8 100644
+index 400769c..56be8ff 100644
 --- a/node_modules/werift/lib/ice/src/iceBase.js
 +++ b/node_modules/werift/lib/ice/src/iceBase.js
 @@ -139,6 +139,10 @@ async function serverReflexiveCandidate(protocol, stunServer) {
      // Query STUN server to obtain a server-reflexive candidate.
      // """
      // # perform STUN query
-+
++    
 +    // stop if no stun server (Harmony Client patch)
 +    if (stunServer[0] == "") return
-+    
++        
      const request = new message_1.Message(const_1.methods.BINDING, const_1.classes.REQUEST);
      try {
          const [response] = await protocol.request(request, stunServer);
@@ -37,10 +37,10 @@ index 400769c..acd2ba8 100644
      }
      catch (error) {
 diff --git a/node_modules/werift/lib/ice/src/utils.js b/node_modules/werift/lib/ice/src/utils.js
-index da83909..c26fd64 100644
+index ee99f23..e18d889 100644
 --- a/node_modules/werift/lib/ice/src/utils.js
 +++ b/node_modules/werift/lib/ice/src/utils.js
-@@ -16,7 +16,7 @@ async function getGlobalIp(stunServer, interfaceAddresses) {
+@@ -19,7 +19,7 @@ async function getGlobalIp(stunServer, interfaceAddresses) {
      const protocol = new protocol_1.StunProtocol();
      await protocol.connectionMade(true, undefined, interfaceAddresses);
      const request = new message_1.Message(const_1.methods.BINDING, const_1.classes.REQUEST);
@@ -50,10 +50,10 @@ index da83909..c26fd64 100644
      const address = response.getAttributeValue("XOR-MAPPED-ADDRESS");
      return address[0];
 diff --git a/node_modules/werift/lib/index.mjs b/node_modules/werift/lib/index.mjs
-index 3243466..988dfc1 100644
+index b6754bc..cbf44b8 100644
 --- a/node_modules/werift/lib/index.mjs
 +++ b/node_modules/werift/lib/index.mjs
-@@ -7540,7 +7540,7 @@ async function getGlobalIp(stunServer, interfaceAddresses) {
+@@ -7559,7 +7559,7 @@ async function getGlobalIp(stunServer, interfaceAddresses) {
    const request = new Message(1 /* BINDING */, 0 /* REQUEST */);
    const [response] = await protocol.request(
      request,
@@ -62,7 +62,7 @@ index 3243466..988dfc1 100644
    );
    await protocol.close();
    const address = response.getAttributeValue("XOR-MAPPED-ADDRESS");
-@@ -7596,7 +7596,7 @@ var Connection = class {
+@@ -7622,7 +7622,7 @@ var Connection = class {
      };
      const { stunServer, turnServer } = this.options;
      this.stunServer = validateAddress(stunServer) ?? [
@@ -71,7 +71,7 @@ index 3243466..988dfc1 100644
        19302
      ];
      this.turnServer = validateAddress(turnServer);
-@@ -14635,7 +14635,7 @@ var defaultPeerConfig = {
+@@ -14657,7 +14657,7 @@ var defaultPeerConfig = {
      video: []
    },
    iceTransportPolicy: "all",
@@ -81,10 +81,10 @@ index 3243466..988dfc1 100644
    iceInterfaceAddresses: void 0,
    iceAdditionalHostAddresses: void 0,
 diff --git a/node_modules/werift/lib/nonstandard/index.mjs b/node_modules/werift/lib/nonstandard/index.mjs
-index 38adf29..04e4ed1 100644
+index 00cc7d5..917d638 100644
 --- a/node_modules/werift/lib/nonstandard/index.mjs
 +++ b/node_modules/werift/lib/nonstandard/index.mjs
-@@ -9207,7 +9207,7 @@ var defaultPeerConfig = {
+@@ -9213,7 +9213,7 @@ var defaultPeerConfig = {
      video: []
    },
    iceTransportPolicy: "all",
@@ -94,10 +94,10 @@ index 38adf29..04e4ed1 100644
    iceInterfaceAddresses: void 0,
    iceAdditionalHostAddresses: void 0,
 diff --git a/node_modules/werift/lib/webrtc/src/peerConnection.js b/node_modules/werift/lib/webrtc/src/peerConnection.js
-index dbd96bf..610637b 100644
+index 63a52b3..f6461af 100644
 --- a/node_modules/werift/lib/webrtc/src/peerConnection.js
 +++ b/node_modules/werift/lib/webrtc/src/peerConnection.js
-@@ -1500,7 +1500,7 @@ exports.defaultPeerConfig = {
+@@ -1516,7 +1516,7 @@ exports.defaultPeerConfig = {
          video: [],
      },
      iceTransportPolicy: "all",

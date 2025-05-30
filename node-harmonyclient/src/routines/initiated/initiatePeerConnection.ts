@@ -7,7 +7,6 @@ import {
 import { HarmonyWebsocketConnection } from '../../model/HarmonyWebsocketConnection'
 import { HarmonyRoutineParams } from '../../model/routine'
 import { RTCPeerConnection, RTCIceCandidate } from 'werift'
-import { store } from '../../../redux'
 
 // export this cos it's reused in sendFriendRequest
 export const offlineResponseSchema = {
@@ -142,7 +141,7 @@ export function initiatePeerConnection(
   peerPk: string
 ): Promise<PeerConnectionCreationResult> {
   // prepend user's ICE servers
-  const { stunServer, turnServer } = store.getState().user
+  const { stunServer, turnServer } = con.options
   const rtc = new RTCPeerConnection({
     ...rtcConfig,
     iceServers: [

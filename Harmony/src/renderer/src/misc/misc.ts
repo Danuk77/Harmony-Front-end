@@ -1,4 +1,4 @@
-import type { WebsocketStatusType } from '../../../main/connection/model/HarmonyWebsocketConnection'
+import type { WebsocketStatusType } from 'node-harmonyclient'
 import type { FriendWithState } from '../../../preload'
 
 export function peerConnectionStatusToBulbColorCssVariable(

@@ -4,7 +4,7 @@ import { receivePeerConnection } from './receivePeerConnection'
 import { HarmonyRoutineParams } from '../../model/routine'
 import { receiveFriendRejection } from './receiveFriendRejection'
 import { FromSchema } from 'json-schema-to-ts'
-import { eToStr } from '../../../Controller'
+import { eToStr } from '../../utils'
 
 const initiateSchema = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',

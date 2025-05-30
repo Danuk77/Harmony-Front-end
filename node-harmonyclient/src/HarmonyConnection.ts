@@ -2,8 +2,11 @@
  * Facade for code in this directory.
  */
 
-import { KeyPair } from '../../common/redux'
-import { HarmonyWebsocketConnection } from './model/HarmonyWebsocketConnection'
+import { KeyPair } from './utils'
+import {
+  HarmonyWebsocketConnection,
+  HarmonyWebsocketConnectionOptions
+} from './model/HarmonyWebsocketConnection'
 import { initiatePeerConnection } from './routines/initiated/initiatePeerConnection'
 import { sendFriendRejection } from './routines/initiated/sendFriendRejection'
 import { sendFriendRequest } from './routines/initiated/sendFriendRequest'
@@ -23,6 +26,14 @@ export class HarmonyConnection {
 
   public get wsStatus() {
     return this.websocket.wsStatus
+  }
+
+  public get options() {
+    return this.websocket.options
+  }
+
+  public set options(options: HarmonyWebsocketConnectionOptions) {
+    this.websocket.options = options
   }
 
   public set keyPair(keyPair: KeyPair | null) {

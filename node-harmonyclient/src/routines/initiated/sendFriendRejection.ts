@@ -1,4 +1,4 @@
-import { eToStr } from '../../../Controller'
+import { eToStr } from '../../utils'
 import { HarmonyWebsocketConnection } from '../../model/HarmonyWebsocketConnection'
 
 type FriendRejectionResult =

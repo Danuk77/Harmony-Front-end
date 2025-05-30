@@ -20,7 +20,7 @@ export class AsyncBlockingQueue<T> {
     // else this.promises.push(Promise.resolve(t));
     if (!this.resolvers.length) this._add()
 
-    /**@ts-ignore list is not empty because of the above line */
+    /**@ts-expect-error list is not empty because of the above line */
     this.resolvers.shift()(t)
   }
   dequeue(): Promise<T> {

@@ -1,7 +1,7 @@
 import { FromSchema } from 'json-schema-to-ts'
 import { HarmonyWebsocketConnection, validator } from '../../model/HarmonyWebsocketConnection'
 import { HarmonyError } from '../../model/routine'
-import { base64RegexString } from '../../../../common/types'
+import { base64RegexString } from '../../utils'
 
 const schema = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',

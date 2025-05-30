@@ -1,9 +1,9 @@
 import { Friend } from './LocalDatabase'
-import { HarmonyConnection } from './connection/HarmonyConnection'
 import {
+  HarmonyConnection,
   HarmonyPeerConnection,
   PeerConnectionCreationResult
-} from './connection/model/HarmonyPeerConnection'
+} from 'node-harmonyclient'
 
 const offlineReconnectPeriod = 300_000 // ms (5 minutes)
 const disconnectedReconnectPeriod = 10_000 //ms

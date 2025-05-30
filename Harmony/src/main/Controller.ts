@@ -6,9 +6,7 @@
 import { DEBUG } from '.'
 import { Action, KeyPair } from '../common/redux'
 import { FriendWithState, MainToRendererAction } from '../preload'
-import { HarmonyConnection } from './connection/HarmonyConnection'
-import { WebsocketStatusType } from './connection/model/HarmonyWebsocketConnection'
-import { FriendRequestResult } from './connection/routines/initiated/sendFriendRequest'
+import { HarmonyConnection, WebsocketStatusType, FriendRequestResult } from 'node-harmonyclient'
 import { FriendRoster } from './FriendRoster'
 import { Friend, LocalDatabase, Message } from './LocalDatabase'
 import { getFriendState, startAppListening, store, storeTypesafe } from './redux'
@@ -391,6 +389,8 @@ export class Controller {
           case 'hydrate-user':
             this.keyPair = action.payload.keyPair
             this.con.serverUrl = action.payload.serverUrl
+            this.con.options.stunServer = action.payload.stunServer
+            this.con.options.turnServer = action.payload.turnServer
             this.con.enabled = action.payload.serverEnabled
             break
           case 'set-key-pair':
@@ -406,9 +406,11 @@ export class Controller {
             this.db.updateUser({ serverEnabled: action.payload })
             break
           case 'set-stun-server':
+            this.con.options.stunServer = action.payload
             this.db.updateUser({ stunServer: action.payload })
             break
           case 'set-turn-server':
+            this.con.options.turnServer = action.payload
             this.db.updateUser({ turnServer: action.payload })
             break
         }

@@ -10,10 +10,10 @@ import { AsyncBlockingQueue } from './AsyncBlockingQueue'
 import { comeOnline } from '../routines/initiated/comeOnline'
 import { masterRoutine } from '../routines/received/masterRoutine'
 import { PeerConnectionCreationResult } from './HarmonyPeerConnection'
-import { eToStr } from '../../Controller'
+import { eToStr, IceServer } from '../utils'
 import { Validator } from 'jsonschema'
 import { FromSchema, JSONSchema } from 'json-schema-to-ts'
-import { KeyPair } from '../../../common/redux'
+import { KeyPair } from '../utils'
 
 const TRANSACTION_SOCKET_TIMEOUT = 20000 //ms
 const WS_RECONNECT_TIMEOUT = 10000 // ms
@@ -21,13 +21,12 @@ const WS_RECONNECT_TIMEOUT = 10000 // ms
 export const validator = new Validator()
 
 export type HarmonyWebsocketConnectionOptions = {
-  /**
-   * Url of the signalling server websocket endpoint.
-   */
-  serverUrl: string | null
+  stunServer: IceServer | null
+  turnServer: IceServer | null
 }
 const defaultOptions: HarmonyWebsocketConnectionOptions = {
-  serverUrl: null
+  stunServer: null,
+  turnServer: null
 }
 
 export type FriendRequestResponseType = 'accept' | 'reject' | 'pending'
@@ -46,8 +45,9 @@ export type WebsocketStatusType =
  */
 export class HarmonyWebsocketConnection {
   public version = '1.0'
+  public options: HarmonyWebsocketConnectionOptions
 
-  private options: HarmonyWebsocketConnectionOptions
+  private _serverUrl: string | null = null
   private wsConnection?: connection
   private _wsStatus: WebsocketStatusType = 'disconnected'
   private transactionSockets: Map<string, HarmonyTransactionSocket>
@@ -71,9 +71,9 @@ export class HarmonyWebsocketConnection {
   ) => FriendRequestResponseType | Promise<FriendRequestResponseType>
   public onReceiveFriendRejection?: (pk: string) => unknown
 
-  constructor() {
+  constructor(options?: HarmonyWebsocketConnectionOptions) {
     // override default options
-    this.options = { ...defaultOptions }
+    this.options = { ...defaultOptions, ...(options ?? {}) }
 
     this.transactionSockets = new Map()
     this.keyPair = null
@@ -88,12 +88,12 @@ export class HarmonyWebsocketConnection {
   }
 
   public set serverUrl(websocketUrl: string | null) {
-    this.options.serverUrl = websocketUrl
+    this._serverUrl = websocketUrl
     this.reconnect()
   }
 
   public get serverUrl() {
-    return this.options.serverUrl
+    return this._serverUrl
   }
 
   public set keyPair(keyPair: KeyPair | null) {
@@ -148,7 +148,7 @@ export class HarmonyWebsocketConnection {
     this.wsConnection?.close()
 
     // ignore if no websocket url or not enabled
-    if (!this.options.serverUrl || !this.enabled) {
+    if (!this.serverUrl || !this.enabled) {
       return
     }
 
@@ -156,7 +156,7 @@ export class HarmonyWebsocketConnection {
     this.wsStatus = 'connecting'
     let con: connection
     try {
-      con = await this.getConnection(this.options.serverUrl)
+      con = await this.getConnection(this.serverUrl)
     } catch (e) {
       this.onFailedConnect?.(eToStr(e))
       // check that this is still the legitimate reconnect(), and that there is not a newer one running somewhere else
@@ -333,7 +333,7 @@ export class HarmonyWebsocketConnection {
 
       let msg: string
       if (mustSendFirstMessageThatWasProvidedInTheOptions) {
-        /**@ts-ignore if the above flag is set, we know that firstMsg is not undefined. */
+        /**@ts-expect-error if the above flag is set, we know that firstMsg is not undefined. */
         msg = routineOptions.firstMsg
         mustSendFirstMessageThatWasProvidedInTheOptions = false
       } else {

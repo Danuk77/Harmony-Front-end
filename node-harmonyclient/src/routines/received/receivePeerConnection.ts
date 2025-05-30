@@ -8,8 +8,7 @@ import { HarmonyWebsocketConnection, validator } from '../../model/HarmonyWebsoc
 import { HarmonyError, HarmonyRoutineParams } from '../../model/routine'
 import { RTCIceCandidate, RTCPeerConnection } from 'werift'
 import { iceCandidateSchema } from '../initiated/initiatePeerConnection'
-import { base64RegexString } from '../../../../common/types'
-import { store } from '../../../redux'
+import { base64RegexString } from '../../utils'
 
 const initiateSchema = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',
@@ -89,7 +88,7 @@ export async function receivePeerConnection(
       // accept
 
       // create RTCPeerConnection
-      const { stunServer, turnServer } = store.getState().user
+      const { stunServer, turnServer } = con.options
       const rtc = new RTCPeerConnection({
         ...rtcConfig,
         iceServers: [

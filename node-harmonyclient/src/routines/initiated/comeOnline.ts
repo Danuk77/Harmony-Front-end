@@ -1,4 +1,4 @@
-import { KeyPair } from '../../../../common/redux'
+import { KeyPair } from '../../utils'
 import { HarmonyWebsocketConnection } from '../../model/HarmonyWebsocketConnection'
 import { HarmonyError } from '../../model/routine'
 import { subtle, webcrypto } from 'node:crypto'
