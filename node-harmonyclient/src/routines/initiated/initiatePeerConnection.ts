@@ -157,24 +157,26 @@ export function initiatePeerConnection(
   // but the connection can fail for a number of reasons
   // wrap everything in a promise
   return new Promise<PeerConnectionCreationResult>((resolve) => {
-    let chatChannel: RTCDataChannel|null = null;
-    let ctlChannel: RTCDataChannel|null = null;
-    let timeout: NodeJS.Timeout|null = null;
-    const channelLabels: string[] = [];
+    let chatChannel: RTCDataChannel | null = null
+    let ctlChannel: RTCDataChannel | null = null
+    let timeout: NodeJS.Timeout | null = null
+    const channelLabels: string[] = []
 
     rtc.onDataChannel.subscribe((channel) => {
-      channelLabels.push(channel.label);
+      channelLabels.push(channel.label)
       switch (channel.label) {
-        case "chat": {
+        case 'chat': {
           chatChannel = channel
           break
         }
-        case "ctl": {
+        case 'ctl': {
           ctlChannel = channel
           break
         }
         default: {
-          console.warn(`Ignored unexpected channel received in main process from peer ${peerPk}: ${channel.label}`)
+          console.warn(
+            `Ignored unexpected channel received in main process from peer ${peerPk}: ${channel.label}`
+          )
           break
         }
       }
@@ -201,7 +203,9 @@ export function initiatePeerConnection(
 
     // setup the rtc connection using the signalling server
     con
-      .launchRoutine(({ send, recv }) => setupInitiatedPeerConnection(rtc, peerPk, { send, recv }))
+      .launchRoutine((_, { send, recv }) =>
+        setupInitiatedPeerConnection(rtc, peerPk, { send, recv })
+      )
       .then((status) => {
         if (status == 'offline' || status == 'reject') {
           if (timeout) clearTimeout(timeout)
@@ -218,9 +222,8 @@ export function initiatePeerConnection(
           status: 'fail',
           msg: (e as Error).message
         })
-      }
-      )
-    
+      })
+
     // timeout if channels are not provided
     timeout = setTimeout(() => {
       resolve({

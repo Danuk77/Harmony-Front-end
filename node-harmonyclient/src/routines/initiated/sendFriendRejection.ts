@@ -39,7 +39,7 @@ export function sendFriendRejection(
 ): Promise<FriendRejectionResult> {
   return new Promise<FriendRejectionResult>((resolve) => {
     con
-      .launchRoutine(async ({ send, recv }): Promise<{ status: 'offline' | 'succeed' }> => {
+      .launchRoutine(async (_, { send, recv }): Promise<{ status: 'offline' | 'succeed' }> => {
         // send friend rejection
         await send({
           initiate: 'sendFriendRejection',

@@ -36,7 +36,7 @@ const welcomeResponseSchema = {
 
 export async function comeOnline(con: HarmonyWebsocketConnection, keyPair: KeyPair) {
   await con.launchRoutine(
-    async ({ recv, send }) => {
+    async (_, { recv, send }) => {
       // initiate routine
       await send({
         initiate: 'comeOnline'

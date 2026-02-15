@@ -1,0 +1,263 @@
+/**
+ * TransactionHandler
+ * Muliplexed and demultiplexes routines on a MultiplexedTransactionChannel.
+ * Handles creation and deletion of transactions on this channel
+ */
+
+import { FromSchema, JSONSchema } from 'json-schema-to-ts'
+import { AsyncBlockingQueue } from './AsyncBlockingQueue'
+import { HarmonyTransactionSocket } from './HarmonyTransactionSocket'
+import {
+  HarmonyError,
+  HarmonyRoutine,
+  harmonyRoutineDefaultOptions,
+  HarmonyRoutineOptions
+} from './routine'
+import { eToStr } from '../utils'
+import { Validator } from 'jsonschema'
+
+const TRANSACTION_SOCKET_TIMEOUT = 20000 //ms
+
+export const validator = new Validator()
+
+export interface MultiplexedTransactionChannel {
+  send: (msg: string, routineOptions?: HarmonyRoutineOptions) => Promise<any>
+  onRecv: (fn: (msg: string) => any) => any
+  onClear: (fn: () => any) => any
+}
+
+export class TransactionHandler<T, S> {
+  private transactionSockets: Map<string, HarmonyTransactionSocket>
+  private channel: MultiplexedTransactionChannel
+  private masterRoutine: HarmonyRoutine<T, S>
+  private state: S
+
+  constructor(
+    channel: MultiplexedTransactionChannel,
+    masterRoutine: HarmonyRoutine<T, S>,
+    state: S
+  ) {
+    // override default options
+    // this.options = { ...defaultOptions, ...(options ?? {}) }
+
+    this.transactionSockets = new Map()
+    this.channel = channel
+    this.masterRoutine = masterRoutine
+    this.state = state
+
+    // recieve messages: create transaction socket if not exists
+    channel.onRecv((msg) => {
+      if (msg.length < 17) {
+        console.error('Malformed message: ' + msg)
+        return
+      }
+      const id = msg.slice(0, 16)
+      const content = msg.slice(16)
+
+      // check if this routine belongs to an in-progress ts
+      const ts = this.transactionSockets.get(id)
+      if (ts) {
+        ts.messageCallback?.(content)
+      } else {
+        this.launchRoutine((state, { send, recv }) => this.masterRoutine(state, { send, recv }), {
+          id: id,
+          firstMsg: content
+        })
+      }
+    })
+
+    channel.onClear(() => {
+      // send a HarmonyError message to all open transactions.
+      // this causes them to error out and (hopefully) prevent memony leaks
+      for (const { messageCallback } of this.transactionSockets.values()) {
+        messageCallback?.(new HarmonyError('Channel closed'))
+      }
+      // clear map
+      this.transactionSockets = new Map()
+      console.log('Channel closed')
+    })
+  }
+
+  /**
+   * Launch a routine provided as an argument.
+   * @param routine a callback
+   * A: routine return type
+   */
+  public async launchRoutine<A>(
+    routine: HarmonyRoutine<A, S>,
+    partialRoutineOptions?: Partial<HarmonyRoutineOptions>
+  ): Promise<A> {
+    // add defaults
+    const routineOptions = partialRoutineOptions
+      ? {
+          ...harmonyRoutineDefaultOptions,
+          ...partialRoutineOptions
+        }
+      : { ...harmonyRoutineDefaultOptions }
+
+    // generate a new id if not provided as an argument
+    if (!routineOptions.id) {
+      routineOptions.id = this.newTransactionSocketID()
+    }
+
+    const transactionSocket = new HarmonyTransactionSocket(routineOptions.id)
+    this.transactionSockets.set(transactionSocket.id, transactionSocket)
+
+    // flag that determines if the user can still send/receive messages on this id
+    let tsIsClosed = false
+
+    // routines initiated by an incoming message have the first message passed as an option when launchRoutine is called.
+    // if this is the case this flag is true.
+    // it is set to false once the first message has been sent.
+    let mustSendFirstMessageThatWasProvidedInTheOptions = !!routineOptions.firstMsg
+
+    // incoming messages
+    // if the websocket is closed then a HarmonyError is pushed to this queue.
+    const messageQueue = new AsyncBlockingQueue<string | HarmonyError>()
+    transactionSocket.onReceiveMessage((msg) => {
+      // if there was an error coming in, then something must be wrong.
+      // set tsIsClosed to prevent sending any further messages to the server
+      if (msg instanceof HarmonyError) {
+        tsIsClosed = true
+      }
+      messageQueue.enqueue(msg)
+    })
+
+    // define callback functions recv and send
+
+    const send = async (msg: object): Promise<void> => {
+      if (tsIsClosed) {
+        throw new HarmonyError('routine sent to closed transaction socket')
+      }
+
+      // client cancels.
+      if (Object.prototype.hasOwnProperty.call(msg, 'terminate')) {
+        tsIsClosed = true
+        // enqueue HarmonyError in case there is any recv() being awaited - causes the recv to raise an error
+        messageQueue.enqueue(new HarmonyError('Timeout waiting for server response'))
+      }
+
+      // TODO
+
+      const strMsg = transactionSocket.id + JSON.stringify(msg)
+
+      // may throw an error due to auth required, etc
+      this.channel.send(strMsg, routineOptions)
+    }
+
+    /**
+     * @throws HarmonyError if the server sends a `{terminate:"error"}` property
+     */
+    const recv = async <S extends JSONSchema, T = FromSchema<S>>(schema?: S): Promise<T> => {
+      if (tsIsClosed) {
+        throw new HarmonyError('recv on closed transaction socket')
+      }
+
+      let msg: string
+      if (mustSendFirstMessageThatWasProvidedInTheOptions) {
+        /**@ts-expect-error if the above flag is set, we know that firstMsg is not undefined. */
+        msg = routineOptions.firstMsg
+        mustSendFirstMessageThatWasProvidedInTheOptions = false
+      } else {
+        // set a timeout waiting for the server response. If no response, `send()` a terminate message
+        // `send()`ing the terminate message causes a HarmonyError to be pushed to the messageQueue
+        // ...which is dequeued below, and thrown. This causes the routine to error out - prevent getting stuck.
+        const timeout = setTimeout(() => {
+          send({
+            terminate: 'cancel'
+          }).catch(() => {})
+        }, TRANSACTION_SOCKET_TIMEOUT)
+
+        // wait for a message/error
+        const messageOrError = await messageQueue.dequeue()
+
+        // cancel timeout when message is received
+        clearTimeout(timeout)
+
+        // if the dequeued message is a HarmonyError, throw it, preventing the recv() call getting stuck.
+        if (messageOrError instanceof HarmonyError) {
+          throw messageOrError
+        }
+        msg = messageOrError
+      }
+
+      // parse
+      // let parsed: S extends JSONSchema ? FromSchema<S> : object
+      let parsed: object
+      try {
+        parsed = JSON.parse(msg)
+      } catch (e) {
+        throw new HarmonyError(eToStr(e))
+      }
+
+      // check if the server is terminating
+      if (Object.prototype.hasOwnProperty.call(parsed, 'terminate')) {
+        tsIsClosed = true
+
+        const terminateMsg = parsed as {
+          terminate: string
+          error?: string
+        }
+
+        // throw any error received from the server
+        if (terminateMsg.terminate == 'cancel') {
+          throw new HarmonyError(terminateMsg.error)
+        }
+      } else if (Object.prototype.hasOwnProperty.call(parsed, 'error')) {
+        // non-terminating errors.
+        const errorMsg = parsed as {
+          error: string
+        }
+        console.log(errorMsg.error)
+
+        // terminate the connection anyway. don't bother with re-sending messages for now.
+        send({ terminate: 'cancel' })
+        throw new HarmonyError(errorMsg.error)
+      }
+
+      // compare against schema
+      if (schema) {
+        const result = validator.validate(parsed, schema as object)
+        if (!result.valid) {
+          throw new HarmonyError(
+            'Error on incoming message: ' + result.errors.map((err) => err.toString()).join(', ')
+          )
+        }
+      }
+      // apply typings
+      return parsed as T
+    }
+
+    try {
+      return await routine(this.state, { recv, send })
+    } finally {
+      if (!tsIsClosed) {
+        // apparently the connection is still open. Attempt to close it.
+        try {
+          send({ terminate: 'cancel' })
+        } finally {
+          /**have to write a comment here for eslint reasons...*/
+        }
+      }
+      tsIsClosed = true
+      this.transactionSockets.delete(routineOptions.id)
+    }
+  }
+
+  private newTransactionSocketID(): string {
+    // 16 random characters
+    const charset = 'abcdefghijklmnopqrstuvwxyz0123456789'
+    let id: string | undefined = undefined
+
+    // randomly generate a key
+    // In the tiny chance such an id already exists, do it again.
+    while (!id || this.transactionSockets.has(id)) {
+      id = new Array(16)
+        .fill('')
+        .map(() => charset[Math.floor(Math.random() * charset.length)])
+        .join('')
+    }
+
+    return id
+  }
+}

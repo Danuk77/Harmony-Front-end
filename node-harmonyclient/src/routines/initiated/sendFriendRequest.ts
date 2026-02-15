@@ -62,7 +62,7 @@ export function sendFriendRequest(
 ): Promise<FriendRequestResult> {
   return new Promise<FriendRequestResult>((resolve) => {
     con
-      .launchRoutine<FriendRequestResult>(async ({ send, recv }) => {
+      .launchRoutine<FriendRequestResult>(async (_, { send, recv }) => {
         // send friend request
         await send({
           initiate: 'sendFriendRequest',

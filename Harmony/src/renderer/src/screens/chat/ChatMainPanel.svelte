@@ -253,6 +253,7 @@
   }
   #message-input-container {
     /* background color now set by inline css */
+    box-shadow: inset 0px 3px 4px 0px;
     max-width: 700px;
     width: 90%;
     max-height: 50%;
