@@ -6,7 +6,9 @@ import {
 } from '../../model/HarmonyPeerConnection'
 import { HarmonyWebsocketConnection } from '../../model/HarmonyWebsocketConnection'
 import { HarmonyRoutineParams } from '../../model/routine'
-import { RTCPeerConnection, RTCIceCandidate } from 'werift'
+import { RTCPeerConnection, RTCIceCandidate, RTCDataChannel } from 'werift'
+
+const ON_DATA_CHANNEL_TIMEOUT = 20_000 //ms
 
 // export this cos it's reused in sendFriendRequest
 export const offlineResponseSchema = {
@@ -155,15 +157,40 @@ export function initiatePeerConnection(
   // but the connection can fail for a number of reasons
   // wrap everything in a promise
   return new Promise<PeerConnectionCreationResult>((resolve) => {
+    let chatChannel: RTCDataChannel|null = null;
+    let ctlChannel: RTCDataChannel|null = null;
+    let timeout: NodeJS.Timeout|null = null;
+    const channelLabels: string[] = [];
+
     rtc.onDataChannel.subscribe((channel) => {
-      resolve({
-        publicKey: peerPk,
-        status: 'succeed',
-        peerConnection: new HarmonyPeerConnection(rtc, channel)
-      })
+      channelLabels.push(channel.label);
+      switch (channel.label) {
+        case "chat": {
+          chatChannel = channel
+          break
+        }
+        case "ctl": {
+          ctlChannel = channel
+          break
+        }
+        default: {
+          console.warn(`Ignored unexpected channel received in main process from peer ${peerPk}: ${channel.label}`)
+          break
+        }
+      }
+      if (chatChannel && ctlChannel) {
+        if (timeout) clearTimeout(timeout)
+        resolve({
+          publicKey: peerPk,
+          status: 'succeed',
+          peerConnection: new HarmonyPeerConnection(rtc, chatChannel, ctlChannel)
+        })
+      }
     })
+
     rtc.connectionStateChange.subscribe((state) => {
       if (state == 'failed') {
+        if (timeout) clearTimeout(timeout)
         resolve({
           publicKey: peerPk,
           status: 'fail',
@@ -177,19 +204,31 @@ export function initiatePeerConnection(
       .launchRoutine(({ send, recv }) => setupInitiatedPeerConnection(rtc, peerPk, { send, recv }))
       .then((status) => {
         if (status == 'offline' || status == 'reject') {
+          if (timeout) clearTimeout(timeout)
           resolve({
             publicKey: peerPk,
             status: status
           })
         }
       })
-      .catch((e) =>
+      .catch((e) => {
+        if (timeout) clearTimeout(timeout)
         resolve({
           publicKey: peerPk,
           status: 'fail',
           msg: (e as Error).message
         })
+      }
       )
+    
+    // timeout if channels are not provided
+    timeout = setTimeout(() => {
+      resolve({
+        publicKey: peerPk,
+        status: 'fail',
+        msg: `Timeout waiting for "chat" and "ctl" channels. Got channels ${channelLabels}`
+      })
+    }, ON_DATA_CHANNEL_TIMEOUT)
   })
 }
 

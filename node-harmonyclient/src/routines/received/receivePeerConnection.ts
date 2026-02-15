@@ -98,15 +98,16 @@ export async function receivePeerConnection(
         ]
       })
 
-      // create data channel
-      const dataChannel = rtc.createDataChannel('chat', { ordered: true })
+      // create data channels
+      const chatChannel = rtc.createDataChannel('chat', { ordered: true })
+      const ctlChannel = rtc.createDataChannel('ctl', { ordered: true })
       // resolve promise when channel opens
-      dataChannel.stateChanged.subscribe((state) => {
+      chatChannel.stateChanged.subscribe((state) => {
         if (state == 'open') {
           resolve({
             publicKey: peerPk,
             status: 'succeed',
-            peerConnection: new HarmonyPeerConnection(rtc, dataChannel)
+            peerConnection: new HarmonyPeerConnection(rtc, chatChannel, ctlChannel)
           })
         }
       })

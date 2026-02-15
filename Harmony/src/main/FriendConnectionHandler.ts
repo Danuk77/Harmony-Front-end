@@ -173,8 +173,7 @@ export class FriendConnectionHandler {
     if (this.connectionStatus == 'closed') {
       // close it immediately.
       if (result.status == 'succeed') {
-        result.peerConnection.chatChannel.close()
-        result.peerConnection.rtc.close()
+        result.peerConnection.close()
       }
       return
     }
@@ -185,8 +184,7 @@ export class FriendConnectionHandler {
         // reassign this.channel first so the event listener for the old channel doesn't change the status when it closes.
         const oldPeerConnection = this.peerConnection
         this.peerConnection = result.peerConnection
-        oldPeerConnection?.chatChannel.close()
-        oldPeerConnection?.rtc.close()
+        oldPeerConnection?.close()
       } else {
         // ignore the new failed connection. As far as we're concerned, we already have a working connection.
         return
@@ -259,7 +257,6 @@ export class FriendConnectionHandler {
   // close the connection and prevent reconnections.
   public close() {
     this.connectionStatus = 'closed'
-    this.peerConnection?.chatChannel.close()
-    this.peerConnection?.rtc.close()
+    this.peerConnection?.close()
   }
 }

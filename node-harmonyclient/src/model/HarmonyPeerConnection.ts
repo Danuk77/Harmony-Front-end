@@ -3,10 +3,18 @@ import { RTCPeerConnection, RTCDataChannel } from 'werift'
 export class HarmonyPeerConnection {
   rtc: RTCPeerConnection
   chatChannel: RTCDataChannel
+  ctlChannel: RTCDataChannel
 
-  constructor(rtc: RTCPeerConnection, chat: RTCDataChannel) {
+  constructor(rtc: RTCPeerConnection, chat: RTCDataChannel, ctl: RTCDataChannel) {
     this.rtc = rtc
     this.chatChannel = chat
+    this.ctlChannel = ctl
+  }
+
+  close() {
+    this.rtc.close()
+    this.chatChannel.close()
+    this.ctlChannel.close()
   }
 }
 

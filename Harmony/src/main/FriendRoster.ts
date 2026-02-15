@@ -152,7 +152,7 @@ export class FriendRoster {
     } else {
       if (DEBUG)
         console.error('Recieved a connection from an unknown friend, closing. ' + result.publicKey)
-      result.peerConnection?.rtc.close()
+      result.peerConnection?.close()
     }
   }
 

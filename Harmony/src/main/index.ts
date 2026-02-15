@@ -10,7 +10,7 @@ import {
   nativeImage
 } from 'electron'
 import { join } from 'path'
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import icon from '../../build/icon.png?asset'
 import { Controller } from './Controller'
 import { ipcMainTypesafe } from './ipcMainTypesafe'
@@ -81,6 +81,42 @@ function createMainWindow(): BrowserWindow {
   }
 
   return window
+}
+
+function createVideoCallWindow(pk: string) {
+  const window = new BrowserWindow({
+    width: 480,
+    height: 270,
+    show: false,
+    autoHideMenuBar: true,
+    ...(process.platform === 'linux' ? { icon } : {}),
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      sandbox: false
+    }
+  })
+
+  window.on('ready-to-show', () => {
+    window.show()
+  })
+
+  window.webContents.setWindowOpenHandler((details) => {
+    shell.openExternal(details.url)
+    return { action: 'deny' }
+  })
+
+  // HMR for renderer base on electron-vite cli.
+  // Load the remote URL for development or the local html file for production.
+  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+    window.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/videocall.html`)
+  } else {
+    window.loadFile(join(__dirname, '../renderer/videocall.html'))
+  }
+
+  console.log(pk)
+
+  return window
+
 }
 
 // This method will be called when Electron has finished
@@ -166,6 +202,7 @@ app.whenReady().then(() => {
   }
 
   focusMainWindow()
+  createVideoCallWindow("MCowBQYDK2VwAyEAbwNKp+lYsTGzZyCmRzMdDqULgidqqdrd1d7zEi7iacY=")
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
