@@ -3,34 +3,36 @@
   --ev-c-black: #000000;
 
   --ev-c-purple-1: #482960;
-  --ev-c-purple-2: #35223C;
-  --ev-c-purple-3: #201B2F;
+  --ev-c-purple-2: #35223c;
+  --ev-c-purple-3: #201b2f;
 
-  --ev-c-blue-purple-1: #6963BD;
+  --ev-c-blue-purple-1: #6963bd;
 
-  --ev-c-pink-1: #952B6A;
+  --ev-c-pink-1: #952b6a;
 
-  --ev-c-gray-0: #D9D9D9;
-  --ev-c-gray-1: #6D6D6D;
+  --ev-c-gray-0: #d9d9d9;
+  --ev-c-gray-1: #6d6d6d;
   --ev-c-gray-2: #343434;
-  --ev-c-gray-3: #28282B;
-  --ev-c-gray-4: #1C1D21;
+  --ev-c-gray-3: #28282b;
+  --ev-c-gray-4: #1c1d21;
 
   --ev-c-green-1: #298200;
 
-  --ev-c-amber-1: #AD7302;
-  --ev-c-amber-2: #573E26;
-  --ev-c-amber-3: #805C3C;
+  --ev-c-amber-1: #ad7302;
+  --ev-c-amber-2: #573e26;
+  --ev-c-amber-3: #805c3c;
 
   --ev-c-text-white: #ffffff;
-  --ev-c-text-gray: #6D6D6D;
+  --ev-c-text-gray: #6d6d6d;
 
   --scrollbar-width: 10px;
-
-
 }
 
 :root {
+  --color-button-disabled: var(--ev-c-gray-1);
+  --color-button-normal: var(--ev-c-blue-purple-1);
+  --color-button-highlighted: var(--ev-c-amber-2);
+  --color-button-hangup: var(--ev-c-pink-1);
 
   --color-sender-bubble: var(--ev-c-purple-1);
   --color-background: var(--ev-c-purple-2);
@@ -64,7 +66,6 @@
 :root {
   user-select: none;
 }
-
 
 *,
 *::before,
@@ -120,7 +121,6 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #555;
 }
-
 
 /* border-style: solid;
   border-width: 1px;

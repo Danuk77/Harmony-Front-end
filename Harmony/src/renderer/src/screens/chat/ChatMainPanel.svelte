@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
   import type { Message } from '../../../../main/LocalDatabase'
-  import type { MainToRendererAction } from '../../../../preload'
+  import type { MainToRenderer1WayAction } from '../../../../preload'
   import { store } from '../../redux'
 
   const friendState = $derived.by(() =>
@@ -21,9 +21,9 @@
 
   // uupdate with incoming messasges
   onMount(() => {
-    const bc = new BroadcastChannel('mainToRendererAction')
+    const bc = new BroadcastChannel('mainToRenderer1WayAction')
     bc.onmessage = (_event) => {
-      const action = _event.data as MainToRendererAction
+      const action = _event.data as MainToRenderer1WayAction
       if (action.type == 'receive-message') {
         if (action.payload.fromPk == $store.ui.selectedFriendPk && action.payload.toPk == 'local') {
           messages.push(action.payload)

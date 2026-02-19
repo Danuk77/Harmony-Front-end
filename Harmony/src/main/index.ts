@@ -16,6 +16,7 @@ import { Controller } from './Controller'
 import { ipcMainTypesafe } from './ipcMainTypesafe'
 import { showFriendBlockContextMenu } from './showFriendBlockContextMenu'
 import { generateKeyPair, verifyKeyPair } from './generateKeyPair'
+import { mainToRendererComManager } from './MainToRendererComManager'
 export const DEBUG = true
 
 process.traceProcessWarnings = true
@@ -54,6 +55,8 @@ function createMainWindow(): BrowserWindow {
   const window = new BrowserWindow({
     width: 900,
     height: 670,
+    minWidth: 550,
+    minHeight: 300,
     show: false,
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
@@ -107,16 +110,16 @@ function createVideoCallWindow(pk: string) {
 
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
+  const encodedPk = encodeURIComponent(pk)
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    window.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/videocall.html`)
+    window.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/videocall.html?pk=${encodedPk}`)
   } else {
-    window.loadFile(join(__dirname, '../renderer/videocall.html'))
+    window.loadFile(join(__dirname, `../renderer/videocall.html?pk=${encodedPk}`))
   }
 
   console.log(pk)
 
   return window
-
 }
 
 // This method will be called when Electron has finished
@@ -172,6 +175,23 @@ app.whenReady().then(() => {
     }
   }
 
+  // main to renderer 2 way
+  mainToRendererComManager.setSendCallback((id, args) => {
+    BrowserWindow.getAllWindows().forEach((window) => {
+      window.webContents.send('mainToRenderer2WayAction', { id, args })
+    })
+  })
+  ipcMainTypesafe.handle('mainToRenderer2WayActionResponse', (_, ...args) =>
+    mainToRendererComManager.receiveMessageFromRenderer(...args)
+  )
+
+  // main to renderer 1 way
+  controller.onMainToRenderer1WayAction = (action) => {
+    BrowserWindow.getAllWindows().forEach((window) => {
+      window.webContents.send('mainToRenderer1WayAction', action)
+    })
+  }
+
   // 2 way, initiated by renderer
   ipcMainTypesafe.handle('getConversation', (_, ...args) => controller.db.getConversation(...args))
   ipcMainTypesafe.handle('sendMessage', (_, ...args) => controller.sendMessage(...args))
@@ -194,15 +214,8 @@ app.whenReady().then(() => {
   ipcMainTypesafe.handle('generateKeyPair', (_, ...args) => generateKeyPair(...args))
   ipcMainTypesafe.handle('verifyKeyPair', (_, ...args) => verifyKeyPair(...args))
 
-  // main to renderer
-  controller.onMainToRendererAction = (action) => {
-    BrowserWindow.getAllWindows().forEach((window) => {
-      window.webContents.send('mainToRendererAction', action)
-    })
-  }
-
   focusMainWindow()
-  createVideoCallWindow("MCowBQYDK2VwAyEAbwNKp+lYsTGzZyCmRzMdDqULgidqqdrd1d7zEi7iacY=")
+  createVideoCallWindow('MCowBQYDK2VwAyEAbwNKp+lYsTGzZyCmRzMdDqULgidqqdrd1d7zEi7iacY=')
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the

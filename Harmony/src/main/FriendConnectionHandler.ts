@@ -1,8 +1,12 @@
+import { sendVideoCallRequest } from './friendCtlRoutines/initiated/sendVideoCallRequest'
+import { masterRoutine } from './friendCtlRoutines/received/masterRoutine'
+import { VideoCallRoutineManager } from './friendCtlRoutines/VideoCallRoutineManager'
 import { Friend } from './LocalDatabase'
 import {
   HarmonyConnection,
   HarmonyPeerConnection,
-  PeerConnectionCreationResult
+  PeerConnectionCreationResult,
+  TransactionHandler
 } from 'node-harmonyclient'
 
 const offlineReconnectPeriod = 300_000 // ms (5 minutes)
@@ -22,10 +26,13 @@ export type FriendConnectionStatus =
   | 'closed' // Our side has terminated the connection, and it cannot be reopened. Called when we wish to delete the friend or edit their public key.
   | 'unset'
 
+export type FriendCallStatus = 'none' | 'incoming-call' | 'outgoing-call' | 'in-call'
+
 export class FriendConnectionHandler {
   // @ts-ignore this.friend is set in the constructor - that sets this in turn.
   private _friend: Friend
   private _connectionStatus: FriendConnectionStatus = 'unset'
+  private _callStatus: FriendCallStatus = 'none'
   // _paused == true: Stop trying to connect to the peer. E.g., may be used when the websocket connection is broken.
   private _paused: boolean = true
   private shouldReconnectWhenUnpaused = false
@@ -35,20 +42,39 @@ export class FriendConnectionHandler {
   public con: HarmonyConnection
   private peerConnection?: HarmonyPeerConnection
 
+  public controlChannelTransactionHandler: TransactionHandler<void, this>
+  public videoCallRoutineManager: VideoCallRoutineManager
+
   // callbacks
   public onConnectionStatusChange?: (status: typeof this._connectionStatus) => unknown
+  public onCallStatusChange?: (status: typeof this._callStatus) => unknown
   public onReceiveMessage?: (msg: string) => unknown
+
+  // used in inner functions
+  public onAcceptOrRejectVideoCall?: (status: 'accept' | 'reject') => unknown
 
   constructor(
     con: HarmonyConnection,
     friendDB: Friend,
     onConnectionStatusChange: typeof this.onConnectionStatusChange,
+    onCallStatusChange: typeof this.onCallStatusChange,
     onReceiveMessage: typeof this.onReceiveMessage
   ) {
     this.onReceiveMessage = onReceiveMessage
     this.onConnectionStatusChange = onConnectionStatusChange
+    this.onCallStatusChange = onCallStatusChange
     this.friend = friendDB
     this.con = con
+
+    // messages on the ctl channel
+    this.controlChannelTransactionHandler = new TransactionHandler(
+      async (msg, _) => {
+        this.peerConnection?.ctlChannel.send(msg)
+      },
+      masterRoutine,
+      this
+    )
+    this.videoCallRoutineManager = new VideoCallRoutineManager(friendDB.peerPk)
   }
 
   public get friend() {
@@ -102,6 +128,16 @@ export class FriendConnectionHandler {
     return this._paused
   }
 
+  public get callStatus(): FriendCallStatus {
+    return this._callStatus
+  }
+  public set callStatus(callStatus: FriendCallStatus) {
+    if (callStatus != this._callStatus) {
+      this._callStatus = callStatus
+      this.onCallStatusChange?.(callStatus)
+    }
+  }
+
   /**
    * The connection status. Many possibilities: look at the definition of FriendConnectionStatus.
    * No external write access to this property!
@@ -149,6 +185,10 @@ export class FriendConnectionHandler {
       case 'closed':
         break
     }
+  }
+
+  public acceptOrRejectVideoCall = (status: 'accept' | 'reject') => {
+    this.onAcceptOrRejectVideoCall?.(status)
   }
 
   private attemptConnection = () => {
@@ -209,18 +249,29 @@ export class FriendConnectionHandler {
         this.peerConnection.chatChannel.onMessage.subscribe((msg) => {
           this.onReceiveMessage?.(msg.toString())
         })
-        this.peerConnection.chatChannel.stateChanged.subscribe((state) => {
+        this.peerConnection.ctlChannel.onMessage.subscribe((msg) => {
+          this.controlChannelTransactionHandler.recv(msg.toString())
+        })
+
+        const onChannelStateChanged: Parameters<
+          typeof this.peerConnection.chatChannel.stateChanged.subscribe
+        >[0] = (state) => {
           if (state == 'closing' || state == 'closed') {
             // check chat channel has not changed
             if (this.peerConnection == result.peerConnection) {
               // in future we could get an explicit disconnect message from the user.
               this.connectionStatus = 'online-disconnected'
+              this.controlChannelTransactionHandler.clear()
             }
             // remove listeners
             result.peerConnection.chatChannel.stateChanged.allUnsubscribe()
+            result.peerConnection.ctlChannel.stateChanged.allUnsubscribe()
             result.peerConnection.rtc.connectionStateChange.allUnsubscribe()
           }
-        })
+        }
+        this.peerConnection.chatChannel.stateChanged.subscribe(onChannelStateChanged)
+        this.peerConnection.ctlChannel.stateChanged.subscribe(onChannelStateChanged)
+
         result.peerConnection.rtc.connectionStateChange.subscribe(() => {
           if (
             ['closed', 'disconnected', 'failed'].includes(result.peerConnection.rtc.connectionState)
@@ -228,9 +279,11 @@ export class FriendConnectionHandler {
             // set to online-disconnected - if the peer connection was still in use
             if (this.peerConnection == result.peerConnection) {
               this.connectionStatus = 'online-disconnected'
+              this.controlChannelTransactionHandler.clear()
             }
             // remove these listeners
             result.peerConnection.chatChannel.stateChanged.allUnsubscribe()
+            result.peerConnection.ctlChannel.stateChanged.allUnsubscribe()
             result.peerConnection.rtc.connectionStateChange.allUnsubscribe()
           }
         })
@@ -252,6 +305,10 @@ export class FriendConnectionHandler {
     }
 
     this.peerConnection.chatChannel.send(msg) // might throw an error
+  }
+
+  public sendVideoCallRequest() {
+    return sendVideoCallRequest(this)
   }
 
   // close the connection and prevent reconnections.

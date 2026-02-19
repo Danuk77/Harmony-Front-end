@@ -6,7 +6,7 @@ import { PeerConnectionCreationResult } from './HarmonyPeerConnection'
 import { eToStr, IceServer } from '../utils'
 import { Validator } from 'jsonschema'
 import { KeyPair } from '../utils'
-import { MultiplexedTransactionChannel, TransactionHandler } from './TransactionHandler'
+import { TransactionHandler } from './TransactionHandler'
 
 const WS_RECONNECT_TIMEOUT = 10000 // ms
 
@@ -48,8 +48,6 @@ export class HarmonyWebsocketConnection {
   private _enabled: boolean = false
 
   private transactionHandler: ReturnType<typeof this.createTransactionHandler>
-  private transactionHandlerRecvCallback?: (msg: string) => any
-  private transactionHandlerClearCallback?: () => any
 
   // callback functions - may be added to the object.
   public onWsStatusChange?: (status: WebsocketStatusType) => unknown
@@ -193,8 +191,8 @@ export class HarmonyWebsocketConnection {
   }
 
   public createTransactionHandler() {
-    const channel: MultiplexedTransactionChannel = {
-      send: async (msg, routineOptions) => {
+    return new TransactionHandler(
+      async (msg, routineOptions) => {
         if (
           !this.wsConnection ||
           (routineOptions?.loginRequired && this.wsStatus != 'logged-in') ||
@@ -206,17 +204,9 @@ export class HarmonyWebsocketConnection {
         // doesn't throw an error if the connection is closed.
         this.wsConnection.send(msg)
       },
-      onRecv: (callback) => {
-        // we will need to call this when we recieve a message from the websocket
-        this.transactionHandlerRecvCallback = callback
-      },
-      onClear: (callback) => {
-        // call this the the websocket closes and all transactions need to be cancelled
-        this.transactionHandlerClearCallback = callback
-      }
-    }
-
-    return new TransactionHandler(channel, masterRoutine, this)
+      masterRoutine,
+      this
+    )
   }
 
   /**
@@ -245,14 +235,14 @@ export class HarmonyWebsocketConnection {
   private wsClose = (): void => {
     // send a HarmonyError message to all open transactions.
     // this causes them to error out and (hopefully) prevent memony leaks
-    this.transactionHandlerClearCallback?.()
+    this.transactionHandler.clear()
     this.wsStatus = 'disconnected'
   }
 
   private wsMessage = (message: Message): void => {
     if (message.type == 'utf8') {
       this.onReceiveMessage?.(message.utf8Data)
-      this.transactionHandlerRecvCallback?.(message.utf8Data)
+      this.transactionHandler.recv(message.utf8Data)
     }
   }
 

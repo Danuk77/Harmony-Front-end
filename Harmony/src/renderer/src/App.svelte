@@ -3,9 +3,9 @@
 
   // const ipcHandle = (): void => window.electron.ipcRenderer.send('ping')
 
-  const bc = new BroadcastChannel('mainToRendererAction')
+  const bc = new BroadcastChannel('mainToRenderer1WayAction')
 
-  window.api.onMainToRendererAction((action) => {
+  window.api.onMainToRenderer1WayAction((action) => {
     console.log(action)
     bc.postMessage(action)
   })

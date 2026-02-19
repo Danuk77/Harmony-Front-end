@@ -2,8 +2,13 @@
 
 import { HarmonyConnection, PeerConnectionCreationResult } from 'node-harmonyclient'
 import { Friend } from './LocalDatabase'
-import { FriendConnectionStatus, FriendConnectionHandler } from './FriendConnectionHandler'
+import {
+  FriendConnectionStatus,
+  FriendConnectionHandler,
+  FriendCallStatus
+} from './FriendConnectionHandler'
 import { DEBUG } from '.'
+import { ICECandidate } from './friendCtlRoutines/VideoCallRoutineManager'
 
 /**
  * Collection of all friends.
@@ -24,6 +29,7 @@ export class FriendRoster {
     publicKey: string,
     status: FriendConnectionStatus
   ) => unknown
+  public onFriendCallStatusChange?: (publicKey: string, status: FriendCallStatus) => unknown
   public onReceiveMessage?: (publicKey: string, msg: string) => unknown
 
   /**
@@ -107,7 +113,9 @@ export class FriendRoster {
       const friendHandler = new FriendConnectionHandler(
         this.con,
         friend,
-        (status) => this.onFriendConnectionStatusChange?.(friend.peerPk, status),
+        (connectionStatus) =>
+          this.onFriendConnectionStatusChange?.(friend.peerPk, connectionStatus),
+        (callStatus) => this.onFriendCallStatusChange?.(friend.peerPk, callStatus),
         (msg) => this.onReceiveMessage?.(friend.peerPk, msg)
       )
       this.friends.set(friend.peerPk, friendHandler)
@@ -171,6 +179,13 @@ export class FriendRoster {
       throw new Error('Friend does not exist')
     }
     friendHandler.sendMessage(msg) // might throw an error.
+  }
+
+  public forwardICECandidateForVideoCall(pk: string, candidate: ICECandidate) {
+    const friend = this.friends.get(pk)
+    if (friend) {
+      friend.videoCallRoutineManager.forwardICECandidateToPeer(candidate)
+    }
   }
 
   /**

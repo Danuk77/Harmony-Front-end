@@ -2,7 +2,7 @@
 
 import type { WebsocketStatusType } from 'node-harmonyclient'
 import { Friend, User } from '../main/LocalDatabase'
-import { FriendConnectionStatus } from '../main/FriendConnectionHandler'
+import { FriendCallStatus, FriendConnectionStatus } from '../main/FriendConnectionHandler'
 
 export const defaultState: State = {
   friendStates: [],
@@ -30,8 +30,12 @@ export type KeyPair = {
 }
 
 export type FriendState = {
+  // main source of truth.
   friend: Friend
+
+  // updated from FriendConnectionHandler - main use is for the ui
   connectionStatus: FriendConnectionStatus
+  callStatus: FriendCallStatus
 }
 
 export type IceServer = {
@@ -82,6 +86,13 @@ export type Action =
       }
     }
   | {
+      type: 'friend-call-status-change'
+      payload: {
+        friend: Pick<Friend, 'peerPk'>
+        callStatus: FriendState['callStatus']
+      }
+    }
+  | {
       type: 'remove-friend'
       payload: Pick<Friend, 'peerPk' | 'localPk'>
     }
@@ -111,7 +122,10 @@ export function reducer(state: State | undefined = defaultState, action: Action)
     case 'add-friend':
       return {
         ...state,
-        friendStates: [...state.friendStates, { friend: action.payload, connectionStatus: 'unset' }]
+        friendStates: [
+          ...state.friendStates,
+          { friend: action.payload, connectionStatus: 'unset', callStatus: 'none' }
+        ]
       }
     case 'friend-change':
       return {
@@ -178,6 +192,20 @@ export function reducer(state: State | undefined = defaultState, action: Action)
           }
         })
       }
+    case 'friend-call-status-change':
+      return {
+        ...state,
+        friendStates: state.friendStates.map((fs) => {
+          if (fs.friend.peerPk == action.payload.friend.peerPk) {
+            return {
+              ...fs,
+              callStatus: action.payload.callStatus
+            }
+          } else {
+            return fs
+          }
+        })
+      }
     case 'hydrate-friends':
       return {
         ...state,
@@ -186,7 +214,9 @@ export function reducer(state: State | undefined = defaultState, action: Action)
           // keep the old connection status if it exists
           connectionStatus:
             state.friendStates.find((fr) => fr.friend.peerPk == friend.peerPk)?.connectionStatus ??
-            'unset'
+            'unset',
+          callStatus:
+            state.friendStates.find((fr) => fr.friend.peerPk == friend.peerPk)?.callStatus ?? 'none'
         }))
       }
     case 'hydrate-user':

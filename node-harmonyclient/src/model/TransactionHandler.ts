@@ -20,62 +20,67 @@ const TRANSACTION_SOCKET_TIMEOUT = 20000 //ms
 
 export const validator = new Validator()
 
-export interface MultiplexedTransactionChannel {
-  send: (msg: string, routineOptions?: HarmonyRoutineOptions) => Promise<any>
-  onRecv: (fn: (msg: string) => any) => any
-  onClear: (fn: () => any) => any
-}
+// export interface MultiplexedTransactionChannel {
+//   send: (msg: string, routineOptions?: HarmonyRoutineOptions) => Promise<any>
+//   onRecv: (fn: (msg: string) => any) => any
+//   onClear: (fn: () => any) => any
+// }
 
 export class TransactionHandler<T, S> {
+  private onSend: (msg: string, routineOptions?: HarmonyRoutineOptions) => Promise<any>
   private transactionSockets: Map<string, HarmonyTransactionSocket>
-  private channel: MultiplexedTransactionChannel
   private masterRoutine: HarmonyRoutine<T, S>
   private state: S
 
   constructor(
-    channel: MultiplexedTransactionChannel,
+    // channel: MultiplexedTransactionChannel,
+    onSend: (msg: string, routineOptions?: HarmonyRoutineOptions) => Promise<any>,
     masterRoutine: HarmonyRoutine<T, S>,
     state: S
   ) {
-    // override default options
-    // this.options = { ...defaultOptions, ...(options ?? {}) }
-
+    this.onSend = onSend
     this.transactionSockets = new Map()
-    this.channel = channel
     this.masterRoutine = masterRoutine
     this.state = state
+  }
 
-    // recieve messages: create transaction socket if not exists
-    channel.onRecv((msg) => {
-      if (msg.length < 17) {
-        console.error('Malformed message: ' + msg)
-        return
-      }
-      const id = msg.slice(0, 16)
-      const content = msg.slice(16)
+  /**
+   *
+   * @param msg an incoming message
+   * @returns
+   */
+  public recv(msg: string) {
+    if (msg.length < 17) {
+      console.error('Malformed message: ' + msg)
+      return
+    }
+    const id = msg.slice(0, 16)
+    const content = msg.slice(16)
 
-      // check if this routine belongs to an in-progress ts
-      const ts = this.transactionSockets.get(id)
-      if (ts) {
-        ts.messageCallback?.(content)
-      } else {
-        this.launchRoutine((state, { send, recv }) => this.masterRoutine(state, { send, recv }), {
-          id: id,
-          firstMsg: content
-        })
-      }
-    })
+    // check if this routine belongs to an in-progress ts
+    const ts = this.transactionSockets.get(id)
+    if (ts) {
+      ts.messageCallback?.(content)
+    } else {
+      this.launchRoutine((state, { send, recv }) => this.masterRoutine(state, { send, recv }), {
+        id: id,
+        firstMsg: content
+      })
+    }
+  }
 
-    channel.onClear(() => {
-      // send a HarmonyError message to all open transactions.
-      // this causes them to error out and (hopefully) prevent memony leaks
-      for (const { messageCallback } of this.transactionSockets.values()) {
-        messageCallback?.(new HarmonyError('Channel closed'))
-      }
-      // clear map
-      this.transactionSockets = new Map()
-      console.log('Channel closed')
-    })
+  /**
+   * Call when, eg, pipe is broken and we want to cancel all ongoing transactions
+   */
+  public clear() {
+    // send a HarmonyError message to all open transactions.
+    // this causes them to error out and (hopefully) prevent memony leaks
+    for (const { messageCallback } of this.transactionSockets.values()) {
+      messageCallback?.(new HarmonyError('Channel closed'))
+    }
+    // clear map
+    this.transactionSockets = new Map()
+    console.log('Channel closed')
   }
 
   /**
@@ -142,7 +147,7 @@ export class TransactionHandler<T, S> {
       const strMsg = transactionSocket.id + JSON.stringify(msg)
 
       // may throw an error due to auth required, etc
-      this.channel.send(strMsg, routineOptions)
+      this.onSend(strMsg, routineOptions)
     }
 
     /**
@@ -231,6 +236,10 @@ export class TransactionHandler<T, S> {
     try {
       return await routine(this.state, { recv, send })
     } finally {
+      // cause all recv()s to error if any are still active
+      while (messageQueue.isBlocked()) {
+        messageQueue.enqueue(new HarmonyError('Transaction has terminated'))
+      }
       if (!tsIsClosed) {
         // apparently the connection is still open. Attempt to close it.
         try {

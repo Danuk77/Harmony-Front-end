@@ -28,6 +28,8 @@
     "@seald-io/nedb": "^4.0.4",
     "electron-redux": "^2.0.0",
     "electron-updater": "^6.1.7",
+    "json-schema-to-ts": "^3.1.1",
+    "jsonschema": "^1.5.0",
     "node-harmonyclient": "file:../node-harmonyclient",
     "yup": "^1.6.1"
   },

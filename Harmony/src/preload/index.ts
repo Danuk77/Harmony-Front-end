@@ -6,13 +6,17 @@ import { FriendConnectionStatus } from '../main/FriendConnectionHandler'
 import { Controller } from '../main/Controller'
 import { showFriendBlockContextMenu } from '../main/showFriendBlockContextMenu'
 import { generateKeyPair, verifyKeyPair } from '../main/generateKeyPair'
+import {
+  MainToRenderer2WayActionArgs,
+  MainToRendererComManager
+} from '../main/MainToRendererComManager'
 
 export type FriendWithState = Friend & {
   connectionStatus: FriendConnectionStatus
 }
 
 // all one-way actions sent from main to renderer.
-export type MainToRendererAction =
+export type MainToRenderer1WayAction =
   | {
       type: 'failed-login'
       payload: {
@@ -37,8 +41,14 @@ const api = {
     ((...args) => ipcRenderer.invoke('getConversation', ...args))
   ),
   sendMessage: <Controller['sendMessage']>((...args) => ipcRenderer.invoke('sendMessage', ...args)),
-  onMainToRendererAction: (callback: (arg0: MainToRendererAction) => unknown) =>
-    ipcRenderer.on('mainToRendererAction', (_event, value) => callback(value)),
+  onMainToRenderer1WayAction: (callback: (arg0: MainToRenderer1WayAction) => unknown) =>
+    ipcRenderer.on('mainToRenderer1WayAction', (_event, value) => callback(value)),
+  onMainToRenderer2WayAction: (
+    callback: (arg0: { id: number; args: MainToRenderer2WayActionArgs }) => unknown
+  ) => ipcRenderer.on('mainToRenderer2WayAction', (_event, value) => callback(value)),
+  mainToRenderer2WayActionResponse: <MainToRendererComManager['receiveMessageFromRenderer']>(
+    ((...args) => ipcRenderer.invoke('mainToRenderer2WayActionResponse', ...args))
+  ),
   sendFriendRequest: <Controller['sendFriendRequest']>(
     ((...args) => ipcRenderer.invoke('sendFriendRequest', ...args))
   ),
@@ -66,7 +76,10 @@ const api = {
   generateKeyPair: <typeof generateKeyPair>(
     ((...args) => ipcRenderer.invoke('generateKeyPair', ...args))
   ),
-  verifyKeyPair: <typeof verifyKeyPair>((...args) => ipcRenderer.invoke('verifyKeyPair', ...args))
+  verifyKeyPair: <typeof verifyKeyPair>((...args) => ipcRenderer.invoke('verifyKeyPair', ...args)),
+  forwardICECandidateForVideoCall: <Controller['forwardICECandidateForVideoCall']>(
+    ((...args) => ipcRenderer.invoke('forwardICECandidateForVideoCall', ...args))
+  )
 }
 
 export type Api = typeof api

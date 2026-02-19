@@ -5,11 +5,12 @@
 
 import { DEBUG } from '.'
 import { Action, KeyPair } from '../common/redux'
-import { FriendWithState, MainToRendererAction } from '../preload'
+import { FriendWithState, MainToRenderer1WayAction } from '../preload'
 import { HarmonyConnection, WebsocketStatusType, FriendRequestResult } from 'node-harmonyclient'
 import { FriendRoster } from './FriendRoster'
 import { Friend, LocalDatabase, Message } from './LocalDatabase'
 import { getFriendState, startAppListening, store, storeTypesafe } from './redux'
+import { ICECandidate } from './friendCtlRoutines/VideoCallRoutineManager'
 
 export type SendMessageReturnType =
   | {
@@ -40,7 +41,7 @@ export class Controller {
   private friendRequestTimers = new Map<string, NodeJS.Timeout>()
 
   // callback for IPCs to be sent to the renderer.
-  public onMainToRendererAction?: (arg0: MainToRendererAction) => unknown
+  public onMainToRenderer1WayAction?: (arg0: MainToRenderer1WayAction) => unknown
   // callback for system notifications
   public onNotification?: (
     notification: Electron.NotificationConstructorOptions,
@@ -266,7 +267,7 @@ export class Controller {
       this.db.insertMessage(msgObj)
 
       // update renderer
-      this.onMainToRendererAction?.({
+      this.onMainToRenderer1WayAction?.({
         type: 'receive-message',
         payload: msgObj
       })
@@ -329,6 +330,18 @@ export class Controller {
             peerPk: peerPk
           },
           connectionStatus: status
+        }
+      })
+    }
+
+    this.friendRoster.onFriendCallStatusChange = (peerPk, status) => {
+      storeTypesafe.dispatch({
+        type: 'friend-call-status-change',
+        payload: {
+          friend: {
+            peerPk: peerPk
+          },
+          callStatus: status
         }
       })
     }
@@ -467,7 +480,7 @@ export class Controller {
       await this.db.insertMessage(msgObj)
     } catch (e) {
       console.error(eToStr(e))
-      this.onMainToRendererAction?.({
+      this.onMainToRenderer1WayAction?.({
         type: 'error',
         payload: { msg: 'Failed to add message to local database: ' + eToStr(e) }
       })
@@ -714,6 +727,10 @@ export class Controller {
       resendFriendRequestTimeout
     )
     this.friendRequestTimers.set(peerPk, interval)
+  }
+
+  public forwardICECandidateForVideoCall(pk: string, candidate: ICECandidate) {
+    return this.friendRoster.forwardICECandidateForVideoCall(pk, candidate)
   }
 
   /**
