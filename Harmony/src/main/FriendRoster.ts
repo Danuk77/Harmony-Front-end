@@ -2,13 +2,10 @@
 
 import { HarmonyConnection, PeerConnectionCreationResult } from 'node-harmonyclient'
 import { Friend } from './LocalDatabase'
-import {
-  FriendConnectionStatus,
-  FriendConnectionHandler,
-  FriendCallStatus
-} from './FriendConnectionHandler'
+import { FriendConnectionHandler, FriendConnectionStatus } from './FriendConnectionHandler'
 import { DEBUG } from '.'
-import { ICECandidate } from './friendCtlRoutines/VideoCallRoutineManager'
+import { ICECandidate } from './friendCtlRoutines/VideoCallRoutine'
+import { FriendVideoCallStatus, VideoCallManager } from './VideoCallManager'
 
 /**
  * Collection of all friends.
@@ -19,18 +16,17 @@ export class FriendRoster {
   private friends: Map<string, FriendConnectionHandler> = new Map<string, FriendConnectionHandler>()
   private con: HarmonyConnection
   private _paused: boolean = true
-
-  constructor(con: HarmonyConnection) {
-    this.con = con
-  }
-
   // callbacks
   public onFriendConnectionStatusChange?: (
     publicKey: string,
     status: FriendConnectionStatus
   ) => unknown
-  public onFriendCallStatusChange?: (publicKey: string, status: FriendCallStatus) => unknown
+  public onVideoCallStatusChange?: (publicKey: string, status: FriendVideoCallStatus) => unknown
   public onReceiveMessage?: (publicKey: string, msg: string) => unknown
+
+  constructor(con: HarmonyConnection) {
+    this.con = con
+  }
 
   /**
    * Pause and resume making connection attempts to friends.
@@ -115,7 +111,7 @@ export class FriendRoster {
         friend,
         (connectionStatus) =>
           this.onFriendConnectionStatusChange?.(friend.peerPk, connectionStatus),
-        (callStatus) => this.onFriendCallStatusChange?.(friend.peerPk, callStatus),
+        (videoCallStatus) => this.onVideoCallStatusChange?.(friend.peerPk, videoCallStatus),
         (msg) => this.onReceiveMessage?.(friend.peerPk, msg)
       )
       this.friends.set(friend.peerPk, friendHandler)
@@ -181,10 +177,61 @@ export class FriendRoster {
     friendHandler.sendMessage(msg) // might throw an error.
   }
 
-  public forwardICECandidateForVideoCall(pk: string, candidate: ICECandidate) {
+  public forwardICECandidateVideoCall(pk: string, candidate: ICECandidate) {
     const friend = this.friends.get(pk)
     if (friend) {
-      friend.videoCallRoutineManager.forwardICECandidateToPeer(candidate)
+      friend.videoCallManager.routineManager.forwardICECandidateToPeer(candidate)
+    }
+  }
+
+  public hangUpAndCloseVideoCall(
+    pk: string,
+    ...args: Parameters<VideoCallManager['hangUpAndClose']>
+  ) {
+    const friend = this.friends.get(pk)
+    if (friend) {
+      friend.videoCallManager.hangUpAndClose(...args)
+    }
+  }
+
+  public errorVideoCall(pk: string, ...args: Parameters<VideoCallManager['error']>) {
+    const friend = this.friends.get(pk)
+    if (friend) {
+      friend.videoCallManager.error(...args)
+    }
+  }
+
+  public signallingCompleteVideoCall(
+    pk: string,
+    ...args: Parameters<VideoCallManager['signallingComplete']>
+  ) {
+    const friend = this.friends.get(pk)
+    if (friend) {
+      friend.videoCallManager.signallingComplete(...args)
+    }
+  }
+
+  public peerHangsUpVideoCall(pk: string, ...args: Parameters<VideoCallManager['peerHangsUp']>) {
+    const friend = this.friends.get(pk)
+    if (friend) {
+      friend.videoCallManager.peerHangsUp(...args)
+    }
+  }
+
+  public weAcceptVideoCall(pk: string, ...args: Parameters<VideoCallManager['weAccept']>) {
+    const friend = this.friends.get(pk)
+    if (friend) {
+      friend.videoCallManager.weAccept(...args)
+    }
+  }
+
+  public sendVideoCallRequest(
+    pk: string,
+    ...args: Parameters<VideoCallManager['sendVideoCallRequest']>
+  ) {
+    const friend = this.friends.get(pk)
+    if (friend) {
+      friend.videoCallManager.sendVideoCallRequest(...args)
     }
   }
 

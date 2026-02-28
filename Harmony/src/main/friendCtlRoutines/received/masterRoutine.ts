@@ -1,4 +1,4 @@
-import { HarmonyRoutineParams } from 'node-harmonyclient/build/model/routine'
+import { HarmonyRoutineParams } from 'node-harmonyclient'
 import { FriendConnectionHandler } from '../../FriendConnectionHandler'
 import { FromSchema } from 'json-schema-to-ts'
 import { eToStr } from '../../../common/utils'

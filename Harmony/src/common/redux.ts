@@ -2,7 +2,8 @@
 
 import type { WebsocketStatusType } from 'node-harmonyclient'
 import { Friend, User } from '../main/LocalDatabase'
-import { FriendCallStatus, FriendConnectionStatus } from '../main/FriendConnectionHandler'
+import { FriendVideoCallStatus } from '../main/VideoCallManager'
+import { FriendConnectionStatus } from '../main/FriendConnectionHandler'
 
 export const defaultState: State = {
   friendStates: [],
@@ -24,6 +25,14 @@ export const defaultState: State = {
   }
 }
 
+export const defaultVideoCallStatus: FriendVideoCallStatus = {
+  callDirection: 'none',
+  accepted: false,
+  window: 'closed',
+  call: 'none',
+  errorMsg: null
+}
+
 export type KeyPair = {
   publicKey: string
   privateKey: string
@@ -33,9 +42,10 @@ export type FriendState = {
   // main source of truth.
   friend: Friend
 
-  // updated from FriendConnectionHandler - main use is for the ui
+  // not main source of truth - updated from FriendConnectionHandler - main use is for the ui
+  videoCallStatus: FriendVideoCallStatus
+  // not main source of truth - updated from FriendConnectionHandler - main use is for the ui
   connectionStatus: FriendConnectionStatus
-  callStatus: FriendCallStatus
 }
 
 export type IceServer = {
@@ -86,10 +96,10 @@ export type Action =
       }
     }
   | {
-      type: 'friend-call-status-change'
+      type: 'friend-video-call-status-change'
       payload: {
         friend: Pick<Friend, 'peerPk'>
-        callStatus: FriendState['callStatus']
+        callStatus: FriendState['videoCallStatus']
       }
     }
   | {
@@ -124,7 +134,11 @@ export function reducer(state: State | undefined = defaultState, action: Action)
         ...state,
         friendStates: [
           ...state.friendStates,
-          { friend: action.payload, connectionStatus: 'unset', callStatus: 'none' }
+          {
+            friend: action.payload,
+            connectionStatus: 'unset',
+            videoCallStatus: defaultVideoCallStatus
+          }
         ]
       }
     case 'friend-change':
@@ -192,14 +206,14 @@ export function reducer(state: State | undefined = defaultState, action: Action)
           }
         })
       }
-    case 'friend-call-status-change':
+    case 'friend-video-call-status-change':
       return {
         ...state,
         friendStates: state.friendStates.map((fs) => {
           if (fs.friend.peerPk == action.payload.friend.peerPk) {
             return {
               ...fs,
-              callStatus: action.payload.callStatus
+              videoCallStatus: action.payload.callStatus
             }
           } else {
             return fs
@@ -215,8 +229,9 @@ export function reducer(state: State | undefined = defaultState, action: Action)
           connectionStatus:
             state.friendStates.find((fr) => fr.friend.peerPk == friend.peerPk)?.connectionStatus ??
             'unset',
-          callStatus:
-            state.friendStates.find((fr) => fr.friend.peerPk == friend.peerPk)?.callStatus ?? 'none'
+          videoCallStatus:
+            state.friendStates.find((fr) => fr.friend.peerPk == friend.peerPk)?.videoCallStatus ??
+            defaultVideoCallStatus
         }))
       }
     case 'hydrate-user':

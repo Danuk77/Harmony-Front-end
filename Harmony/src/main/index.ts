@@ -86,42 +86,6 @@ function createMainWindow(): BrowserWindow {
   return window
 }
 
-function createVideoCallWindow(pk: string) {
-  const window = new BrowserWindow({
-    width: 480,
-    height: 270,
-    show: false,
-    autoHideMenuBar: true,
-    ...(process.platform === 'linux' ? { icon } : {}),
-    webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
-    }
-  })
-
-  window.on('ready-to-show', () => {
-    window.show()
-  })
-
-  window.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
-    return { action: 'deny' }
-  })
-
-  // HMR for renderer base on electron-vite cli.
-  // Load the remote URL for development or the local html file for production.
-  const encodedPk = encodeURIComponent(pk)
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    window.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/videocall.html?pk=${encodedPk}`)
-  } else {
-    window.loadFile(join(__dirname, `../renderer/videocall.html?pk=${encodedPk}`))
-  }
-
-  console.log(pk)
-
-  return window
-}
-
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
@@ -214,8 +178,30 @@ app.whenReady().then(() => {
   ipcMainTypesafe.handle('generateKeyPair', (_, ...args) => generateKeyPair(...args))
   ipcMainTypesafe.handle('verifyKeyPair', (_, ...args) => verifyKeyPair(...args))
 
+  ipcMainTypesafe.handle('forwardICECandidateForVideoCall', (_, ...args) =>
+    controller.friendRoster.forwardICECandidateVideoCall(...args)
+  )
+  ipcMainTypesafe.handle('hangUpAndCloseVideoCall', (_, ...args) =>
+    controller.friendRoster.hangUpAndCloseVideoCall(...args)
+  )
+  ipcMainTypesafe.handle('errorVideoCall', (_, ...args) =>
+    controller.friendRoster.errorVideoCall(...args)
+  )
+  ipcMainTypesafe.handle('signallingCompleteVideoCall', (_, ...args) =>
+    controller.friendRoster.signallingCompleteVideoCall(...args)
+  )
+  ipcMainTypesafe.handle('peerHangsUpVideoCall', (_, ...args) =>
+    controller.friendRoster.peerHangsUpVideoCall(...args)
+  )
+  ipcMainTypesafe.handle('weAcceptVideoCall', (_, ...args) =>
+    controller.friendRoster.weAcceptVideoCall(...args)
+  )
+  ipcMainTypesafe.handle('sendVideoCallRequest', (_, ...args) =>
+    controller.friendRoster.sendVideoCallRequest(...args)
+  )
+
   focusMainWindow()
-  createVideoCallWindow('MCowBQYDK2VwAyEAbwNKp+lYsTGzZyCmRzMdDqULgidqqdrd1d7zEi7iacY=')
+  // focusVideoCallWindow('MCowBQYDK2VwAyEAbwNKp+lYsTGzZyCmRzMdDqULgidqqdrd1d7zEi7iacY=')
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the

@@ -1,6 +1,6 @@
 import { sendVideoCallRequest } from './friendCtlRoutines/initiated/sendVideoCallRequest'
 import { masterRoutine } from './friendCtlRoutines/received/masterRoutine'
-import { VideoCallRoutineManager } from './friendCtlRoutines/VideoCallRoutineManager'
+import { VideoCallManager } from './VideoCallManager'
 import { Friend } from './LocalDatabase'
 import {
   HarmonyConnection,
@@ -8,11 +8,7 @@ import {
   PeerConnectionCreationResult,
   TransactionHandler
 } from 'node-harmonyclient'
-
-const offlineReconnectPeriod = 300_000 // ms (5 minutes)
-const disconnectedReconnectPeriod = 10_000 //ms
-const failedReconnectPeriod = 300_000 // ms
-const rejectedReconnectPeriod = 10_000 // ms
+import { VideoCallRoutine } from './friendCtlRoutines/VideoCallRoutine'
 
 export type FriendConnectionStatus =
   | 'online-connected' // connected to the friend
@@ -26,13 +22,19 @@ export type FriendConnectionStatus =
   | 'closed' // Our side has terminated the connection, and it cannot be reopened. Called when we wish to delete the friend or edit their public key.
   | 'unset'
 
-export type FriendCallStatus = 'none' | 'incoming-call' | 'outgoing-call' | 'in-call'
+const offlineReconnectPeriod = 300_000 // ms (5 minutes)
+const disconnectedReconnectPeriod = 10_000 //ms
+const failedReconnectPeriod = 300_000 // ms
+const rejectedReconnectPeriod = 10_000 // ms
 
 export class FriendConnectionHandler {
+  // set from redux store
   // @ts-ignore this.friend is set in the constructor - that sets this in turn.
   private _friend: Friend
+
+  // set to redux store
   private _connectionStatus: FriendConnectionStatus = 'unset'
-  private _callStatus: FriendCallStatus = 'none'
+
   // _paused == true: Stop trying to connect to the peer. E.g., may be used when the websocket connection is broken.
   private _paused: boolean = true
   private shouldReconnectWhenUnpaused = false
@@ -43,12 +45,12 @@ export class FriendConnectionHandler {
   private peerConnection?: HarmonyPeerConnection
 
   public controlChannelTransactionHandler: TransactionHandler<void, this>
-  public videoCallRoutineManager: VideoCallRoutineManager
+  // public videoCallRoutine: VideoCallRoutine
+  public videoCallManager: VideoCallManager
 
   // callbacks
-  public onConnectionStatusChange?: (status: typeof this._connectionStatus) => unknown
-  public onCallStatusChange?: (status: typeof this._callStatus) => unknown
-  public onReceiveMessage?: (msg: string) => unknown
+  public onConnectionStatusChange: (status: typeof this._connectionStatus) => unknown
+  public onReceiveMessage: (msg: string) => unknown
 
   // used in inner functions
   public onAcceptOrRejectVideoCall?: (status: 'accept' | 'reject') => unknown
@@ -56,14 +58,16 @@ export class FriendConnectionHandler {
   constructor(
     con: HarmonyConnection,
     friendDB: Friend,
+    // videoCallStatus: FriendVideoCallStatus,
     onConnectionStatusChange: typeof this.onConnectionStatusChange,
-    onCallStatusChange: typeof this.onCallStatusChange,
+    onVideoCallStatusChange: VideoCallManager['onVideoCallStatusChange'],
     onReceiveMessage: typeof this.onReceiveMessage
   ) {
     this.onReceiveMessage = onReceiveMessage
     this.onConnectionStatusChange = onConnectionStatusChange
-    this.onCallStatusChange = onCallStatusChange
+    // this.onCallStatusChange = onCallStatusChange
     this.friend = friendDB
+    // this.videoCallStatus = videoCallStatus
     this.con = con
 
     // messages on the ctl channel
@@ -74,7 +78,12 @@ export class FriendConnectionHandler {
       masterRoutine,
       this
     )
-    this.videoCallRoutineManager = new VideoCallRoutineManager(friendDB.peerPk)
+    this.videoCallManager = new VideoCallManager(
+      friendDB.peerPk,
+      onVideoCallStatusChange,
+      new VideoCallRoutine(friendDB.peerPk),
+      this
+    )
   }
 
   public get friend() {
@@ -126,16 +135,6 @@ export class FriendConnectionHandler {
   }
   public get paused() {
     return this._paused
-  }
-
-  public get callStatus(): FriendCallStatus {
-    return this._callStatus
-  }
-  public set callStatus(callStatus: FriendCallStatus) {
-    if (callStatus != this._callStatus) {
-      this._callStatus = callStatus
-      this.onCallStatusChange?.(callStatus)
-    }
   }
 
   /**

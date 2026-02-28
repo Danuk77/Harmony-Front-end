@@ -1,4 +1,9 @@
 <script lang="ts">
+  /**
+   * The video call window should be
+   *
+   */
+
   import IconBubble from './components/IconBubble.svelte'
   import '@fortawesome/fontawesome-free/css/all.min.css'
   import '@fortawesome/fontawesome-free/js/all.min.js'
@@ -16,8 +21,10 @@
   let peerConnection = $state<RTCPeerConnection>()
   let remoteVideoElement: HTMLVideoElement
 
+  const pk = new URLSearchParams(document.location.search).get('pk') ?? ''
+
   onMount(async () => {
-    const pk = new URLSearchParams(document.location.search).get('pk') ?? ''
+    // const pk = new URLSearchParams(document.location.search).get('pk') ?? ''
     if (pk == '') {
       throw new Error('no public key provided')
     }
@@ -26,7 +33,7 @@
       video: true,
       audio: {
         // apparently you shouldn't change this (??) but it sounds like complete garbage otherwise
-        // browser compatibility might be bad but this is always going to be running on electron
+        // browser compatibility might be bad but this is always going to be running on the same browser - electron
         // https://stackoverflow.com/questions/49477768/poor-audio-quality-with-getusermedia-any-ideas-why
         sampleRate: 44100
       }
@@ -189,7 +196,7 @@
   })
 
   function hangUp() {
-    alert('hang up')
+    window.api.hangUpAndCloseVideoCall(pk)
   }
 
   function microphone() {

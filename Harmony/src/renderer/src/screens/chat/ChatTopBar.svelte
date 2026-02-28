@@ -15,20 +15,52 @@
       ? peerConnectionStatusToBulbColorCssVariable(fs.connectionStatus)
       : '--color-lightbulb-connected'
   )
-  let callButtonColor = $derived.by(() => {
+  let pickUpButtonColor = $derived.by(() => {
     if (!fs) {
       return null
     }
-    switch (fs.callStatus) {
+    if (fs.videoCallStatus.callDirection == 'none') {
+      return '--color-button-normal'
+    }
+    if (fs.videoCallStatus.callDirection == 'incoming' && !fs.videoCallStatus.accepted) {
+      return '--color-button-incoming'
+    }
+    return null
+  })
+
+  let hangUpButtonColor = $derived.by(() => {
+    if (!fs) {
+      return null
+    }
+    switch (fs.videoCallStatus.call) {
+      case 'failed':
       case 'none':
-        return '--color-button-normal'
-      case 'incoming-call':
-        return '--color-button-highlighted'
-      case 'outgoing-call':
-      case 'in-call':
+      case 'peer-hang-up':
         return null
+      case 'signalling':
+      case 'in-call':
+      case 'ringing':
+        return '--color-button-hangup'
     }
   })
+
+  function requestOrAcceptVideoCall() {
+    if (!$store.ui.selectedFriendPk) {
+      return
+    }
+    if (fs?.videoCallStatus.callDirection == 'incoming') {
+      window.api.weAcceptVideoCall($store.ui.selectedFriendPk)
+    } else if (fs?.videoCallStatus.callDirection == 'none') {
+      window.api.sendVideoCallRequest($store.ui.selectedFriendPk)
+    }
+  }
+
+  function declineOrHangUpVideoCall() {
+    if (!$store.ui.selectedFriendPk) {
+      return
+    }
+    window.api.hangUpAndCloseVideoCall($store.ui.selectedFriendPk)
+  }
 </script>
 
 <div id="topBarHorizontalItems">
@@ -45,14 +77,26 @@
       </p>
     {/if}
   </div>
-  {#if fs && callButtonColor && (fs.callStatus == 'none' || fs.callStatus == 'incoming-call')}
+  {#if fs && pickUpButtonColor}
     <div class="button">
       <IconBubble
         ariaLabel="Pick up"
         icon="fa-phone"
-        --background-color={`var(${callButtonColor})`}
-        onclick={() => alert('call')}
+        --background-color={`var(${pickUpButtonColor})`}
+        onclick={requestOrAcceptVideoCall}
         disabled={fs.connectionStatus != 'online-connected'}
+      />
+    </div>
+  {/if}
+  {#if fs && hangUpButtonColor}
+    <div class="button">
+      <IconBubble
+        ariaLabel="Hang up"
+        icon="fa-phone"
+        --background-color={`var(${hangUpButtonColor})`}
+        onclick={declineOrHangUpVideoCall}
+        disabled={fs.connectionStatus != 'online-connected'}
+        --icon-rotation="135deg"
       />
     </div>
   {/if}

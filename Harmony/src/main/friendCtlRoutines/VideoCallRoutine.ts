@@ -1,11 +1,12 @@
-import { HarmonyRoutineParams } from 'node-harmonyclient/build/model/routine'
+import { HarmonyRoutineParams } from 'node-harmonyclient'
 import { mainToRendererComManager } from '../MainToRendererComManager'
+import { eToStr } from '../Controller'
 
 const waiterInterval = 5000 //ms
 const maxWaits = 12
 
 /*
-  States of peers A and B.
+  Signalling states of peers A and B.
   A is the initiator
 
         A      msg    B
@@ -153,9 +154,9 @@ const iceRecvTemplate = {
   additionalProperties: false
 } as const
 
-export class VideoCallRoutineManager {
+export class VideoCallRoutine {
   private friendPk: string
-  public current?: {
+  public currentSignalling?: {
     state: 'outgoing' | 'incoming' | 'expectSDPAnswer' | 'ICE'
     waitCounter: number
     waitInverval: NodeJS.Timeout | null
@@ -163,33 +164,39 @@ export class VideoCallRoutineManager {
     recv: HarmonyRoutineParams['recv']
     resolve: Parameters<ConstructorParameters<typeof Promise<void>>[0]>[0]
     reject: Parameters<ConstructorParameters<typeof Promise<void>>[0]>[1]
+    peerOfferSdp: { sdp: string; type: 'offer' } | null
   }
 
   constructor(friendPk: string) {
     this.friendPk = friendPk
   }
 
-  public setCurrent(
+  public setCurrentSignalling(
     // set current without needing to provide all the internal properties
-    args: Pick<NonNullable<typeof this.current>, 'send' | 'recv' | 'resolve' | 'reject' | 'state'>
+    args: Pick<
+      NonNullable<typeof this.currentSignalling>,
+      'send' | 'recv' | 'resolve' | 'reject' | 'state'
+    >
   ) {
-    this.current = {
+    this.currentSignalling = {
       waitCounter: 0,
       waitInverval: null,
+      peerOfferSdp: null,
       ...args
     }
   }
 
   public async startRecvLoop() {
-    if (!this.current) {
+    if (!this.currentSignalling) {
       console.warn('Failed to start video call recv interval - no routine')
     }
 
     try {
-      while (this.current) {
-        switch (this.current.state) {
+      while (this.currentSignalling) {
+        switch (this.currentSignalling.state) {
           case 'outgoing': {
-            const msg = await this.current.recv(outgoingRecvTemplate)
+            // received response to call
+            const msg = await this.currentSignalling.recv(outgoingRecvTemplate)
             switch (msg.type) {
               case 'reject': {
                 this.terminateCurrentRoutine()
@@ -199,21 +206,20 @@ export class VideoCallRoutineManager {
                 break
               }
               case 'acceptAndOffer': {
-                let sdpOffer = msg.payload.sdp
-                /**@todo send this to renderer window */
+                this.currentSignalling.peerOfferSdp = msg.payload
+                /**@todo dark blue event */
                 // next message we receive should be ice candidates
-                console.log(sdpOffer)
-                this.current.state = 'ICE'
+                this.currentSignalling.state = 'ICE'
               }
             }
           }
 
           case 'incoming':
           case 'expectSDPAnswer': {
-            const msg = await this.current.recv(incomingRecvTemplate)
+            const msg = await this.currentSignalling.recv(incomingRecvTemplate)
             switch (msg.type) {
               case 'reject': {
-                if (this.current.state == 'incoming') {
+                if (this.currentSignalling.state == 'incoming') {
                   this.terminateCurrentRoutine()
                   return
                 } else {
@@ -224,11 +230,11 @@ export class VideoCallRoutineManager {
                 break
               }
               case 'answer': {
-                if (this.current.state == 'expectSDPAnswer') {
+                if (this.currentSignalling.state == 'expectSDPAnswer') {
                   let sdpAnswer = msg.payload.sdp
                   /**@todo send this to renderer */
                   console.log(sdpAnswer)
-                  this.current.state = 'ICE'
+                  this.currentSignalling.state = 'ICE'
                 } else {
                   this.cancelCurrentRoutine('Not expecting an sdp answer yet')
                 }
@@ -237,7 +243,7 @@ export class VideoCallRoutineManager {
           }
 
           case 'ICE': {
-            const msg = await this.current.recv(iceRecvTemplate)
+            const msg = await this.currentSignalling.recv(iceRecvTemplate)
             const candidate = msg.payload
             /**@todo send this to renderer */
             console.log(candidate)
@@ -252,10 +258,11 @@ export class VideoCallRoutineManager {
   public startWaitLoop() {
     // waiting for the receiver to pick up/reject.
     // both peers must send a {"type": "wait"} message periodicly to prevent transaction timing out
-    if (this.current?.waitInverval) {
-      clearInterval(this.current.waitInverval)
+    // has a max number of wait messages it can send before cancelling the transaction
+    if (this.currentSignalling?.waitInverval) {
+      clearInterval(this.currentSignalling.waitInverval)
     }
-    if (!this.current) {
+    if (!this.currentSignalling) {
       console.error('Failed to start video call wait interval - no routine')
       return
     }
@@ -263,109 +270,129 @@ export class VideoCallRoutineManager {
     // keep trying to send {"type": "wait"} while state is appropriate
     const interval = setInterval(async () => {
       if (
-        !this.current ||
-        !(this.current.state == 'incoming' || this.current.state == 'outgoing')
+        !this.currentSignalling ||
+        !(this.currentSignalling.state == 'incoming' || this.currentSignalling.state == 'outgoing')
       ) {
         // no longer in a ringing state - stop sending waits
         clearInterval(interval)
         return
       }
-      if (this.current.waitCounter++ >= maxWaits) {
+      if (this.currentSignalling.waitCounter++ >= maxWaits) {
         // timeout
         this.cancelCurrentRoutine()
         return
       }
       try {
-        await this.current.send({ type: 'wait' })
+        await this.currentSignalling.send({ type: 'wait' })
       } catch {
         this.killCurrentRoutine()
       }
     }, waiterInterval)
-    this.current.waitInverval = interval
+    this.currentSignalling.waitInverval = interval
   }
 
   // invoked by renderer
-  public async acceptIncomingCall(): Promise<Error | null> {
-    if (!this.current || this.current.state != 'incoming') {
-      return Error('No incoming call to accept')
+  public async acceptIncomingCallWithWindowOpen() {
+    if (!this.currentSignalling || this.currentSignalling.state != 'incoming') {
+      throw Error('No incoming call to accept')
     }
 
     // update state
-    this.current.state = 'expectSDPAnswer'
-    if (this.current.waitInverval) clearInterval(this.current.waitInverval)
+    this.currentSignalling.state = 'expectSDPAnswer'
+    if (this.currentSignalling.waitInverval) clearInterval(this.currentSignalling.waitInverval)
 
-    const typeAndSdp = await mainToRendererComManager.genSdpOfferForVideoCall(this.friendPk)
+    let typeAndSdp: { type: 'offer'; sdp: string }
+    try {
+      typeAndSdp = await mainToRendererComManager.genSdpOfferForVideoCall(this.friendPk)
+    } catch (e) {
+      throw Error(eToStr(e))
+    }
 
     try {
-      await this.current.send({
+      await this.currentSignalling.send({
         type: 'acceptAndOffer',
         payload: typeAndSdp
       })
     } catch {
       this.killCurrentRoutine()
-      return Error('Error sending sdp offer')
+      throw Error('Error sending sdp offer')
     }
-    return null
   }
 
   // invoked by renderer
-  public async rejectCall(): Promise<Error | null> {
-    if (!this.current || !(this.current.state == 'incoming' || this.current.state == 'outgoing')) {
-      return Error('No call to reject')
+  public async rejectCall() {
+    if (
+      !this.currentSignalling ||
+      !(this.currentSignalling.state == 'incoming' || this.currentSignalling.state == 'outgoing')
+    ) {
+      throw Error('No call to reject')
     }
     try {
-      await this.current.send({
+      await this.currentSignalling.send({
         type: 'reject',
         terminate: 'done'
       })
     } catch {}
     this.terminateCurrentRoutine()
-    return null
+  }
+
+  public async forwardSdpAnswerToPeer(answer: { type: 'answer'; sdp: string }) {
+    if (!this.currentSignalling || this.currentSignalling.state != 'ICE') {
+      throw Error('Not ready to forward sdp answer to to peer')
+    }
+    try {
+      await this.currentSignalling.send({
+        type: 'answer',
+        payload: answer
+      })
+    } catch {
+      this.killCurrentRoutine()
+      throw Error('Error sending sdp answer candidate')
+    }
   }
 
   // invoked by renderer
-  public async forwardICECandidateToPeer(candidate: ICECandidate): Promise<Error | null> {
-    if (!this.current || this.current.state != 'ICE') {
-      return Error('Not ready to forward ICE candidates to peer')
+  public async forwardICECandidateToPeer(candidate: ICECandidate) {
+    if (!this.currentSignalling || this.currentSignalling.state != 'ICE') {
+      throw Error('Not ready to forward ICE candidates to peer')
     }
 
     try {
-      await this.current.send({
+      await this.currentSignalling.send({
         type: 'ICECandidate',
         payload: candidate
       })
     } catch {
       this.killCurrentRoutine()
-      return Error('Error sending ICE candidate')
+      throw Error('Error sending ICE candidate')
     }
-
-    return null
   }
 
   public killCurrentRoutine() {
     // make routine error
-    if (this.current) {
-      this.current.reject()
-      if (this.current.waitInverval) clearInterval(this.current.waitInverval)
-      this.current = undefined
+    if (this.currentSignalling) {
+      this.currentSignalling.reject()
+      if (this.currentSignalling.waitInverval) clearInterval(this.currentSignalling.waitInverval)
+      this.currentSignalling = undefined
     }
   }
 
-  public cancelCurrentRoutine(error?: string) {
+  public async cancelCurrentRoutine(error?: string) {
     // send terminate: cancel
-    if (this.current) {
+    if (this.currentSignalling) {
       try {
-        this.current.send({ terminate: 'cancel', ...(error ? { error } : {}) })
-      } catch {}
+        await this.currentSignalling.send({ terminate: 'cancel', ...(error ? { error } : {}) })
+      } finally {
+        this.terminateCurrentRoutine()
+      }
     }
-    this.terminateCurrentRoutine()
   }
 
   public terminateCurrentRoutine() {
-    if (this.current) {
-      this.current.resolve()
-      if (this.current.waitInverval) clearInterval(this.current.waitInverval)
-      this.current = undefined
+    if (this.currentSignalling) {
+      this.currentSignalling.resolve()
+      if (this.currentSignalling.waitInverval) clearInterval(this.currentSignalling.waitInverval)
+      this.currentSignalling = undefined
     }
   }
 }

@@ -62,6 +62,7 @@
     max-width: 90%;
     margin-left: auto;
     margin-right: auto;
+    box-shadow: var(--dark-box-shadow);
   }
 
   #button:focus-visible {

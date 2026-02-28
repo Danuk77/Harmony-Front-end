@@ -40,6 +40,8 @@
         {#if fs.friend.status != 'blocked'}
           <FriendBlock
             hasUnreadMessages={fs.friend.hasUnreadMessages}
+            hasIncomingCall={fs.videoCallStatus.callDirection == 'incoming' &&
+              !fs.videoCallStatus.accepted}
             selected={fs.friend.peerPk == $store.ui.selectedFriendPk}
             {fs}
             onclick={() => {

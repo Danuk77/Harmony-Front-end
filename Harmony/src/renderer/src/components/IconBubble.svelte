@@ -48,19 +48,32 @@
     align-items: center;
     background-color: var(--background-color);
     overflow: hidden;
+    box-shadow: var(--light-box-shadow);
   }
 
-  #icon:hover {
+  #icon #glyph {
+    color: var(--color-button-text-enabled);
+  }
+
+  #icon:disabled {
+    background-color: var(--color-button-disabled);
+  }
+
+  #icon:disabled #glyph {
+    color: var(--color-button-text-disabled);
+  }
+
+  #icon:hover:enabled {
     opacity: 50%;
     cursor: pointer;
   }
 
-  #icon:focus-visible {
+  #icon:focus-visible:enabled {
     opacity: 50%;
     cursor: pointer;
     outline: auto;
   }
-  #icon:active {
+  #icon:active:enabled {
     scale: 90%;
   }
 </style>

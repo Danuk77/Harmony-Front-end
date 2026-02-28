@@ -13,3 +13,9 @@ export function eToStr(e: unknown): string {
     return ''
   }
 }
+
+// use this function for detecting when a case is not covered - place in default of a switch statement.
+// @ts-ignore
+export function assertNever(x: never): never {
+  // throw new Error("Didn't expect to get here")
+}

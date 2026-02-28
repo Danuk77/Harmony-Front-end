@@ -10,7 +10,6 @@ import { HarmonyConnection, WebsocketStatusType, FriendRequestResult } from 'nod
 import { FriendRoster } from './FriendRoster'
 import { Friend, LocalDatabase, Message } from './LocalDatabase'
 import { getFriendState, startAppListening, store, storeTypesafe } from './redux'
-import { ICECandidate } from './friendCtlRoutines/VideoCallRoutineManager'
 
 export type SendMessageReturnType =
   | {
@@ -33,7 +32,7 @@ const resendFriendRequestTimeout = 300_000 // ms
 
 // links database and connections.
 export class Controller {
-  private friendRoster: FriendRoster
+  public friendRoster: FriendRoster
   private con: HarmonyConnection
   public db: LocalDatabase
   private _keyPair: KeyPair | null = null
@@ -334,9 +333,9 @@ export class Controller {
       })
     }
 
-    this.friendRoster.onFriendCallStatusChange = (peerPk, status) => {
+    this.friendRoster.onVideoCallStatusChange = (peerPk, status) => {
       storeTypesafe.dispatch({
-        type: 'friend-call-status-change',
+        type: 'friend-video-call-status-change',
         payload: {
           friend: {
             peerPk: peerPk
@@ -727,10 +726,6 @@ export class Controller {
       resendFriendRequestTimeout
     )
     this.friendRequestTimers.set(peerPk, interval)
-  }
-
-  public forwardICECandidateForVideoCall(pk: string, candidate: ICECandidate) {
-    return this.friendRoster.forwardICECandidateForVideoCall(pk, candidate)
   }
 
   /**

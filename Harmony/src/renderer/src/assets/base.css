@@ -12,11 +12,12 @@
 
   --ev-c-gray-0: #d9d9d9;
   --ev-c-gray-1: #6d6d6d;
-  --ev-c-gray-2: #343434;
+  --ev-c-gray-2: #363636;
   --ev-c-gray-3: #28282b;
   --ev-c-gray-4: #1c1d21;
 
   --ev-c-green-1: #298200;
+  --ev-c-green-2: #3eb607;
 
   --ev-c-amber-1: #ad7302;
   --ev-c-amber-2: #573e26;
@@ -24,6 +25,7 @@
 
   --ev-c-text-white: #ffffff;
   --ev-c-text-gray: #6d6d6d;
+  --ev-c-text-light-gray: #afafaf;
 
   --scrollbar-width: 10px;
 }
@@ -32,7 +34,10 @@
   --color-button-disabled: var(--ev-c-gray-1);
   --color-button-normal: var(--ev-c-blue-purple-1);
   --color-button-highlighted: var(--ev-c-amber-2);
+  --color-button-incoming: var(--ev-c-green-1);
   --color-button-hangup: var(--ev-c-pink-1);
+  --color-button-text-enabled: var(--ev-c-white);
+  --color-button-text-disabled: var(--ev-c-text-light-gray);
 
   --color-sender-bubble: var(--ev-c-purple-1);
   --color-background: var(--ev-c-purple-2);
@@ -61,6 +66,13 @@
   --color-local-status-bubble-selected: var(--ev-c-purple-1);
 
   --color-icon: var(--ev-c-white);
+}
+
+:root {
+  --dark-box-shadow: inset 0px 3px 3px 0px rgb(255 255 255 / 0.025),
+    0px 3px 3px 0px rgb(0 0 0 / 0.2);
+  --light-box-shadow: inset 0px 3px 3px 0px rgb(255 255 255 / 0.15),
+    0px 3px 3px 0px rgb(0 0 0 / 0.2);
 }
 
 :root {

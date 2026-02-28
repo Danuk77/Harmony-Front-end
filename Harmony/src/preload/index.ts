@@ -2,7 +2,6 @@ import 'electron-redux/preload'
 import { contextBridge, dialog, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import { Friend, LocalDatabase, Message } from '../main/LocalDatabase'
-import { FriendConnectionStatus } from '../main/FriendConnectionHandler'
 import { Controller } from '../main/Controller'
 import { showFriendBlockContextMenu } from '../main/showFriendBlockContextMenu'
 import { generateKeyPair, verifyKeyPair } from '../main/generateKeyPair'
@@ -10,6 +9,8 @@ import {
   MainToRenderer2WayActionArgs,
   MainToRendererComManager
 } from '../main/MainToRendererComManager'
+import { FriendConnectionStatus } from '../main/FriendConnectionHandler'
+import { FriendRoster } from '../main/FriendRoster'
 
 export type FriendWithState = Friend & {
   connectionStatus: FriendConnectionStatus
@@ -77,8 +78,26 @@ const api = {
     ((...args) => ipcRenderer.invoke('generateKeyPair', ...args))
   ),
   verifyKeyPair: <typeof verifyKeyPair>((...args) => ipcRenderer.invoke('verifyKeyPair', ...args)),
-  forwardICECandidateForVideoCall: <Controller['forwardICECandidateForVideoCall']>(
+  forwardICECandidateForVideoCall: <FriendRoster['forwardICECandidateVideoCall']>(
     ((...args) => ipcRenderer.invoke('forwardICECandidateForVideoCall', ...args))
+  ),
+  hangUpAndCloseVideoCall: <FriendRoster['hangUpAndCloseVideoCall']>(
+    ((...args) => ipcRenderer.invoke('hangUpAndCloseVideoCall', ...args))
+  ),
+  errorVideoCall: <FriendRoster['errorVideoCall']>(
+    ((...args) => ipcRenderer.invoke('errorVideoCall', ...args))
+  ),
+  signallingCompleteVideoCall: <FriendRoster['signallingCompleteVideoCall']>(
+    ((...args) => ipcRenderer.invoke('signallingCompleteVideoCall', ...args))
+  ),
+  peerHangsUpVideoCall: <FriendRoster['peerHangsUpVideoCall']>(
+    ((...args) => ipcRenderer.invoke('peerHangsUpVideoCall', ...args))
+  ),
+  weAcceptVideoCall: <FriendRoster['weAcceptVideoCall']>(
+    ((...args) => ipcRenderer.invoke('weAcceptVideoCall', ...args))
+  ),
+  sendVideoCallRequest: <FriendRoster['sendVideoCallRequest']>(
+    ((...args) => ipcRenderer.invoke('sendVideoCallRequest', ...args))
   )
 }
 
