@@ -2,6 +2,7 @@ import { HarmonyRoutineParams } from 'node-harmonyclient'
 import { mainToRendererComManager } from '../MainToRendererComManager'
 import { eToStr } from '../Controller'
 import { FriendConnectionHandler } from '../FriendConnectionHandler'
+import { assertNever } from '../../common/utils'
 
 const waiterInterval = 5000 //ms
 const maxWaits = 12
@@ -215,6 +216,7 @@ export class VideoCallRoutine {
                 this.currentSignalling.state = 'ICE'
               }
             }
+            break
           }
 
           case 'incoming':
@@ -228,6 +230,7 @@ export class VideoCallRoutine {
                 } else {
                   this.cancelCurrentRoutine('Expected an sdp answer')
                 }
+                break
               }
               case 'wait': {
                 break
@@ -241,8 +244,10 @@ export class VideoCallRoutine {
                 } else {
                   this.cancelCurrentRoutine('Not expecting an sdp answer yet')
                 }
+                break
               }
             }
+            break
           }
 
           case 'ICE': {
@@ -250,7 +255,11 @@ export class VideoCallRoutine {
             const candidate = msg.payload
             /**@todo send this to renderer */
             console.log(candidate)
+            break
           }
+
+          default:
+            assertNever(this.currentSignalling.state)
         }
       }
     } catch (e) {
