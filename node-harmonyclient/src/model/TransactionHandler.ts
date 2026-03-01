@@ -235,6 +235,10 @@ export class TransactionHandler<T, S> {
 
     try {
       return await routine(this.state, { recv, send })
+    } catch (e) {
+      // todo remove this
+      console.log(e)
+      throw e
     } finally {
       // cause all recv()s to error if any are still active
       while (messageQueue.isBlocked()) {

@@ -73,15 +73,17 @@ export class FriendConnectionHandler {
     // messages on the ctl channel
     this.controlChannelTransactionHandler = new TransactionHandler(
       async (msg, _) => {
+        console.log('📮 CTLsend: ' + msg)
         this.peerConnection?.ctlChannel.send(msg)
       },
       masterRoutine,
       this
     )
+    const videoCallRoutine = new VideoCallRoutine(friendDB.peerPk, this)
     this.videoCallManager = new VideoCallManager(
       friendDB.peerPk,
       onVideoCallStatusChange,
-      new VideoCallRoutine(friendDB.peerPk),
+      videoCallRoutine,
       this
     )
   }
@@ -249,6 +251,7 @@ export class FriendConnectionHandler {
           this.onReceiveMessage?.(msg.toString())
         })
         this.peerConnection.ctlChannel.onMessage.subscribe((msg) => {
+          console.log('📬 CTLrecv: ' + msg)
           this.controlChannelTransactionHandler.recv(msg.toString())
         })
 

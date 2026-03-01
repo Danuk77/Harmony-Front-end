@@ -1,6 +1,7 @@
 import { HarmonyRoutineParams } from 'node-harmonyclient'
 import { mainToRendererComManager } from '../MainToRendererComManager'
 import { eToStr } from '../Controller'
+import { FriendConnectionHandler } from '../FriendConnectionHandler'
 
 const waiterInterval = 5000 //ms
 const maxWaits = 12
@@ -156,6 +157,7 @@ const iceRecvTemplate = {
 
 export class VideoCallRoutine {
   private friendPk: string
+  private fch: FriendConnectionHandler
   public currentSignalling?: {
     state: 'outgoing' | 'incoming' | 'expectSDPAnswer' | 'ICE'
     waitCounter: number
@@ -167,8 +169,9 @@ export class VideoCallRoutine {
     peerOfferSdp: { sdp: string; type: 'offer' } | null
   }
 
-  constructor(friendPk: string) {
+  constructor(friendPk: string, fch: typeof this.fch) {
     this.friendPk = friendPk
+    this.fch = fch
   }
 
   public setCurrentSignalling(
@@ -250,6 +253,12 @@ export class VideoCallRoutine {
           }
         }
       }
+    } catch (e) {
+      let eStr = eToStr(e)
+      if (eStr == '') {
+        eStr = 'Error seting up the video call'
+      }
+      this.fch.videoCallManager.error('routine', eStr)
     } finally {
       this.terminateCurrentRoutine()
     }

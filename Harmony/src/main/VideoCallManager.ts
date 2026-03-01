@@ -280,6 +280,10 @@ export class VideoCallManager {
       try {
         await this.routineManager.cancelCurrentRoutine()
       } catch {}
+      // if we are already in-call we don't care about errors in the routine
+      if (this.videoCallStatus.call == 'in-call') {
+        return
+      }
     }
 
     switch (this.videoCallStatus.window) {
