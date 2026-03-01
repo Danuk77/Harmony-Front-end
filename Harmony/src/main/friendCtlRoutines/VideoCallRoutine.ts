@@ -128,32 +128,44 @@ const incomingRecvTemplate = {
 const iceRecvTemplate = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',
   type: 'object',
-  properties: {
-    type: {
-      const: 'ICECandidate'
-    },
-    payload: {
-      type: 'object',
+  anyOf: [
+    {
       properties: {
-        candidate: {
-          type: 'string'
+        type: {
+          const: 'ICECandidate'
         },
-        sdpMLineIndex: {
-          type: 'integer'
-        },
-        sdpMid: {
-          type: 'string'
-        },
-        usernameFragment: {
-          type: 'string'
-        }
+        payload: {
+          type: 'object',
+          properties: {
+            candidate: {
+              type: 'string'
+            },
+            sdpMLineIndex: {
+              type: 'integer'
+            },
+            sdpMid: {
+              type: 'string'
+            },
+            usernameFragment: {
+              type: 'string'
+            }
+          },
+          required: ['candidate', 'sdpMLineIndex'],
+          additionalProperties: false
+        } as const
       },
-      required: ['candidate', 'sdpMLineIndex'],
+      required: ['type', 'payload'],
       additionalProperties: false
-    } as const
-  },
-  required: ['type', 'payload'],
-  additionalProperties: false
+    },
+    {
+      properties: {
+        type: { const: 'reject' },
+        terminate: { const: 'done' }
+      },
+      required: ['type', 'terminate'],
+      additionalProperties: false
+    }
+  ]
 } as const
 
 export class VideoCallRoutine {
@@ -203,7 +215,7 @@ export class VideoCallRoutine {
             const msg = await this.currentSignalling.recv(outgoingRecvTemplate)
             switch (msg.type) {
               case 'reject': {
-                this.terminateCurrentRoutine()
+                this.fch.videoCallManager.peerHangsUp()
                 return
               }
               case 'wait': {
@@ -211,10 +223,13 @@ export class VideoCallRoutine {
               }
               case 'acceptAndOffer': {
                 this.currentSignalling.peerOfferSdp = msg.payload
-                /**@todo dark blue event */
                 // next message we receive should be ice candidates
                 this.currentSignalling.state = 'ICE'
+                this.fch.videoCallManager.peerAccepts()
+                break
               }
+              default:
+                assertNever(msg)
             }
             break
           }
@@ -224,37 +239,46 @@ export class VideoCallRoutine {
             const msg = await this.currentSignalling.recv(incomingRecvTemplate)
             switch (msg.type) {
               case 'reject': {
-                if (this.currentSignalling.state == 'incoming') {
-                  this.terminateCurrentRoutine()
-                  return
-                } else {
-                  this.cancelCurrentRoutine('Expected an sdp answer')
-                }
-                break
+                this.fch.videoCallManager.peerHangsUp()
+                return
               }
               case 'wait': {
                 break
               }
               case 'answer': {
                 if (this.currentSignalling.state == 'expectSDPAnswer') {
-                  let sdpAnswer = msg.payload.sdp
+                  let sdpAnswer = msg.payload
                   /**@todo send this to renderer */
                   console.log(sdpAnswer)
                   this.currentSignalling.state = 'ICE'
                 } else {
                   this.cancelCurrentRoutine('Not expecting an sdp answer yet')
+                  throw new Error('Peer sent an unexpected sdp answer')
                 }
                 break
               }
+              default:
+                assertNever(msg)
             }
             break
           }
 
           case 'ICE': {
             const msg = await this.currentSignalling.recv(iceRecvTemplate)
-            const candidate = msg.payload
-            /**@todo send this to renderer */
-            console.log(candidate)
+            switch (msg.type) {
+              case 'ICECandidate': {
+                const candidate = msg.payload
+                /**@todo send this to renderer */
+                console.log(candidate)
+                break
+              }
+              case 'reject': {
+                this.fch.videoCallManager.peerHangsUp()
+                return
+              }
+              default:
+                assertNever(msg)
+            }
             break
           }
 
@@ -265,9 +289,9 @@ export class VideoCallRoutine {
     } catch (e) {
       let eStr = eToStr(e)
       if (eStr == '') {
-        eStr = 'Error seting up the video call'
+        eStr = 'Unknown error'
       }
-      this.fch.videoCallManager.error('routine', eStr)
+      this.fch.videoCallManager.error('routine', 'Error while setting up the video call: ' + eStr)
     } finally {
       this.terminateCurrentRoutine()
     }

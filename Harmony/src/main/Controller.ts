@@ -345,6 +345,26 @@ export class Controller {
       })
     }
 
+    this.friendRoster.onPeerSdpAnswerForVideoCall = (peerPk, answerSdp) => {
+      this.onMainToRenderer1WayAction?.({
+        type: 'peerSdpAnswerForVideoCall',
+        payload: {
+          peerPk,
+          sdp: answerSdp
+        }
+      })
+    }
+
+    this.friendRoster.onPeerIceCandidateForVideoCall = (peerPk, candidate) => {
+      this.onMainToRenderer1WayAction?.({
+        type: 'peerIceCandidateForVideoCall',
+        payload: {
+          peerPk,
+          candidate
+        }
+      })
+    }
+
     //update friend roster and database when redux store changes
     // redux store is considered the main source of truth
     // middleware propegates updates

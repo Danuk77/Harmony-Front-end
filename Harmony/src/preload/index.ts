@@ -11,6 +11,7 @@ import {
 } from '../main/MainToRendererComManager'
 import { FriendConnectionStatus } from '../main/FriendConnectionHandler'
 import { FriendRoster } from '../main/FriendRoster'
+import { ICECandidate } from '../main/friendCtlRoutines/VideoCallRoutine'
 
 export type FriendWithState = Friend & {
   connectionStatus: FriendConnectionStatus
@@ -32,6 +33,23 @@ export type MainToRenderer1WayAction =
       type: 'error'
       payload: {
         msg: string
+      }
+    }
+  | {
+      type: 'peerSdpAnswerForVideoCall'
+      payload: {
+        peerPk: string
+        sdp: {
+          type: 'answer'
+          sdp: string
+        }
+      }
+    }
+  | {
+      type: 'peerIceCandidateForVideoCall'
+      payload: {
+        peerPk: string
+        candidate: ICECandidate
       }
     }
 

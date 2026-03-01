@@ -8,7 +8,7 @@ import {
   PeerConnectionCreationResult,
   TransactionHandler
 } from 'node-harmonyclient'
-import { VideoCallRoutine } from './friendCtlRoutines/VideoCallRoutine'
+import { ICECandidate, VideoCallRoutine } from './friendCtlRoutines/VideoCallRoutine'
 
 export type FriendConnectionStatus =
   | 'online-connected' // connected to the friend
@@ -51,6 +51,8 @@ export class FriendConnectionHandler {
   // callbacks
   public onConnectionStatusChange: (status: typeof this._connectionStatus) => unknown
   public onReceiveMessage: (msg: string) => unknown
+  public onPeerSdpAnswerForVideoCall: (sdp: { type: 'answer'; sdp: string }) => unknown
+  public onPeerIceCandidateForVideoCall: (candidate: ICECandidate) => unknown
 
   // used in inner functions
   public onAcceptOrRejectVideoCall?: (status: 'accept' | 'reject') => unknown
@@ -59,12 +61,20 @@ export class FriendConnectionHandler {
     con: HarmonyConnection,
     friendDB: Friend,
     // videoCallStatus: FriendVideoCallStatus,
-    onConnectionStatusChange: typeof this.onConnectionStatusChange,
-    onVideoCallStatusChange: VideoCallManager['onVideoCallStatusChange'],
-    onReceiveMessage: typeof this.onReceiveMessage
+    callbacks: {
+      onConnectionStatusChange: FriendConnectionHandler['onConnectionStatusChange']
+      onVideoCallStatusChange: VideoCallManager['onVideoCallStatusChange']
+      onReceiveMessage: FriendConnectionHandler['onReceiveMessage']
+      onPeerSdpAnswerForVideoCall: FriendConnectionHandler['onPeerSdpAnswerForVideoCall']
+      onPeerIceCandidateForVideoCall: FriendConnectionHandler['onPeerIceCandidateForVideoCall']
+    }
   ) {
-    this.onReceiveMessage = onReceiveMessage
-    this.onConnectionStatusChange = onConnectionStatusChange
+    // set callbacks
+    this.onReceiveMessage = callbacks.onReceiveMessage
+    this.onConnectionStatusChange = callbacks.onConnectionStatusChange
+    this.onPeerSdpAnswerForVideoCall = callbacks.onPeerSdpAnswerForVideoCall
+    this.onPeerIceCandidateForVideoCall = callbacks.onPeerIceCandidateForVideoCall
+
     // this.onCallStatusChange = onCallStatusChange
     this.friend = friendDB
     // this.videoCallStatus = videoCallStatus
@@ -82,7 +92,7 @@ export class FriendConnectionHandler {
     const videoCallRoutine = new VideoCallRoutine(friendDB.peerPk, this)
     this.videoCallManager = new VideoCallManager(
       friendDB.peerPk,
-      onVideoCallStatusChange,
+      callbacks.onVideoCallStatusChange,
       videoCallRoutine,
       this
     )

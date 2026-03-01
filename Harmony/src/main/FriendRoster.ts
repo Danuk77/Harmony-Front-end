@@ -23,6 +23,11 @@ export class FriendRoster {
   ) => unknown
   public onVideoCallStatusChange?: (publicKey: string, status: FriendVideoCallStatus) => unknown
   public onReceiveMessage?: (publicKey: string, msg: string) => unknown
+  public onPeerSdpAnswerForVideoCall?: (
+    publicKey: string,
+    sdpAnswer: { type: 'answer'; sdp: string }
+  ) => unknown
+  public onPeerIceCandidateForVideoCall?: (publicKey: string, candidate: ICECandidate) => unknown
 
   constructor(con: HarmonyConnection) {
     this.con = con
@@ -106,14 +111,17 @@ export class FriendRoster {
       existingFriendHandler.friend = friend
       return true
     } else {
-      const friendHandler = new FriendConnectionHandler(
-        this.con,
-        friend,
-        (connectionStatus) =>
+      const friendHandler = new FriendConnectionHandler(this.con, friend, {
+        onConnectionStatusChange: (connectionStatus) =>
           this.onFriendConnectionStatusChange?.(friend.peerPk, connectionStatus),
-        (videoCallStatus) => this.onVideoCallStatusChange?.(friend.peerPk, videoCallStatus),
-        (msg) => this.onReceiveMessage?.(friend.peerPk, msg)
-      )
+        onVideoCallStatusChange: (videoCallStatus) =>
+          this.onVideoCallStatusChange?.(friend.peerPk, videoCallStatus),
+        onReceiveMessage: (msg) => this.onReceiveMessage?.(friend.peerPk, msg),
+        onPeerSdpAnswerForVideoCall: (sdpAnswer) =>
+          this.onPeerSdpAnswerForVideoCall?.(friend.peerPk, sdpAnswer),
+        onPeerIceCandidateForVideoCall: (candidate) =>
+          this.onPeerIceCandidateForVideoCall?.(friend.peerPk, candidate)
+      })
       this.friends.set(friend.peerPk, friendHandler)
       friendHandler.paused = this.paused
       return false

@@ -239,7 +239,7 @@ export class VideoCallManager {
   }
 
   // dark blue
-  public async peerAccept() {
+  public async peerAccepts() {
     if (this.videoCallStatus.callDirection == 'outgoing' && this.videoCallStatus.accepted) {
       this.videoCallStatus = {
         ...this.videoCallStatus,

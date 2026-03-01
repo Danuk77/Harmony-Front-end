@@ -10,7 +10,7 @@
   import { store } from './redux'
   import { onMount } from 'svelte'
   import type { IceServer } from '../../common/redux'
-  import { eToStr } from '../../common/utils'
+  import { assertNever, eToStr } from '../../common/utils'
 
   let microphoneEnabled = $state(true)
   let cameraEnabled = $state(true)
@@ -60,7 +60,6 @@
 
     function setupPeerConnectionListeners(pc: RTCPeerConnection) {
       pc.onicecandidate = ({ candidate }) => {
-        /**@todo send ice candidate to peer*/
         if (candidate) {
           if (!candidate.sdpMLineIndex) {
             return
@@ -78,17 +77,33 @@
       pc.onconnectionstatechange = () => {
         switch (pc.connectionState) {
           case 'closed':
-          case 'disconnected':
-          case 'failed':
+          case 'disconnected': {
             closeCall(pc)
+            break
+          }
+          case 'failed': {
+            closeCall(pc)
+            window.api.errorVideoCall(pk, 'videoPlayer', 'Video call connection failed')
+            break
+          }
         }
       }
       pc.oniceconnectionstatechange = () => {
         switch (pc.iceConnectionState) {
           case 'closed':
-          case 'disconnected':
-          case 'failed':
+          case 'disconnected': {
             closeCall(pc)
+            break
+          }
+          case 'failed': {
+            closeCall(pc)
+            window.api.errorVideoCall(
+              pk,
+              'routine',
+              'Internet Connectivity Establishment (ICE) error. Check ICE servers'
+            )
+            break
+          }
         }
       }
       pc.onsignalingstatechange = () => {
@@ -99,6 +114,7 @@
       }
       pc.ontrack = ({ streams }) => {
         remoteVideoElement.srcObject = streams[0]
+        window.api.signallingCompleteVideoCall(pk)
       }
     }
 
@@ -191,6 +207,70 @@
           }
           break
         }
+        default:
+          assertNever(args)
+      }
+    })
+
+    window.api.onMainToRenderer1WayAction(async (action) => {
+      switch (action.type) {
+        case 'error':
+        case 'failed-login':
+        case 'receive-message': {
+          // ignore
+          break
+        }
+        case 'peerSdpAnswerForVideoCall': {
+          if (action.payload.peerPk != pk) {
+            return
+          }
+          if (!peerConnection) {
+            window.api.errorVideoCall(
+              pk,
+              'routine',
+              'Renderer received an answer sdp, but no peer connection is being set up'
+            )
+            return
+          }
+          if (!peerConnection.currentLocalDescription) {
+            window.api.errorVideoCall(
+              pk,
+              'routine',
+              'Renderer received an answer sdp, but does not have a local description'
+            )
+            return
+          }
+          await peerConnection.setRemoteDescription(action.payload.sdp)
+          // should start creating and sending ICE candidates
+          // ice candidate listener is already set up
+          break
+        }
+
+        case 'peerIceCandidateForVideoCall': {
+          if (action.payload.peerPk != pk) {
+            return
+          }
+          if (!peerConnection) {
+            window.api.errorVideoCall(
+              pk,
+              'routine',
+              'Renderer received an ICE candidate, but no peer connection is being set up'
+            )
+            return
+          }
+          if (!peerConnection.currentLocalDescription || !peerConnection.currentRemoteDescription) {
+            window.api.errorVideoCall(
+              pk,
+              'routine',
+              'Renderer received an ICE candidate, but does not have a local and/or remote description'
+            )
+            return
+          }
+          peerConnection.addIceCandidate(action.payload.candidate)
+          break
+        }
+        default:
+          assertNever(action)
       }
     })
   })

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { assertNever } from '../../common/utils'
   import MainScreen from './Layout.svelte'
 
   // const ipcHandle = (): void => window.electron.ipcRenderer.send('ping')
@@ -6,8 +7,22 @@
   const bc = new BroadcastChannel('mainToRenderer1WayAction')
 
   window.api.onMainToRenderer1WayAction((action) => {
-    console.log(action)
-    bc.postMessage(action)
+    switch (action.type) {
+      case 'error':
+      case 'failed-login':
+      case 'receive-message': {
+        console.log(action)
+        bc.postMessage(action)
+        break
+      }
+      case 'peerSdpAnswerForVideoCall':
+      case 'peerIceCandidateForVideoCall': {
+        // ignore
+        break
+      }
+      default:
+        assertNever(action)
+    }
   })
 </script>
 
