@@ -199,6 +199,9 @@ app.whenReady().then(() => {
   ipcMainTypesafe.handle('sendVideoCallRequest', (_, ...args) =>
     controller.friendRoster.sendVideoCallRequest(...args)
   )
+  ipcMainTypesafe.handle('videoCallWindowOpens', (_, ...args) =>
+    controller.friendRoster.videoCallWindowOpens(...args)
+  )
 
   focusMainWindow()
   // focusVideoCallWindow('MCowBQYDK2VwAyEAbwNKp+lYsTGzZyCmRzMdDqULgidqqdrd1d7zEi7iacY=')

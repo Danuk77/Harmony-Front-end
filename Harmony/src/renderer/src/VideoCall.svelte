@@ -119,6 +119,7 @@
     }
 
     window.api.onMainToRenderer2WayAction(async ({ id, args }) => {
+      console.log(id, args)
       switch (args.type) {
         case 'genSdpOfferForVideoCall': {
           if (args.payload.pk == pk) {
@@ -273,6 +274,9 @@
           assertNever(action)
       }
     })
+
+    // let main process know that this window is ready
+    window.api.videoCallWindowOpens(pk)
   })
 
   function hangUp() {

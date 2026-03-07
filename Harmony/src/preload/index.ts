@@ -116,6 +116,9 @@ const api = {
   ),
   sendVideoCallRequest: <FriendRoster['sendVideoCallRequest']>(
     ((...args) => ipcRenderer.invoke('sendVideoCallRequest', ...args))
+  ),
+  videoCallWindowOpens: <FriendRoster['videoCallWindowOpens']>(
+    ((...args) => ipcRenderer.invoke('videoCallWindowOpens', ...args))
   )
 }
 

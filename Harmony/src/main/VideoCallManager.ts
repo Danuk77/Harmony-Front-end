@@ -81,8 +81,6 @@ export class VideoCallManager {
     this.browserWindow = browserWindow
 
     browserWindow.on('ready-to-show', () => {
-      /**@todo update state */
-      this.windowOpens()
       browserWindow.show()
     })
 

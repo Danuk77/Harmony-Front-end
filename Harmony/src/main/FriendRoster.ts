@@ -243,6 +243,13 @@ export class FriendRoster {
     }
   }
 
+  public videoCallWindowOpens(pk: string, ...args: Parameters<VideoCallManager['windowOpens']>) {
+    const friend = this.friends.get(pk)
+    if (friend) {
+      friend.videoCallManager.windowOpens(...args)
+    }
+  }
+
   /**
    * Gracefully close all rtc connections
    */
