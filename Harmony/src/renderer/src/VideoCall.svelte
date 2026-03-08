@@ -60,8 +60,9 @@
 
     function setupPeerConnectionListeners(pc: RTCPeerConnection) {
       pc.onicecandidate = ({ candidate }) => {
+        console.log(candidate)
         if (candidate) {
-          if (!candidate.sdpMLineIndex) {
+          if (candidate.sdpMLineIndex === null) {
             return
           }
           // type nonsense - turn nulls into undefineds
@@ -180,6 +181,7 @@
               await peerConnection.setRemoteDescription(args.payload.offer)
               const answer = await peerConnection.createAnswer()
               if (answer.sdp && answer.type == 'answer') {
+                await peerConnection.setLocalDescription(answer)
                 window.api.mainToRenderer2WayActionResponse(id, {
                   type: args.type,
                   payload: {

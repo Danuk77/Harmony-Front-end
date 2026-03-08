@@ -185,10 +185,10 @@ export class FriendRoster {
     friendHandler.sendMessage(msg) // might throw an error.
   }
 
-  public forwardICECandidateVideoCall(pk: string, candidate: ICECandidate) {
+  public forwardICECandidateForVideoCall(pk: string, candidate: ICECandidate) {
     const friend = this.friends.get(pk)
     if (friend) {
-      friend.videoCallManager.routineManager.forwardICECandidateToPeer(candidate)
+      friend.videoCallManager.routineManager.forwardICECandidateForVideoCall(candidate)
     }
   }
 

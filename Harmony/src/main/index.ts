@@ -179,7 +179,7 @@ app.whenReady().then(() => {
   ipcMainTypesafe.handle('verifyKeyPair', (_, ...args) => verifyKeyPair(...args))
 
   ipcMainTypesafe.handle('forwardICECandidateForVideoCall', (_, ...args) =>
-    controller.friendRoster.forwardICECandidateVideoCall(...args)
+    controller.friendRoster.forwardICECandidateForVideoCall(...args)
   )
   ipcMainTypesafe.handle('hangUpAndCloseVideoCall', (_, ...args) =>
     controller.friendRoster.hangUpAndCloseVideoCall(...args)

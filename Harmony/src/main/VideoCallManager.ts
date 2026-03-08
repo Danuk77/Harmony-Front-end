@@ -122,12 +122,8 @@ export class VideoCallManager {
     }
 
     // decline any current call
-    try {
-      await this.routineManager.rejectCall()
-    } catch {
-      try {
-        await this.routineManager.cancelCurrentRoutine()
-      } catch {}
+    if (this.routineManager.currentSignalling) {
+      this.routineManager.rejectCall().catch()
     }
 
     // set state

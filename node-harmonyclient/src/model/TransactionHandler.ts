@@ -139,7 +139,7 @@ export class TransactionHandler<T, S> {
       if (Object.prototype.hasOwnProperty.call(msg, 'terminate')) {
         tsIsClosed = true
         // enqueue HarmonyError in case there is any recv() being awaited - causes the recv to raise an error
-        messageQueue.enqueue(new HarmonyError('Timeout waiting for server response'))
+        messageQueue.enqueue(new HarmonyError('Routine was terminated by this client'))
       }
 
       // TODO
@@ -206,7 +206,11 @@ export class TransactionHandler<T, S> {
 
         // throw any error received from the server
         if (terminateMsg.terminate == 'cancel') {
-          throw new HarmonyError(terminateMsg.error)
+          if (Object.prototype.hasOwnProperty.call(parsed, 'error')) {
+            throw new HarmonyError('Transaction cancelled by server/peer: ' + terminateMsg.error)
+          } else {
+            throw new HarmonyError('Transaction cancelled by server/peer')
+          }
         }
       } else if (Object.prototype.hasOwnProperty.call(parsed, 'error')) {
         // non-terminating errors.
@@ -225,7 +229,8 @@ export class TransactionHandler<T, S> {
         const result = validator.validate(parsed, schema as object)
         if (!result.valid) {
           throw new HarmonyError(
-            'Error on incoming message: ' + result.errors.map((err) => err.toString()).join(', ')
+            'An incoming message from the server/peer failed to validate with JSON schema: ' +
+              result.errors.map((err) => err.toString()).join(', ')
           )
         }
       }
@@ -242,7 +247,7 @@ export class TransactionHandler<T, S> {
     } finally {
       // cause all recv()s to error if any are still active
       while (messageQueue.isBlocked()) {
-        messageQueue.enqueue(new HarmonyError('Transaction has terminated'))
+        messageQueue.enqueue(new HarmonyError('Recv on terminated transaction'))
       }
       if (!tsIsClosed) {
         // apparently the connection is still open. Attempt to close it.

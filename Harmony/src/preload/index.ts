@@ -96,7 +96,7 @@ const api = {
     ((...args) => ipcRenderer.invoke('generateKeyPair', ...args))
   ),
   verifyKeyPair: <typeof verifyKeyPair>((...args) => ipcRenderer.invoke('verifyKeyPair', ...args)),
-  forwardICECandidateForVideoCall: <FriendRoster['forwardICECandidateVideoCall']>(
+  forwardICECandidateForVideoCall: <FriendRoster['forwardICECandidateForVideoCall']>(
     ((...args) => ipcRenderer.invoke('forwardICECandidateForVideoCall', ...args))
   ),
   hangUpAndCloseVideoCall: <FriendRoster['hangUpAndCloseVideoCall']>(

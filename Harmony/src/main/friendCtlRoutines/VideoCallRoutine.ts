@@ -291,7 +291,8 @@ export class VideoCallRoutine {
       if (eStr == '') {
         eStr = 'Unknown error'
       }
-      this.fch.videoCallManager.error('routine', 'Error while setting up the video call: ' + eStr)
+      console.error('Error while setting up the video call: ' + eStr)
+      this.fch.videoCallManager.error('routine', 'Error while setting up the video call')
     } finally {
       this.terminateCurrentRoutine()
     }
@@ -394,7 +395,7 @@ export class VideoCallRoutine {
   }
 
   // invoked by renderer
-  public async forwardICECandidateToPeer(candidate: ICECandidate) {
+  public async forwardICECandidateForVideoCall(candidate: ICECandidate) {
     if (!this.currentSignalling || this.currentSignalling.state != 'ICE') {
       throw Error('Not ready to forward ICE candidates to peer')
     }
