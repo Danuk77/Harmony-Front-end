@@ -16,6 +16,8 @@ export type FriendVideoCallStatus = {
   accepted: boolean
   window: 'closed' | 'opening' | 'open'
   call: 'ringing' | 'signalling' | 'peer-hang-up' | 'in-call' | 'failed' | 'none'
+  // id of in-progress call. Prevents multiple errors for the same call, or an error from the previous call causing the next call to be cancelled.
+  id: number | null
   errorMsg: string | null
 }
 
@@ -26,6 +28,7 @@ export class VideoCallManager {
   public browserWindow: BrowserWindow | null = null
   public routineManager: VideoCallRoutine
   public fch: FriendConnectionHandler
+  private nextCallId: number = 1
 
   constructor(
     friendPk: string,
@@ -84,12 +87,9 @@ export class VideoCallManager {
       browserWindow.show()
     })
 
-    /**@todo think about this - do we need to dispatch a redux event here? would that lead to an infinite loop?  */
     browserWindow.on('closed', () => {
-      /**@todo update state */
-      if (this.browserWindow == browserWindow) {
-        this.browserWindow = null
-      }
+      this.browserWindow = null
+      this.hangUpAndClose()
     })
 
     browserWindow.webContents.setWindowOpenHandler((details) => {
@@ -119,11 +119,12 @@ export class VideoCallManager {
   public async hangUpAndClose() {
     if (this.browserWindow) {
       this.browserWindow.close()
+      this.browserWindow = null
     }
 
     // decline any current call
     if (this.routineManager.currentSignalling) {
-      this.routineManager.rejectCall().catch()
+      this.routineManager.rejectCall().catch(() => {})
     }
 
     // set state
@@ -132,12 +133,13 @@ export class VideoCallManager {
       accepted: false,
       window: 'closed',
       call: 'none',
-      errorMsg: null
+      errorMsg: null,
+      id: null
     }
   }
 
   // orange
-  public async recieveVideoCallRequest(
+  public async receiveVideoCallRequest(
     { send, recv }: HarmonyRoutineParams,
     resolve: Parameters<ConstructorParameters<typeof Promise<void>>[0]>[0],
     reject: Parameters<ConstructorParameters<typeof Promise<void>>[0]>[1]
@@ -155,37 +157,46 @@ export class VideoCallManager {
       this.videoCallStatus.accepted && this.videoCallStatus.window == 'open'
         ? 'signalling'
         : 'ringing'
+    const id = this.nextCallId++
     this.videoCallStatus = {
       ...this.videoCallStatus,
       callDirection: 'incoming',
-      call: call
+      call: call,
+      id: id
     }
 
     this.routineManager.setCurrentSignalling({
       send,
       recv,
       resolve,
-      reject,
-      state: 'incoming'
+      reject: (reason) => {
+        // decorate calls to reject() so we can call this.error
+        this.error('routine', eToStr(reason), id)
+        return reject(reason)
+      },
+      state: 'incoming',
+      id
     })
     this.routineManager.startRecvLoop()
     this.routineManager.startWaitLoop()
 
     // get window to generate sdp if call is accepted
     if (call == 'signalling') {
-      this.routineManager.acceptIncomingCallWithWindowOpen()
+      this.routineManager.acceptIncomingCallWithWindowOpen(id)
     }
     // if call is set to signalling the signalling process must restart with us sending an offer sdp.
   }
 
   // green
   public async windowOpens() {
+    const oldStatus = this.videoCallStatus
     // window switches to "open"
     // rest of the state stays the same unless...
     if (
-      this.videoCallStatus.callDirection == 'incoming' &&
-      this.videoCallStatus.accepted &&
-      this.videoCallStatus.call == 'ringing'
+      oldStatus.callDirection == 'incoming' &&
+      oldStatus.accepted &&
+      oldStatus.call == 'ringing' &&
+      oldStatus.id !== null
     ) {
       // additionally set call to "signalling" and accept incoming call (generates offer sdp)
       this.videoCallStatus = {
@@ -193,9 +204,11 @@ export class VideoCallManager {
         window: 'open',
         call: 'signalling'
       }
-      this.routineManager.acceptIncomingCallWithWindowOpen().catch((e) => {
-        this.error('routine', eToStr(e))
-      })
+      ;((id) => {
+        this.routineManager.acceptIncomingCallWithWindowOpen(id).catch((e) => {
+          this.error('routine', eToStr(e), id)
+        })
+      })(oldStatus.id)
     } else {
       this.videoCallStatus = {
         ...this.videoCallStatus,
@@ -204,76 +217,106 @@ export class VideoCallManager {
     }
 
     if (
-      this.videoCallStatus.callDirection == 'outgoing' &&
-      this.videoCallStatus.accepted &&
-      this.videoCallStatus.call == 'signalling'
+      oldStatus.callDirection == 'outgoing' &&
+      oldStatus.accepted &&
+      oldStatus.call == 'signalling' &&
+      oldStatus.id !== null
     ) {
       // the peer has already accepted our video call request.
       // the peerOfferSdp should be defined, given the current state
       const peerOfferSdp = this.routineManager.currentSignalling?.peerOfferSdp
       if (!peerOfferSdp) {
-        this.error('routine', eToStr('Internal error: peer offer not found despite being received'))
+        this.error(
+          'routine',
+          'Internal error: peer offer not found despite being received',
+          oldStatus.id
+        )
         return
       }
 
       // deliver offer to renderer
-      ;(async () => {
+      ;(async (id) => {
         try {
           const answer = await mainToRendererComManager.genSdpAnswerForVideoCall(
             this.friendPk,
-            peerOfferSdp
+            peerOfferSdp,
+            id
           )
           await this.routineManager.forwardSdpAnswerToPeer(answer)
         } catch (e) {
-          this.error('routine', eToStr(e))
+          this.error('routine', eToStr(e), id)
           return
         }
-      })()
+      })(oldStatus.id)
     }
   }
 
   // dark blue
   public async peerAccepts() {
-    if (this.videoCallStatus.callDirection == 'outgoing' && this.videoCallStatus.accepted) {
-      this.videoCallStatus = {
-        ...this.videoCallStatus,
-        call: 'signalling'
+    // make a copy for ts reasons
+    const oldStatus = this.videoCallStatus
+
+    if (
+      !(
+        oldStatus.callDirection == 'outgoing' &&
+        oldStatus.accepted &&
+        (oldStatus.window == 'opening' || oldStatus.window == 'open') &&
+        oldStatus.call == 'ringing' &&
+        oldStatus.id !== null
+      )
+    ) {
+      console.error('peerAccepts called in bad state and was ignored: ', this.videoCallStatus)
+      return
+    }
+
+    this.videoCallStatus = {
+      ...oldStatus,
+      call: 'signalling'
+    }
+
+    // if window is open we can deliver the sdp
+    if (this.videoCallStatus.window == 'open') {
+      const peerOfferSdp = this.routineManager.currentSignalling?.peerOfferSdp
+      if (!peerOfferSdp) {
+        this.error(
+          'routine',
+          eToStr('Internal error: peer offer not found despite being received'),
+          oldStatus.id
+        )
+        return
       }
-      // if window is open we can deliver the sdp
-      if (this.videoCallStatus.window == 'open') {
-        const peerOfferSdp = this.routineManager.currentSignalling?.peerOfferSdp
-        if (!peerOfferSdp) {
-          this.error(
-            'routine',
-            eToStr('Internal error: peer offer not found despite being received')
+      // deliver offer to renderer
+      ;(async (id) => {
+        try {
+          const answer = await mainToRendererComManager.genSdpAnswerForVideoCall(
+            this.friendPk,
+            peerOfferSdp,
+            id
           )
+          await this.routineManager.forwardSdpAnswerToPeer(answer)
+        } catch (e) {
+          this.error('routine', eToStr(e), id)
           return
         }
-        // deliver offer to renderer
-        ;(async () => {
-          try {
-            const answer = await mainToRendererComManager.genSdpAnswerForVideoCall(
-              this.friendPk,
-              peerOfferSdp
-            )
-            await this.routineManager.forwardSdpAnswerToPeer(answer)
-          } catch (e) {
-            this.error('routine', eToStr(e))
-            return
-          }
-        })()
-      }
+      })(oldStatus.id)
     }
   }
 
   // brown
-  public async error(procedure: 'routine' | 'videoPlayer', msg: string) {
+  public async error(procedure: 'routine' | 'videoPlayer', msg: string, callID: number) {
     console.error('Video call error: ' + msg)
 
+    // if error originates from a previous call, ignore it
+    if (this.videoCallStatus.id != callID) {
+      return
+    }
+
     if (procedure == 'routine') {
-      try {
-        await this.routineManager.cancelCurrentRoutine()
-      } catch {}
+      if (this.routineManager.currentSignalling) {
+        try {
+          await this.routineManager.cancelCurrentRoutine()
+        } catch {}
+      }
       // if we are already in-call we don't care about errors in the routine
       if (this.videoCallStatus.call == 'in-call') {
         return
@@ -288,7 +331,8 @@ export class VideoCallManager {
           accepted: false,
           window: 'closed',
           call: 'none',
-          errorMsg: msg
+          errorMsg: msg,
+          id: null
         }
         return
       }
@@ -299,7 +343,8 @@ export class VideoCallManager {
           accepted: false,
           window: this.videoCallStatus.window,
           call: 'failed',
-          errorMsg: msg
+          errorMsg: msg,
+          id: null
         }
         return
       }
@@ -309,12 +354,34 @@ export class VideoCallManager {
   }
 
   // teal
-  public async signallingComplete() {
+  public async signallingComplete(id: number) {
+    if (id != this.videoCallStatus.id) {
+      return
+    }
     this.videoCallStatus.call = 'in-call'
   }
 
   // pink
-  public async peerHangsUp() {
+  public async peerHangsUp(id: number) {
+    if (id != this.videoCallStatus.id) {
+      return // ignore
+    }
+
+    // check current state is valid for this action
+    const oldStatus = this.videoCallStatus
+    if (
+      !(
+        (oldStatus.callDirection == 'outgoing' || oldStatus.callDirection == 'incoming') &&
+        (oldStatus.call == 'in-call' ||
+          oldStatus.call == 'ringing' ||
+          oldStatus.call == 'signalling') &&
+        oldStatus.id !== null
+      )
+    ) {
+      console.error('peerHangsUp called in bad state and was ignored: ', this.videoCallStatus)
+      return
+    }
+
     if (this.routineManager.currentSignalling) {
       this.routineManager.terminateCurrentRoutine()
     }
@@ -327,7 +394,8 @@ export class VideoCallManager {
           accepted: false,
           window: 'closed',
           call: 'none',
-          errorMsg: null
+          errorMsg: null,
+          id: null
         }
         return
       }
@@ -338,7 +406,8 @@ export class VideoCallManager {
           accepted: false,
           window: this.videoCallStatus.window,
           call: 'peer-hang-up',
-          errorMsg: null
+          errorMsg: null,
+          id: null
         }
         return
       }
@@ -354,52 +423,69 @@ export class VideoCallManager {
     // if window is "closed", it changes to "opening" (and window is opened). Otherwise remains the same
     // if window is "open", call changes to "signalling" (and signalling begins) otherwise call stays at "ringing"
 
+    // check current state is valid for this action
+    const oldStatus = this.videoCallStatus
     if (
-      this.videoCallStatus.callDirection == 'incoming' &&
-      !this.videoCallStatus.accepted &&
-      this.videoCallStatus.call == 'ringing'
+      !(
+        oldStatus.callDirection == 'incoming' &&
+        !oldStatus.accepted &&
+        oldStatus.call == 'ringing' &&
+        oldStatus.id !== null
+      )
     ) {
-      const callDirection = 'incoming'
-      const accepted = true
-      switch (this.videoCallStatus.window) {
-        case 'opening':
-        case 'closed': {
-          this.videoCallStatus = {
-            callDirection,
-            accepted,
-            call: 'ringing',
-            window: 'opening',
-            errorMsg: null
-          }
-          // open window
-          this.focusVideoCallWindow()
-          return
+      console.error('weAccept called in bad state and was ignored: ', this.videoCallStatus)
+      return
+    }
+
+    const callDirection = 'incoming'
+    const accepted = true
+    switch (this.videoCallStatus.window) {
+      case 'opening':
+      case 'closed': {
+        this.videoCallStatus = {
+          callDirection,
+          accepted,
+          call: 'ringing',
+          window: 'opening',
+          errorMsg: null,
+          id: oldStatus.id
         }
-        case 'open': {
-          this.videoCallStatus = {
-            callDirection,
-            accepted,
-            call: 'signalling',
-            window: 'open',
-            errorMsg: null
-          }
-          // start signalling
-          this.routineManager.acceptIncomingCallWithWindowOpen().catch((e) => {
-            this.error('routine', eToStr(e))
-          })
-          return
-        }
-        default:
-          assertNever(this.videoCallStatus.window)
+        // open window
+        this.focusVideoCallWindow()
+        return
       }
+      case 'open': {
+        this.videoCallStatus = {
+          callDirection,
+          accepted,
+          call: 'signalling',
+          window: 'open',
+          errorMsg: null,
+          id: oldStatus.id
+        }
+        ;((id) => {
+          // start signalling
+          this.routineManager.acceptIncomingCallWithWindowOpen(id).catch((e) => {
+            this.error('routine', eToStr(e), id)
+          })
+        })(oldStatus.id)
+        return
+      }
+      default:
+        assertNever(this.videoCallStatus.window)
     }
   }
 
   // light blue
   public async sendVideoCallRequest() {
+    // don't check the current state
+    // user may want to start a new video call at any time due to issues - allow them
+
     try {
       await this.routineManager.cancelCurrentRoutine()
     } catch {}
+
+    const id = this.nextCallId++
 
     switch (this.videoCallStatus.window) {
       case 'opening':
@@ -409,10 +495,14 @@ export class VideoCallManager {
           accepted: true,
           window: 'opening',
           call: 'ringing',
-          errorMsg: null
+          errorMsg: null,
+          id: id
         }
         // start routine
-        sendVideoCallRequest(this.fch)
+        sendVideoCallRequest(this.fch, id).catch((e) => {
+          this.error('routine', eToStr(e), id)
+        })
+
         // open window
         this.focusVideoCallWindow()
         return
@@ -423,10 +513,13 @@ export class VideoCallManager {
           accepted: true,
           window: 'open',
           call: 'ringing',
-          errorMsg: null
+          errorMsg: null,
+          id: id
         }
         // start routine
-        sendVideoCallRequest(this.fch)
+        sendVideoCallRequest(this.fch, id).catch((e) => {
+          this.error('routine', eToStr(e), id)
+        })
         return
       }
       default:

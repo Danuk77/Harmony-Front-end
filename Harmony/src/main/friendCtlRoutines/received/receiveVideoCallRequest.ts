@@ -23,7 +23,7 @@ export async function receiveVideoCallRequest(
   { send, recv }: HarmonyRoutineParams
 ) {
   await new Promise<void>((resolve, reject) => {
-    fch.videoCallManager.recieveVideoCallRequest({ send, recv }, resolve, reject)
+    fch.videoCallManager.receiveVideoCallRequest({ send, recv }, resolve, reject)
 
     // // check current state of the vcr manager - there may be another routine trying to establish a video call connection
     // if (fch.videoCallRoutine.currentSignalling) {

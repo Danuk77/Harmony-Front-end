@@ -51,8 +51,11 @@ export class FriendConnectionHandler {
   // callbacks
   public onConnectionStatusChange: (status: typeof this._connectionStatus) => unknown
   public onReceiveMessage: (msg: string) => unknown
-  public onPeerSdpAnswerForVideoCall: (sdp: { type: 'answer'; sdp: string }) => unknown
-  public onPeerIceCandidateForVideoCall: (candidate: ICECandidate) => unknown
+  public onPeerSdpAnswerForVideoCall: (
+    sdp: { type: 'answer'; sdp: string },
+    callID: number
+  ) => unknown
+  public onPeerIceCandidateForVideoCall: (candidate: ICECandidate, callID: number) => unknown
 
   // used in inner functions
   public onAcceptOrRejectVideoCall?: (status: 'accept' | 'reject') => unknown
@@ -319,8 +322,8 @@ export class FriendConnectionHandler {
     this.peerConnection.chatChannel.send(msg) // might throw an error
   }
 
-  public sendVideoCallRequest() {
-    return sendVideoCallRequest(this)
+  public sendVideoCallRequest(callID: number) {
+    return sendVideoCallRequest(this, callID)
   }
 
   // close the connection and prevent reconnections.

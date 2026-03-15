@@ -345,22 +345,24 @@ export class Controller {
       })
     }
 
-    this.friendRoster.onPeerSdpAnswerForVideoCall = (peerPk, answerSdp) => {
+    this.friendRoster.onPeerSdpAnswerForVideoCall = (peerPk, answerSdp, callID) => {
       this.onMainToRenderer1WayAction?.({
         type: 'peerSdpAnswerForVideoCall',
         payload: {
           peerPk,
-          sdp: answerSdp
+          sdp: answerSdp,
+          callID
         }
       })
     }
 
-    this.friendRoster.onPeerIceCandidateForVideoCall = (peerPk, candidate) => {
+    this.friendRoster.onPeerIceCandidateForVideoCall = (peerPk, candidate, callID) => {
       this.onMainToRenderer1WayAction?.({
         type: 'peerIceCandidateForVideoCall',
         payload: {
           peerPk,
-          candidate
+          candidate,
+          callID
         }
       })
     }

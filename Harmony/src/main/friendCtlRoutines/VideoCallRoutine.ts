@@ -180,6 +180,7 @@ export class VideoCallRoutine {
     resolve: Parameters<ConstructorParameters<typeof Promise<void>>[0]>[0]
     reject: Parameters<ConstructorParameters<typeof Promise<void>>[0]>[1]
     peerOfferSdp: { sdp: string; type: 'offer' } | null
+    id: number
   }
 
   constructor(friendPk: string, fch: typeof this.fch) {
@@ -191,7 +192,7 @@ export class VideoCallRoutine {
     // set current without needing to provide all the internal properties
     args: Pick<
       NonNullable<typeof this.currentSignalling>,
-      'send' | 'recv' | 'resolve' | 'reject' | 'state'
+      'send' | 'recv' | 'resolve' | 'reject' | 'state' | 'id'
     >
   ) {
     this.currentSignalling = {
@@ -215,7 +216,7 @@ export class VideoCallRoutine {
             const msg = await this.currentSignalling.recv(outgoingRecvTemplate)
             switch (msg.type) {
               case 'reject': {
-                this.fch.videoCallManager.peerHangsUp()
+                this.fch.videoCallManager.peerHangsUp(this.currentSignalling.id)
                 return
               }
               case 'wait': {
@@ -239,7 +240,7 @@ export class VideoCallRoutine {
             const msg = await this.currentSignalling.recv(incomingRecvTemplate)
             switch (msg.type) {
               case 'reject': {
-                this.fch.videoCallManager.peerHangsUp()
+                this.fch.videoCallManager.peerHangsUp(this.currentSignalling.id)
                 return
               }
               case 'wait': {
@@ -247,9 +248,7 @@ export class VideoCallRoutine {
               }
               case 'answer': {
                 if (this.currentSignalling.state == 'expectSDPAnswer') {
-                  let sdpAnswer = msg.payload
-                  /**@todo send this to renderer */
-                  console.log(sdpAnswer)
+                  this.fch.onPeerSdpAnswerForVideoCall(msg.payload, this.currentSignalling.id)
                   this.currentSignalling.state = 'ICE'
                 } else {
                   this.cancelCurrentRoutine('Not expecting an sdp answer yet')
@@ -267,13 +266,11 @@ export class VideoCallRoutine {
             const msg = await this.currentSignalling.recv(iceRecvTemplate)
             switch (msg.type) {
               case 'ICECandidate': {
-                const candidate = msg.payload
-                /**@todo send this to renderer */
-                console.log(candidate)
+                this.fch.onPeerIceCandidateForVideoCall(msg.payload, this.currentSignalling.id)
                 break
               }
               case 'reject': {
-                this.fch.videoCallManager.peerHangsUp()
+                this.fch.videoCallManager.peerHangsUp(this.currentSignalling.id)
                 return
               }
               default:
@@ -292,7 +289,14 @@ export class VideoCallRoutine {
         eStr = 'Unknown error'
       }
       console.error('Error while setting up the video call: ' + eStr)
-      this.fch.videoCallManager.error('routine', 'Error while setting up the video call')
+      /**@todo do something about videoCallManager.error being called multiple times for the same transaction */
+      if (this.currentSignalling) {
+        this.fch.videoCallManager.error(
+          'routine',
+          'Error while setting up the video call',
+          this.currentSignalling.id
+        )
+      }
     } finally {
       this.terminateCurrentRoutine()
     }
@@ -334,8 +338,11 @@ export class VideoCallRoutine {
     this.currentSignalling.waitInverval = interval
   }
 
-  // invoked by renderer
-  public async acceptIncomingCallWithWindowOpen() {
+  public async acceptIncomingCallWithWindowOpen(id: number) {
+    if (!this.currentSignalling || id != this.currentSignalling.id) {
+      return
+    }
+
     if (!this.currentSignalling || this.currentSignalling.state != 'incoming') {
       throw Error('No incoming call to accept')
     }
@@ -346,7 +353,7 @@ export class VideoCallRoutine {
 
     let typeAndSdp: { type: 'offer'; sdp: string }
     try {
-      typeAndSdp = await mainToRendererComManager.genSdpOfferForVideoCall(this.friendPk)
+      typeAndSdp = await mainToRendererComManager.genSdpOfferForVideoCall(this.friendPk, id)
     } catch (e) {
       throw Error(eToStr(e))
     }
@@ -386,7 +393,7 @@ export class VideoCallRoutine {
     try {
       await this.currentSignalling.send({
         type: 'answer',
-        payload: answer
+        payload: { answer }
       })
     } catch {
       this.killCurrentRoutine()

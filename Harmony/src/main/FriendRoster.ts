@@ -25,9 +25,14 @@ export class FriendRoster {
   public onReceiveMessage?: (publicKey: string, msg: string) => unknown
   public onPeerSdpAnswerForVideoCall?: (
     publicKey: string,
-    sdpAnswer: { type: 'answer'; sdp: string }
+    sdpAnswer: { type: 'answer'; sdp: string },
+    callID: number
   ) => unknown
-  public onPeerIceCandidateForVideoCall?: (publicKey: string, candidate: ICECandidate) => unknown
+  public onPeerIceCandidateForVideoCall?: (
+    publicKey: string,
+    candidate: ICECandidate,
+    callID: number
+  ) => unknown
 
   constructor(con: HarmonyConnection) {
     this.con = con
@@ -117,10 +122,10 @@ export class FriendRoster {
         onVideoCallStatusChange: (videoCallStatus) =>
           this.onVideoCallStatusChange?.(friend.peerPk, videoCallStatus),
         onReceiveMessage: (msg) => this.onReceiveMessage?.(friend.peerPk, msg),
-        onPeerSdpAnswerForVideoCall: (sdpAnswer) =>
-          this.onPeerSdpAnswerForVideoCall?.(friend.peerPk, sdpAnswer),
-        onPeerIceCandidateForVideoCall: (candidate) =>
-          this.onPeerIceCandidateForVideoCall?.(friend.peerPk, candidate)
+        onPeerSdpAnswerForVideoCall: (sdpAnswer, callID) =>
+          this.onPeerSdpAnswerForVideoCall?.(friend.peerPk, sdpAnswer, callID),
+        onPeerIceCandidateForVideoCall: (candidate, callID) =>
+          this.onPeerIceCandidateForVideoCall?.(friend.peerPk, candidate, callID)
       })
       this.friends.set(friend.peerPk, friendHandler)
       friendHandler.paused = this.paused
@@ -185,9 +190,9 @@ export class FriendRoster {
     friendHandler.sendMessage(msg) // might throw an error.
   }
 
-  public forwardICECandidateForVideoCall(pk: string, candidate: ICECandidate) {
+  public forwardICECandidateForVideoCall(pk: string, candidate: ICECandidate, callID: number) {
     const friend = this.friends.get(pk)
-    if (friend) {
+    if (friend && friend.videoCallManager.routineManager.currentSignalling?.id == callID) {
       friend.videoCallManager.routineManager.forwardICECandidateForVideoCall(candidate)
     }
   }

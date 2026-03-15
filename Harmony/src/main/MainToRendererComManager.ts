@@ -9,6 +9,7 @@ export type MainToRenderer2WayActionArgs =
       type: 'genSdpOfferForVideoCall'
       payload: {
         pk: string
+        callID: number
       }
     }
   | {
@@ -19,6 +20,7 @@ export type MainToRenderer2WayActionArgs =
           type: 'offer'
           sdp: string
         }
+        callID: number
       }
     }
 
@@ -97,11 +99,12 @@ export class MainToRendererComManager {
     this.idToExchangeRecord.delete(id)
   }
 
-  public async genSdpOfferForVideoCall(pk: string) {
+  public async genSdpOfferForVideoCall(pk: string, callID: number) {
     let result = await this.dispatch({
       type: 'genSdpOfferForVideoCall',
       payload: {
-        pk
+        pk,
+        callID
       }
     })
     // check response type is correct
@@ -114,12 +117,17 @@ export class MainToRendererComManager {
     return result.payload
   }
 
-  public async genSdpAnswerForVideoCall(pk: string, offer: { type: 'offer'; sdp: string }) {
+  public async genSdpAnswerForVideoCall(
+    pk: string,
+    offer: { type: 'offer'; sdp: string },
+    callID: number
+  ) {
     let result = await this.dispatch({
       type: 'genSdpAnswerForVideoCall',
       payload: {
         pk,
-        offer
+        offer,
+        callID
       }
     })
     // check response type is correct

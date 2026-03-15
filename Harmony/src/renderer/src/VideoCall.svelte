@@ -18,7 +18,8 @@
 
   // let remoteStream = $state<MediaStream>()
   // let localStream = $state<MediaStream>()
-  let peerConnection = $state<RTCPeerConnection>()
+  /**@todo tie the callID to the peerConnection somehow.*/
+  let conState = $state<{ peerConnection: RTCPeerConnection; callID: number } | null>(null)
   let remoteVideoElement: HTMLVideoElement
 
   const pk = new URLSearchParams(document.location.search).get('pk') ?? ''
@@ -56,9 +57,10 @@
       /**@todo stop tracks?*/
 
       pc.close()
+      conState = null
     }
 
-    function setupPeerConnectionListeners(pc: RTCPeerConnection) {
+    function setupPeerConnectionListeners(pc: RTCPeerConnection, callID: number) {
       pc.onicecandidate = ({ candidate }) => {
         console.log(candidate)
         if (candidate) {
@@ -72,7 +74,7 @@
             ...(candidate.sdpMid ? { sdpMid: candidate.sdpMid } : {}),
             ...(candidate.usernameFragment ? { usernameFragment: candidate.usernameFragment } : {})
           }
-          window.api.forwardICECandidateForVideoCall(pk, _candidate)
+          window.api.forwardICECandidateForVideoCall(pk, _candidate, callID)
         }
       }
       pc.onconnectionstatechange = () => {
@@ -84,7 +86,7 @@
           }
           case 'failed': {
             closeCall(pc)
-            window.api.errorVideoCall(pk, 'videoPlayer', 'Video call connection failed')
+            window.api.errorVideoCall(pk, 'videoPlayer', 'Video call connection failed', callID)
             break
           }
         }
@@ -101,7 +103,8 @@
             window.api.errorVideoCall(
               pk,
               'routine',
-              'Internet Connectivity Establishment (ICE) error. Check ICE servers'
+              'Internet Connectivity Establishment (ICE) error. Check ICE servers',
+              callID
             )
             break
           }
@@ -115,7 +118,7 @@
       }
       pc.ontrack = ({ streams }) => {
         remoteVideoElement.srcObject = streams[0]
-        window.api.signallingCompleteVideoCall(pk)
+        window.api.signallingCompleteVideoCall(pk, callID)
       }
     }
 
@@ -125,18 +128,21 @@
         case 'genSdpOfferForVideoCall': {
           if (args.payload.pk == pk) {
             try {
-              if (peerConnection) {
-                peerConnection.close()
+              if (conState) {
+                closeCall(conState.peerConnection)
               }
-              peerConnection = new RTCPeerConnection({ iceServers })
-              setupPeerConnectionListeners(peerConnection)
+              conState = {
+                peerConnection: new RTCPeerConnection({ iceServers }),
+                callID: args.payload.callID
+              }
+              setupPeerConnectionListeners(conState.peerConnection, args.payload.callID)
               for (const track of localStream.getTracks()) {
-                peerConnection.addTrack(track)
+                conState.peerConnection.addTrack(track)
               }
               // create offer
-              const offer = await peerConnection.createOffer()
+              const offer = await conState.peerConnection.createOffer()
               if (offer.sdp && offer.type == 'offer') {
-                await peerConnection.setLocalDescription(offer)
+                await conState.peerConnection.setLocalDescription(offer)
                 // return - callback
                 window.api.mainToRenderer2WayActionResponse(id, {
                   type: args.type,
@@ -169,19 +175,22 @@
         case 'genSdpAnswerForVideoCall': {
           if (args.payload.pk == pk) {
             try {
-              if (peerConnection) {
-                peerConnection.close()
+              if (conState) {
+                closeCall(conState.peerConnection)
               }
-              peerConnection = new RTCPeerConnection({ iceServers })
-              setupPeerConnectionListeners(peerConnection)
+              conState = {
+                peerConnection: new RTCPeerConnection({ iceServers }),
+                callID: args.payload.callID
+              }
+              setupPeerConnectionListeners(conState.peerConnection, args.payload.callID)
               for (const track of localStream.getTracks()) {
-                peerConnection.addTrack(track)
+                conState.peerConnection.addTrack(track)
               }
               // add offer and create answer
-              await peerConnection.setRemoteDescription(args.payload.offer)
-              const answer = await peerConnection.createAnswer()
+              await conState.peerConnection.setRemoteDescription(args.payload.offer)
+              const answer = await conState.peerConnection.createAnswer()
               if (answer.sdp && answer.type == 'answer') {
-                await peerConnection.setLocalDescription(answer)
+                await conState.peerConnection.setLocalDescription(answer)
                 window.api.mainToRenderer2WayActionResponse(id, {
                   type: args.type,
                   payload: {
@@ -227,23 +236,25 @@
           if (action.payload.peerPk != pk) {
             return
           }
-          if (!peerConnection) {
+          if (!conState) {
             window.api.errorVideoCall(
               pk,
               'routine',
-              'Renderer received an answer sdp, but no peer connection is being set up'
+              'Renderer received an answer sdp, but no peer connection is being set up',
+              action.payload.callID
             )
             return
           }
-          if (!peerConnection.currentLocalDescription) {
+          if (!conState.peerConnection.currentLocalDescription) {
             window.api.errorVideoCall(
               pk,
               'routine',
-              'Renderer received an answer sdp, but does not have a local description'
+              'Renderer received an answer sdp, but does not have a local description',
+              action.payload.callID
             )
             return
           }
-          await peerConnection.setRemoteDescription(action.payload.sdp)
+          await conState.peerConnection.setRemoteDescription(action.payload.sdp)
           // should start creating and sending ICE candidates
           // ice candidate listener is already set up
           break
@@ -253,23 +264,28 @@
           if (action.payload.peerPk != pk) {
             return
           }
-          if (!peerConnection) {
+          if (!conState) {
             window.api.errorVideoCall(
               pk,
               'routine',
-              'Renderer received an ICE candidate, but no peer connection is being set up'
+              'Renderer received an ICE candidate, but no peer connection is being set up',
+              action.payload.callID
             )
             return
           }
-          if (!peerConnection.currentLocalDescription || !peerConnection.currentRemoteDescription) {
+          if (
+            !conState.peerConnection.currentLocalDescription ||
+            !conState.peerConnection.currentRemoteDescription
+          ) {
             window.api.errorVideoCall(
               pk,
               'routine',
-              'Renderer received an ICE candidate, but does not have a local and/or remote description'
+              'Renderer received an ICE candidate, but does not have a local and/or remote description',
+              action.payload.callID
             )
             return
           }
-          peerConnection.addIceCandidate(action.payload.candidate)
+          conState.peerConnection.addIceCandidate(action.payload.candidate)
           break
         }
         default:
@@ -299,6 +315,11 @@
 </script>
 
 <div id="callWindow">
+  <p>
+    Current state: {JSON.stringify(
+      $store.friendStates.find((f) => f.friend.peerPk == pk)?.videoCallStatus
+    )}
+  </p>
   <video id="remoteVideo" bind:this={remoteVideoElement} autoplay></video>
   <div id="iconBand">
     <div id="iconPanel">

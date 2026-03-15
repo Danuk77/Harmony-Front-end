@@ -1,7 +1,7 @@
 import { eToStr } from '../../../common/utils'
 import { FriendConnectionHandler } from '../../FriendConnectionHandler'
 
-export function sendVideoCallRequest(fch: FriendConnectionHandler) {
+export async function sendVideoCallRequest(fch: FriendConnectionHandler, callID: number) {
   // video call window *should* be open
 
   if (fch.videoCallManager.routineManager.currentSignalling) {
@@ -10,18 +10,18 @@ export function sendVideoCallRequest(fch: FriendConnectionHandler) {
     fch.videoCallManager.routineManager.cancelCurrentRoutine('Re-calling with another routine')
   }
 
-  fch.controlChannelTransactionHandler.launchRoutine((_, { send, recv }) => {
+  await fch.controlChannelTransactionHandler.launchRoutine((_, { send, recv }) => {
     return new Promise<void>(async (resolve2, reject2) => {
-      // todo delete these
+      /**@todo delete these */
       const reject = (...args) => {
         console.log('rejected')
         reject2(...args)
       }
-
       const resolve = (...args) => {
         console.log('resolved')
         resolve2(...args)
       }
+
       // send initiate
       try {
         await send({
@@ -37,7 +37,8 @@ export function sendVideoCallRequest(fch: FriendConnectionHandler) {
         send,
         recv,
         resolve,
-        reject
+        reject,
+        id: callID
       })
       fch.videoCallManager.routineManager.startWaitLoop()
       fch.videoCallManager.routineManager.startRecvLoop()

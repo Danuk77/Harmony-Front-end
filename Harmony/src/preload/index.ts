@@ -43,6 +43,7 @@ export type MainToRenderer1WayAction =
           type: 'answer'
           sdp: string
         }
+        callID: number
       }
     }
   | {
@@ -50,6 +51,7 @@ export type MainToRenderer1WayAction =
       payload: {
         peerPk: string
         candidate: ICECandidate
+        callID: number
       }
     }
 
