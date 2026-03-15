@@ -16,7 +16,7 @@ const maxWaits = 12
         |      <>   incoming
         |      <>     |               both send {"type":"wait"} messages while waiting for B's user to accept or reject the call...
         |      <>     |
-        |      <-   expectSDPAnswer   B accepts, sends SDP offer
+        |      <-   expectSDPAnswer   B accepts, sends SDP offer. May also send ICE candidates in this phase.
        ICE     ->     |               A sends SDP answer
         |      <>   ICE               Both send ICE candidates
         |      <>     |
@@ -403,7 +403,10 @@ export class VideoCallRoutine {
 
   // invoked by renderer
   public async forwardICECandidateForVideoCall(candidate: ICECandidate) {
-    if (!this.currentSignalling || this.currentSignalling.state != 'ICE') {
+    if (
+      !this.currentSignalling ||
+      !(this.currentSignalling.state == 'ICE' || this.currentSignalling.state == 'expectSDPAnswer')
+    ) {
       throw Error('Not ready to forward ICE candidates to peer')
     }
 

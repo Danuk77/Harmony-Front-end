@@ -132,7 +132,7 @@
                 closeCall(conState.peerConnection)
               }
               conState = {
-                peerConnection: new RTCPeerConnection({ iceServers }),
+                peerConnection: new RTCPeerConnection(),
                 callID: args.payload.callID
               }
               setupPeerConnectionListeners(conState.peerConnection, args.payload.callID)
@@ -255,6 +255,7 @@
             return
           }
           await conState.peerConnection.setRemoteDescription(action.payload.sdp)
+          conState.peerConnection.setConfiguration({ iceServers })
           // should start creating and sending ICE candidates
           // ice candidate listener is already set up
           break
@@ -273,18 +274,18 @@
             )
             return
           }
-          if (
-            !conState.peerConnection.currentLocalDescription ||
-            !conState.peerConnection.currentRemoteDescription
-          ) {
-            window.api.errorVideoCall(
-              pk,
-              'routine',
-              'Renderer received an ICE candidate, but does not have a local and/or remote description',
-              action.payload.callID
-            )
-            return
-          }
+          // if (
+          //   !conState.peerConnection.currentLocalDescription ||
+          //   !conState.peerConnection.currentRemoteDescription
+          // ) {
+          //   window.api.errorVideoCall(
+          //     pk,
+          //     'routine',
+          //     'Renderer received an ICE candidate, but does not have a local and/or remote description',
+          //     action.payload.callID
+          //   )
+          //   return
+          // }
           conState.peerConnection.addIceCandidate(action.payload.candidate)
           break
         }
