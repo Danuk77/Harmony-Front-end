@@ -288,14 +288,10 @@ export class VideoCallRoutine {
       if (eStr == '') {
         eStr = 'Unknown error'
       }
-      console.error('Error while setting up the video call: ' + eStr)
+      // console.error('Error while setting up the video call: ' + eStr)
       /**@todo do something about videoCallManager.error being called multiple times for the same transaction */
       if (this.currentSignalling) {
-        this.fch.videoCallManager.error(
-          'routine',
-          'Error while setting up the video call',
-          this.currentSignalling.id
-        )
+        this.fch.videoCallManager.error('routine', eStr, this.currentSignalling.id)
       }
     } finally {
       this.terminateCurrentRoutine()
@@ -393,7 +389,7 @@ export class VideoCallRoutine {
     try {
       await this.currentSignalling.send({
         type: 'answer',
-        payload: { answer }
+        payload: answer
       })
     } catch {
       this.killCurrentRoutine()
