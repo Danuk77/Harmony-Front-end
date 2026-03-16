@@ -117,6 +117,10 @@
         }
       }
       pc.ontrack = ({ streams }) => {
+        if (streams.length == 0) {
+          window.api.errorVideoCall(pk, 'videoPlayer', 'Peer did not offer a video stream', callID)
+          return
+        }
         remoteVideoElement.srcObject = streams[0]
         window.api.signallingCompleteVideoCall(pk, callID)
       }
@@ -137,8 +141,9 @@
               }
               setupPeerConnectionListeners(conState.peerConnection, args.payload.callID)
               for (const track of localStream.getTracks()) {
-                conState.peerConnection.addTrack(track)
+                conState.peerConnection.addTrack(track, localStream)
               }
+              /**@todo, handle error if there is no local steam available.*/
               // create offer
               const offer = await conState.peerConnection.createOffer()
               if (offer.sdp && offer.type == 'offer') {
@@ -184,7 +189,7 @@
               }
               setupPeerConnectionListeners(conState.peerConnection, args.payload.callID)
               for (const track of localStream.getTracks()) {
-                conState.peerConnection.addTrack(track)
+                conState.peerConnection.addTrack(track, localStream)
               }
               // add offer and create answer
               await conState.peerConnection.setRemoteDescription(args.payload.offer)
