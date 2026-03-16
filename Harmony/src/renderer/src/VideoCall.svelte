@@ -132,7 +132,7 @@
                 closeCall(conState.peerConnection)
               }
               conState = {
-                peerConnection: new RTCPeerConnection(),
+                peerConnection: new RTCPeerConnection({ iceServers }),
                 callID: args.payload.callID
               }
               setupPeerConnectionListeners(conState.peerConnection, args.payload.callID)
@@ -245,7 +245,7 @@
             )
             return
           }
-          if (!conState.peerConnection.currentLocalDescription) {
+          if (!conState.peerConnection.pendingLocalDescription) {
             window.api.errorVideoCall(
               pk,
               'routine',
@@ -255,7 +255,6 @@
             return
           }
           await conState.peerConnection.setRemoteDescription(action.payload.sdp)
-          conState.peerConnection.setConfiguration({ iceServers })
           // should start creating and sending ICE candidates
           // ice candidate listener is already set up
           break
@@ -275,8 +274,8 @@
             return
           }
           // if (
-          //   !conState.peerConnection.currentLocalDescription ||
-          //   !conState.peerConnection.currentRemoteDescription
+          //   !conState.peerConnection.pendingLocalDescription ||
+          //   !conState.peerConnection.pendingRemoteDescription
           // ) {
           //   window.api.errorVideoCall(
           //     pk,

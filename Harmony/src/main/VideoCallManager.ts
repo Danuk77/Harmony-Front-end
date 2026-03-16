@@ -304,8 +304,6 @@ export class VideoCallManager {
 
   // brown
   public async error(procedure: 'routine' | 'videoPlayer', msg: string, callID: number) {
-    console.error('Video call error: ' + msg)
-
     // if error originates from a previous call, ignore it
     if (this.videoCallStatus.id != callID) {
       return
@@ -322,6 +320,8 @@ export class VideoCallManager {
         return
       }
     }
+
+    console.error('Video call error: ' + msg)
 
     switch (this.videoCallStatus.window) {
       case 'closed': {
@@ -358,7 +358,10 @@ export class VideoCallManager {
     if (id != this.videoCallStatus.id) {
       return
     }
-    this.videoCallStatus.call = 'in-call'
+    this.videoCallStatus = {
+      ...this.videoCallStatus,
+      call: 'in-call'
+    }
   }
 
   // pink
