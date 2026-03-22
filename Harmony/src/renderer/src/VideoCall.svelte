@@ -16,6 +16,8 @@
   let cameraEnabled = $state(true)
   let audioOutputEnabled = $state(true)
 
+  let temporaryConnectionIssues = $state(false)
+
   // let remoteStream = $state<MediaStream>()
   // let localStream = $state<MediaStream>()
   /**@todo tie the callID to the peerConnection somehow.*/
@@ -61,6 +63,7 @@
     cs.peerConnection.ontrack = null
     cs.peerConnection.ondatachannel = null
     if (cs.dataChannel) cs.dataChannel.onclose = null
+    temporaryConnectionIssues = false
   }
 
   function setupDataChannelListeners(cs: ConnectionState) {
@@ -111,6 +114,7 @@
       }
     }
     cs.peerConnection.oniceconnectionstatechange = () => {
+      let isDisconnected = false
       switch (cs.peerConnection.iceConnectionState) {
         case 'closed': {
           peerHangsUp(cs)
@@ -122,8 +126,13 @@
           if (conState?.callID == cs.callID) conState = null
           break
         }
-        case 'disconnected':
+        case 'disconnected': {
+          isDisconnected = true
+          break
+        }
       }
+
+      temporaryConnectionIssues = isDisconnected
     }
     cs.peerConnection.onsignalingstatechange = () => {
       switch (cs.peerConnection.signalingState) {
@@ -358,16 +367,20 @@
       }
     })
 
+    document.title =
+      $store.friendStates.find((f) => f.friend.peerPk == pk)?.friend.nickname ?? 'Video Call'
+
     // let main process know that this window is ready
     window.api.videoCallWindowOpens(pk)
   })
 
-  window.onclose = () => {
+  window.onbeforeunload = () => {
     hangUp()
   }
 
   function hangUp() {
     if (!conState) {
+      window.close()
       return
     }
 
@@ -390,15 +403,52 @@
   function audioOutput() {
     audioOutputEnabled = !audioOutputEnabled
   }
+
+  let stateText = $derived.by(() => {
+    const state = $store.friendStates.find((f) => f.friend.peerPk == pk)?.videoCallStatus
+    if (!state) return null
+    if (temporaryConnectionIssues) {
+      return 'Connection issues...'
+    }
+    if (state.window == 'opening') {
+      return 'Waiting for window...'
+    }
+    if (state.call == 'ringing') {
+      if (state.callDirection == 'incoming') {
+        return 'Incoming call'
+      }
+      if (state.callDirection == 'outgoing') {
+        return 'Ringing...'
+      }
+    }
+    if (state.call == 'failed') {
+      if (state.errorMsg) {
+        return 'Call failed: ' + state.errorMsg
+      } else {
+        return 'Call failed'
+      }
+    }
+    if (state.call == 'peer-hang-up') {
+      return 'Peer has hung up'
+    }
+    if (state.call == 'signalling') {
+      return 'Connecting...'
+    }
+    return null
+  })
 </script>
 
 <div id="callWindow">
-  <p>
-    Current state: {JSON.stringify(
-      $store.friendStates.find((f) => f.friend.peerPk == pk)?.videoCallStatus
-    )}
-  </p>
-  <video id="remoteVideo" bind:this={remoteVideoElement} autoplay></video>
+  <div id="videoContainer">
+    <video id="remoteVideo" bind:this={remoteVideoElement} autoplay></video>
+  </div>
+  <div id="stateContainer">
+    {#if !!stateText}
+      <p id="state">
+        {stateText}
+      </p>
+    {/if}
+  </div>
   <div id="iconBand">
     <div id="iconPanel">
       <IconBubble
@@ -434,10 +484,39 @@
 </div>
 
 <style>
+  #stateContainer {
+    position: absolute;
+    margin-top: 15px;
+    top: 30;
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+  }
+
+  #state {
+    background-color: var(--color-video-caller-status-bubble);
+    border-radius: 18px;
+    padding: 4px;
+    padding-left: 8px;
+    padding-right: 8px;
+    box-shadow: var(--darks-box-shadow);
+  }
+
+  #videoContainer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: grid;
+    place-items: center;
+  }
+
   #remoteVideo {
     position: absolute;
-    width: 100%;
     height: 100%;
+    width: 100%;
   }
 
   #callWindow {

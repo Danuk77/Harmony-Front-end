@@ -40,6 +40,7 @@
   --color-button-text-disabled: var(--ev-c-text-light-gray);
 
   --color-sender-bubble: var(--ev-c-purple-1);
+  --color-video-caller-status-bubble: var(--ev-c-pink-1);
   --color-background: var(--ev-c-purple-2);
   --color-form-panel-background: var(--ev-c-purple-3);
   --color-form-panel-border: var(--ev-c-gray-1);
