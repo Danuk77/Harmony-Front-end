@@ -22,6 +22,8 @@
 
   type ConnectionState = {
     peerConnection: RTCPeerConnection
+    // if peer adds an RTCDataChannel we can check for .close() on this channel to know when they are hanging up.
+    dataChannel: RTCDataChannel | null
     callID: number
   }
 
@@ -37,28 +39,45 @@
   ]
 
   function peerHangsUp(cs: ConnectionState) {
-    removePeerConnectionListeners(cs.peerConnection)
+    removeListeners(cs)
     window.api.peerHangsUpVideoCall(pk, cs.callID)
   }
   function videoConnectionError(cs: ConnectionState) {
-    removePeerConnectionListeners(cs.peerConnection)
+    removeListeners(cs)
     window.api.errorVideoCall(pk, 'videoPlayer', 'Video connection error', cs.callID)
   }
 
   function closeVideoCall(cs: ConnectionState) {
-    removePeerConnectionListeners(cs.peerConnection)
+    removeListeners(cs)
     cs.peerConnection.close()
   }
 
-  function removePeerConnectionListeners(pc: RTCPeerConnection) {
-    pc.onicecandidate = null
-    pc.onconnectionstatechange = null
-    pc.oniceconnectionstatechange = null
-    pc.onsignalingstatechange = null
-    pc.ontrack = null
+  function removeListeners(cs: ConnectionState) {
+    console.log('listeners removed')
+    cs.peerConnection.onicecandidate = null
+    cs.peerConnection.onconnectionstatechange = null
+    cs.peerConnection.oniceconnectionstatechange = null
+    cs.peerConnection.onsignalingstatechange = null
+    cs.peerConnection.ontrack = null
+    cs.peerConnection.ondatachannel = null
+    if (cs.dataChannel) cs.dataChannel.onclose = null
+  }
+
+  function setupDataChannelListeners(cs: ConnectionState) {
+    if (cs.dataChannel) {
+      cs.dataChannel.onclose = () => {
+        peerHangsUp(cs)
+        if (conState?.callID == cs.callID) conState = null
+      }
+    }
   }
 
   function setupPeerConnectionListeners(cs: ConnectionState) {
+    cs.peerConnection.ondatachannel = ({ channel }) => {
+      cs.dataChannel = channel
+      setupDataChannelListeners(cs)
+    }
+
     cs.peerConnection.onicecandidate = ({ candidate }) => {
       console.log(candidate)
       if (candidate) {
@@ -76,51 +95,41 @@
       }
     }
     cs.peerConnection.onconnectionstatechange = () => {
+      console.log(cs.peerConnection.connectionState)
       switch (cs.peerConnection.connectionState) {
         case 'closed': {
           peerHangsUp(cs)
-          if (conState?.callID == cs.callID) conState == null
+          if (conState?.callID == cs.callID) conState = null
+          break
+        }
+        case 'failed': {
+          videoConnectionError(cs)
+          if (conState?.callID == cs.callID) conState = null
           break
         }
         case 'disconnected':
-        case 'failed': {
-          videoConnectionError(cs)
-          if (conState?.callID == cs.callID) conState == null
-          break
-        }
       }
     }
     cs.peerConnection.oniceconnectionstatechange = () => {
       switch (cs.peerConnection.iceConnectionState) {
         case 'closed': {
           peerHangsUp(cs)
-          if (conState?.callID == cs.callID) conState == null
-          break
-        }
-        case 'disconnected': {
-          window.api.errorVideoCall(pk, 'routine', 'Disconnected from peer', cs.callID)
-          closeVideoCall(cs)
-          if (conState?.callID == cs.callID) conState == null
+          if (conState?.callID == cs.callID) conState = null
           break
         }
         case 'failed': {
-          window.api.errorVideoCall(
-            pk,
-            'routine',
-            'Internet Connectivity Establishment (ICE) error. Check ICE servers',
-            cs.callID
-          )
-          closeVideoCall(cs)
-          if (conState?.callID == cs.callID) conState == null
+          videoConnectionError(cs)
+          if (conState?.callID == cs.callID) conState = null
           break
         }
+        case 'disconnected':
       }
     }
     cs.peerConnection.onsignalingstatechange = () => {
       switch (cs.peerConnection.signalingState) {
         case 'closed':
           peerHangsUp(cs)
-          if (conState?.callID == cs.callID) conState == null
+          if (conState?.callID == cs.callID) conState = null
           break
       }
     }
@@ -128,7 +137,7 @@
       if (streams.length == 0) {
         window.api.errorVideoCall(pk, 'videoPlayer', 'Peer did not offer a video stream', cs.callID)
         closeVideoCall(cs)
-        if (conState?.callID == cs.callID) conState == null
+        if (conState?.callID == cs.callID) conState = null
         return
       }
       remoteVideoElement.srcObject = streams[0]
@@ -158,11 +167,15 @@
             closeVideoCall(conState)
             conState = null
           }
+          let pc = new RTCPeerConnection({ iceServers })
+          let dc = pc.createDataChannel('closeCall')
           conState = {
-            peerConnection: new RTCPeerConnection({ iceServers }),
-            callID: args.payload.callID
+            peerConnection: pc,
+            callID: args.payload.callID,
+            dataChannel: dc
           }
           setupPeerConnectionListeners(conState)
+          setupDataChannelListeners(conState)
           for (const track of localStream.getTracks()) {
             conState.peerConnection.addTrack(track, localStream)
           }
@@ -221,7 +234,8 @@
           }
           conState = {
             peerConnection: new RTCPeerConnection({ iceServers }),
-            callID: args.payload.callID
+            callID: args.payload.callID,
+            dataChannel: null
           }
           setupPeerConnectionListeners(conState)
           for (const track of localStream.getTracks()) {
@@ -348,12 +362,16 @@
     window.api.videoCallWindowOpens(pk)
   })
 
+  window.onclose = () => {
+    hangUp()
+  }
+
   function hangUp() {
     if (!conState) {
       return
     }
 
-    removePeerConnectionListeners(conState.peerConnection)
+    removeListeners(conState)
     conState.peerConnection.close()
     conState = null
     window.api.hangUpAndCloseVideoCall(pk)
