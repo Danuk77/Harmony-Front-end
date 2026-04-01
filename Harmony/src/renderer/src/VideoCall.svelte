@@ -15,12 +15,9 @@
   let microphoneEnabled = $state(true)
   let cameraEnabled = $state(true)
   let audioOutputEnabled = $state(true)
+  let failedToInitDevicesMessage: string | null = $state(null)
 
   let temporaryConnectionIssues = $state(false)
-
-  // let remoteStream = $state<MediaStream>()
-  // let localStream = $state<MediaStream>()
-  /**@todo tie the callID to the peerConnection somehow.*/
 
   type ConnectionState = {
     peerConnection: RTCPeerConnection
@@ -78,6 +75,7 @@
   function setupPeerConnectionListeners(cs: ConnectionState) {
     cs.peerConnection.ondatachannel = ({ channel }) => {
       cs.dataChannel = channel
+      window.api.signallingCompleteVideoCall(pk, cs.callID)
       setupDataChannelListeners(cs)
     }
 
@@ -356,16 +354,53 @@
     }
   })
 
-  onMount(async () => {
+  async function initDevices() {
+    const devices = await navigator.mediaDevices.enumerateDevices()
+
+    console.log($store.user)
+
+    // check that devices contains at least 1 audio and 1 video
+    if (!devices.find((device) => device.kind == 'videoinput')) {
+      throw new Error('No camera connected')
+    }
+    if (!devices.find((device) => device.kind == 'audioinput')) {
+      throw new Error('No microphone connected')
+    }
+
+    // if user has specified devices, check if they exist
+    if (
+      $store.user.cameraId &&
+      !devices.find((device) => device.deviceId == $store.user.cameraId)
+    ) {
+      console.log("User's selected camera not found")
+    }
+    if (
+      $store.user.microphoneId &&
+      !devices.find((device) => device.deviceId == $store.user.microphoneId)
+    ) {
+      console.log("User's selected microphone not found")
+    }
+
     localStream = await navigator.mediaDevices.getUserMedia({
-      video: true,
+      video: {
+        ...($store.user.cameraId ? { deviceId: { ideal: $store.user.cameraId } } : {})
+      },
       audio: {
         // apparently you shouldn't change this (??) but it sounds like complete garbage otherwise
         // browser compatibility might be bad but this is always going to be running on the same browser - electron
         // https://stackoverflow.com/questions/49477768/poor-audio-quality-with-getusermedia-any-ideas-why
-        sampleRate: 44100
+        sampleRate: { ideal: 44100 },
+        ...($store.user.microphoneId ? { deviceId: { ideal: $store.user.microphoneId } } : {})
       }
     })
+  }
+
+  onMount(async () => {
+    try {
+      await initDevices()
+    } catch (e) {
+      failedToInitDevicesMessage = `${(e as Error).name}: ${(e as Error).message}`
+    }
 
     document.title =
       $store.friendStates.find((f) => f.friend.peerPk == pk)?.friend.nickname ?? 'Video Call'
@@ -407,6 +442,9 @@
   let stateText = $derived.by(() => {
     const state = $store.friendStates.find((f) => f.friend.peerPk == pk)?.videoCallStatus
     if (!state) return null
+    if (failedToInitDevicesMessage) {
+      return failedToInitDevicesMessage
+    }
     if (temporaryConnectionIssues) {
       return 'Connection issues...'
     }

@@ -16,6 +16,9 @@ export type User = {
   serverEnabled: boolean
   stunServer: IceServer | null
   turnServer: IceServer | null
+  // null for system default
+  microphoneId: string | null
+  cameraId: string | null
 }
 type UserDoc = User & {
   _id?: string // nedb thing
@@ -26,7 +29,9 @@ const defaultUser: User = {
   serverUrl: null,
   serverEnabled: true,
   stunServer: null,
-  turnServer: null
+  turnServer: null,
+  cameraId: null,
+  microphoneId: null
 }
 
 export type Friend = {

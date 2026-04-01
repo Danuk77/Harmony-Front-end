@@ -17,7 +17,9 @@ export const defaultState: State = {
     serverEnabled: true,
     serverUrl: null,
     stunServer: null,
-    turnServer: null
+    turnServer: null,
+    cameraId: null,
+    microphoneId: null
   },
   ui: {
     selectedFriendPk: null,
@@ -30,7 +32,8 @@ export const defaultVideoCallStatus: FriendVideoCallStatus = {
   accepted: false,
   window: 'closed',
   call: 'none',
-  errorMsg: null
+  errorMsg: null,
+  id: null
 }
 
 export type KeyPair = {
