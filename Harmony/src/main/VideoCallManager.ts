@@ -105,7 +105,7 @@ export class VideoCallManager {
         `${process.env['ELECTRON_RENDERER_URL']}/videocall.html?pk=${encodedPk}`
       )
     } else {
-      browserWindow.loadFile(join(__dirname, `../renderer/videocall.html?pk=${encodedPk}`))
+      browserWindow.loadURL(`file://${__dirname}/../renderer/videocall.html?pk=${encodedPk}`)
     }
 
     return browserWindow
