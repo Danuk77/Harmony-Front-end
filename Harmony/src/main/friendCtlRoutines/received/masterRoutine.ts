@@ -1,9 +1,10 @@
 import { HarmonyRoutineParams } from 'node-harmonyclient'
 import { FriendConnectionHandler } from '../../FriendConnectionHandler'
 import { FromSchema } from 'json-schema-to-ts'
-import { eToStr } from '../../../common/utils'
+import { assertNever, eToStr } from '../../../common/utils'
 import { Validator } from 'jsonschema'
 import { receiveVideoCallRequest } from './receiveVideoCallRequest'
+import { receiveMessage } from './receiveMessage'
 
 export const validator = new Validator()
 
@@ -12,7 +13,7 @@ const initiateSchema = {
   type: 'object',
   properties: {
     initiate: {
-      enum: ['videoCallRequest']
+      enum: ['videoCallRequest', 'message']
     }
   },
   required: ['initiate']
@@ -35,14 +36,11 @@ export async function masterRoutine(
       await receiveVideoCallRequest(fch, firstMsg, { send, recv })
       break
     }
+    case 'message': {
+      await receiveMessage(fch, firstMsg, { send, recv })
+      break
+    }
     default:
-      try {
-        await send({
-          terminate: 'cancel'
-        })
-      } catch {
-        //
-      }
-      console.error('unknown incoming routine: ' + firstMsg.initiate)
+      assertNever(firstMsg.initiate)
   }
 }

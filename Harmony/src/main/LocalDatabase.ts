@@ -61,6 +61,7 @@ export type Message = {
   text: string
   // ms since UNIX epoch
   date: number
+  msgNumber: number | null
 }
 
 type MessageDoc = Message & {
@@ -83,7 +84,7 @@ export class LocalDatabase {
   }
 
   public getConversation = async (pk0: string, pk1: string) => {
-    const friends = await this.messagesDb
+    const messages = await this.messagesDb
       .findAsync({
         $or: [
           {
@@ -97,7 +98,31 @@ export class LocalDatabase {
         ]
       })
       .sort({ date: 1 })
-    return friends
+    return messages
+  }
+
+  public hasMessage = async (fromPk: string, toPk: string, msgNumber: number) => {
+    return !!(await this.messagesDb.findOneAsync({
+      fromPk,
+      toPk,
+      msgNumber
+    }))
+  }
+
+  public getNextMessageNumber = async (fromPk: string, toPk: string) => {
+    const messages = await this.messagesDb
+      .findAsync({
+        fromPk,
+        toPk,
+        msgNumber: { $ne: null }
+      })
+      .sort({ msgNumber: -1 })
+      .limit(1)
+    if (messages.length > 0 && messages[0].msgNumber) {
+      return messages[0].msgNumber + 1
+    } else {
+      return 1
+    }
   }
 
   public getFriend = async (localPk: string, peerPk: string) => {

@@ -22,7 +22,11 @@ export class FriendRoster {
     status: FriendConnectionStatus
   ) => unknown
   public onVideoCallStatusChange?: (publicKey: string, status: FriendVideoCallStatus) => unknown
-  public onReceiveMessage?: (publicKey: string, msg: string) => unknown
+  public onReceiveMessage?: (
+    publicKey: string,
+    msg: string,
+    msgNumber: number | null
+  ) => Promise<{ status: 'accept' } | { status: 'reject'; reason: string }>
   public onPeerSdpAnswerForVideoCall?: (
     publicKey: string,
     sdpAnswer: { type: 'answer'; sdp: string },
@@ -121,7 +125,8 @@ export class FriendRoster {
           this.onFriendConnectionStatusChange?.(friend.peerPk, connectionStatus),
         onVideoCallStatusChange: (videoCallStatus) =>
           this.onVideoCallStatusChange?.(friend.peerPk, videoCallStatus),
-        onReceiveMessage: (msg) => this.onReceiveMessage?.(friend.peerPk, msg),
+        onReceiveMessage: (msg, msgNumber) =>
+          this.onReceiveMessage?.(friend.peerPk, msg, msgNumber),
         onPeerSdpAnswerForVideoCall: (sdpAnswer, callID) =>
           this.onPeerSdpAnswerForVideoCall?.(friend.peerPk, sdpAnswer, callID),
         onPeerIceCandidateForVideoCall: (candidate, callID) =>
@@ -182,12 +187,12 @@ export class FriendRoster {
    * @param publicKey
    * @param msg
    */
-  public sendMessage = (publicKey: string, msg: string) => {
+  public sendMessage = async (publicKey: string, msg: string, msgNumber: number) => {
     const friendHandler = this.friends.get(publicKey)
     if (!friendHandler) {
       throw new Error('Friend does not exist')
     }
-    friendHandler.sendMessage(msg) // might throw an error.
+    await friendHandler.sendMessage(msg, msgNumber) // might throw an error.
   }
 
   public forwardICECandidateForVideoCall(pk: string, candidate: ICECandidate, callID: number) {

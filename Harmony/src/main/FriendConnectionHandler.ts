@@ -9,6 +9,7 @@ import {
   TransactionHandler
 } from 'node-harmonyclient'
 import { ICECandidate, VideoCallRoutine } from './friendCtlRoutines/VideoCallRoutine'
+import { sendMessage } from './friendCtlRoutines/initiated/sendMessage'
 
 export type FriendConnectionStatus =
   | 'online-connected' // connected to the friend
@@ -50,7 +51,7 @@ export class FriendConnectionHandler {
 
   // callbacks
   public onConnectionStatusChange: (status: typeof this._connectionStatus) => unknown
-  public onReceiveMessage: (msg: string) => unknown
+  public onReceiveMessage: (msg: string, msgNumber: number | null) => unknown | Promise<unknown>
   public onPeerSdpAnswerForVideoCall: (
     sdp: { type: 'answer'; sdp: string },
     callID: number
@@ -261,7 +262,7 @@ export class FriendConnectionHandler {
 
         // add event listeners
         this.peerConnection.chatChannel.onMessage.subscribe((msg) => {
-          this.onReceiveMessage?.(msg.toString())
+          this.onReceiveMessage?.(msg.toString(), null)
         })
         this.peerConnection.ctlChannel.onMessage.subscribe((msg) => {
           console.log('📬 CTLrecv: ' + msg)
@@ -311,15 +312,15 @@ export class FriendConnectionHandler {
   }
 
   /**
-   * Attempt to send a message. Might throw an error.
+   * Attempt to send a message. Might throw an error
    * @param msg
    */
-  public sendMessage(msg: string) {
-    if (!this.peerConnection) {
-      throw new Error('Chat channel not established')
+  public async sendMessage(msg: string, msgNumber: number) {
+    if (!this.peerConnection?.ctlChannel) {
+      throw new Error('Chat control channel not established')
     }
-
-    this.peerConnection.chatChannel.send(msg) // might throw an error
+    // routine.
+    await sendMessage(this, msg, msgNumber)
   }
 
   public sendVideoCallRequest(callID: number) {

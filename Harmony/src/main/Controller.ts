@@ -254,12 +254,17 @@ export class Controller {
     }
 
     // friend roster listeners
-    this.friendRoster.onReceiveMessage = (pk, msg) => {
+    this.friendRoster.onReceiveMessage = async (pk, msg, msgNumber) => {
+      if (msgNumber && (await this.db.hasMessage(pk, 'local', msgNumber))) {
+        return { status: 'reject', reason: 'Message has already been received' }
+      }
+
       const msgObj: Message = {
         date: Date.now(),
         fromPk: pk,
         toPk: 'local',
-        text: msg
+        text: msg,
+        msgNumber: msgNumber
       }
 
       // write message to database
@@ -297,7 +302,7 @@ export class Controller {
 
       if (!this.con.keyPair) {
         // type narrowing
-        return
+        throw new Error()
       }
 
       // notification and unread! flag
@@ -319,6 +324,8 @@ export class Controller {
         }
         this.onNotification?.(notification, false /*display unconditionally*/, onClickNotification)
       }
+
+      return { status: 'accept' }
     }
 
     this.friendRoster.onFriendConnectionStatusChange = (peerPk, status) => {
@@ -478,9 +485,11 @@ export class Controller {
    * Send a message to a peer, update the database, return a message to the front end.
    */
   public sendMessage = async (toPk: string, message: string): Promise<SendMessageReturnType> => {
+    const msgNumber = await this.db.getNextMessageNumber('local', toPk)
+
     // send message
     try {
-      this.friendRoster.sendMessage(toPk, message)
+      await this.friendRoster.sendMessage(toPk, message, msgNumber)
     } catch (e) {
       console.error(eToStr(e))
       return {
@@ -493,7 +502,8 @@ export class Controller {
       date: Date.now(),
       fromPk: 'local',
       toPk: toPk,
-      text: message
+      text: message,
+      msgNumber
     }
 
     // insert into database.
@@ -501,10 +511,10 @@ export class Controller {
       await this.db.insertMessage(msgObj)
     } catch (e) {
       console.error(eToStr(e))
-      this.onMainToRenderer1WayAction?.({
-        type: 'error',
-        payload: { msg: 'Failed to add message to local database: ' + eToStr(e) }
-      })
+      return {
+        msg: msgObj,
+        error: 'Failed to add message to local database: ' + eToStr(e)
+      }
     }
 
     return { msg: msgObj }

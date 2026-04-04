@@ -121,7 +121,10 @@
         return
       }
       window.api.sendMessage($store.ui.selectedFriendPk, textBoxContents).then(({ msg, error }) => {
-        if (!error && msg) messages.push(msg)
+        if (error) {
+          alert(error)
+        }
+        if (msg) messages.push(msg)
       })
       textBoxContents = ''
     }
