@@ -255,6 +255,13 @@ export class Controller {
 
     // friend roster listeners
     this.friendRoster.onReceiveMessage = async (pk, msg, msgNumber) => {
+      if (
+        msgNumber &&
+        (msgNumber < 0 || msgNumber > Number.MAX_SAFE_INTEGER || !Number.isInteger(msgNumber))
+      ) {
+        return { status: 'reject', reason: 'Bad msgNumber' }
+      }
+
       if (msgNumber && (await this.db.hasMessage(pk, 'local', msgNumber))) {
         return { status: 'reject', reason: 'Message has already been received' }
       }
@@ -485,7 +492,7 @@ export class Controller {
    * Send a message to a peer, update the database, return a message to the front end.
    */
   public sendMessage = async (toPk: string, message: string): Promise<SendMessageReturnType> => {
-    const msgNumber = await this.db.getNextMessageNumber('local', toPk)
+    const msgNumber = await this.db.getNewMessageNumber('local', toPk)
 
     // send message
     try {

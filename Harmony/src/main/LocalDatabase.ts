@@ -2,6 +2,7 @@ import DataStore from '@seald-io/nedb'
 import { app } from '.'
 import path from 'path'
 import { IceServer, KeyPair } from '../common/redux'
+import { randomInt } from 'crypto'
 
 export const DB_LOC = path.join(app.getPath('userData'), '/UserData/')
 export const DB_MESSAGES_LOC = path.join(DB_LOC, '/messages.db')
@@ -109,20 +110,24 @@ export class LocalDatabase {
     }))
   }
 
-  public getNextMessageNumber = async (fromPk: string, toPk: string) => {
-    const messages = await this.messagesDb
-      .findAsync({
+  public getNewMessageNumber = async (fromPk: string, toPk: string) => {
+    let msgNumber: number
+
+    while (true) {
+      msgNumber = randomInt(0, Number.MAX_SAFE_INTEGER)
+
+      // check if number is already in db (very rare)
+      const inDb = !!(await this.messagesDb.findOneAsync({
         fromPk,
         toPk,
-        msgNumber: { $ne: null }
-      })
-      .sort({ msgNumber: -1 })
-      .limit(1)
-    if (messages.length > 0 && messages[0].msgNumber) {
-      return messages[0].msgNumber + 1
-    } else {
-      return 1
+        msgNumber
+      }))
+
+      if (!inDb) {
+        break
+      }
     }
+    return msgNumber
   }
 
   public getFriend = async (localPk: string, peerPk: string) => {

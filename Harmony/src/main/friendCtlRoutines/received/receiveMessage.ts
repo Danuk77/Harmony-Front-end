@@ -15,7 +15,9 @@ const initiateSchema = {
       type: 'string'
     },
     number: {
-      type: 'number'
+      type: 'integer',
+      minimum: 0,
+      maximum: 9007199254740991
     }
   },
   required: ['initiate', 'message', 'number'],
