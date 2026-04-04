@@ -114,7 +114,7 @@ export class LocalDatabase {
     let msgNumber: number
 
     while (true) {
-      msgNumber = randomInt(0, Number.MAX_SAFE_INTEGER)
+      msgNumber = randomInt(0, 281474976710654)
 
       // check if number is already in db (very rare)
       const inDb = !!(await this.messagesDb.findOneAsync({
