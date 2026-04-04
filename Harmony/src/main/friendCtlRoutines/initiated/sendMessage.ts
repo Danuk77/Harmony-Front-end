@@ -5,7 +5,7 @@ export async function sendMessage(fch: FriendConnectionHandler, msg: string, msg
     await send({
       initiate: 'message',
       message: msg,
-      id: msgId
+      number: msgId
     })
 
     await recv()
