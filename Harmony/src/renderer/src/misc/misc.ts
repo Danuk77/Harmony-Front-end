@@ -1,5 +1,6 @@
 import type { WebsocketStatusType } from 'node-harmonyclient'
 import type { FriendWithState } from '../../../preload'
+import { assertNever } from '../../../common/utils'
 
 export function peerConnectionStatusToBulbColorCssVariable(
   status: FriendWithState['connectionStatus']
@@ -9,8 +10,10 @@ export function peerConnectionStatusToBulbColorCssVariable(
       return '--color-lightbulb-connected'
     case 'online-disconnected':
       return '--color-lightbulb-disconnected'
-    case 'failed':
+    case 'online-rtc-disconnected':
       return '--color-lightbulb-disconnected'
+    case 'failed':
+      return '--color-lightbulb-error'
     case 'offline':
       return '--color-lightbulb-offline'
     case 'unknown':
@@ -25,6 +28,8 @@ export function peerConnectionStatusToBulbColorCssVariable(
       return '--color-lightbulb-offline'
     case 'unset':
       return '--color-lightbulb-offline'
+    default:
+      assertNever(status)
   }
 }
 
@@ -41,6 +46,6 @@ export function serverConnectionStatusToBulbColorCssVariable(status: WebsocketSt
     case 'logged-in':
       return '--color-lightbulb-connected'
     case 'login-failed':
-      return '--color-lightbulb-connected'
+      return '--color-lightbulb-error'
   }
 }

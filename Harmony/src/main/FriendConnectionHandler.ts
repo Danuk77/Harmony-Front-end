@@ -10,10 +10,12 @@ import {
 } from 'node-harmonyclient'
 import { ICECandidate, VideoCallRoutine } from './friendCtlRoutines/VideoCallRoutine'
 import { sendMessage } from './friendCtlRoutines/initiated/sendMessage'
+import { assertNever } from '../common/utils'
 
 export type FriendConnectionStatus =
   | 'online-connected' // connected to the friend
   | 'online-disconnected' // peer connection to the friend was lost
+  | 'online-rtc-disconnected' // rtc peer connection is still alive, but connection is faulty. Might regain connection or switch to online-disconnected if the rtc connection is lost entirely.
   | 'failed' // conenction request failed before it was determined whether the user was online or not.
   | 'offline' // no peer connection, and friend is not connected to the signalling server.
   | 'unknown' // not yet attemted to connect to the friend. Will do so immediately.
@@ -192,13 +194,14 @@ export class FriendConnectionHandler {
         this.attemptConnection() // attempt to connect immediately
         break
       case 'connecting':
-        break
       case 'do-not-connect':
-        break
       case 'online-connected':
-        break
       case 'closed':
+      case 'unset':
+      case 'online-rtc-disconnected':
         break
+      default:
+        assertNever(status)
     }
   }
 
@@ -289,18 +292,36 @@ export class FriendConnectionHandler {
         this.peerConnection.ctlChannel.stateChanged.subscribe(onChannelStateChanged)
 
         result.peerConnection.rtc.connectionStateChange.subscribe(() => {
-          if (
-            ['closed', 'disconnected', 'failed'].includes(result.peerConnection.rtc.connectionState)
-          ) {
-            // set to online-disconnected - if the peer connection was still in use
-            if (this.peerConnection == result.peerConnection) {
-              this.connectionStatus = 'online-disconnected'
-              this.controlChannelTransactionHandler.clear()
+          switch (result.peerConnection.rtc.connectionState) {
+            case 'closed':
+            case 'failed': {
+              // set to online-disconnected - if the peer connection was still in use
+              if (this.peerConnection == result.peerConnection) {
+                this.connectionStatus = 'online-disconnected'
+                this.controlChannelTransactionHandler.clear()
+              }
+              // remove these listeners
+              result.peerConnection.chatChannel.stateChanged.allUnsubscribe()
+              result.peerConnection.ctlChannel.stateChanged.allUnsubscribe()
+              result.peerConnection.rtc.connectionStateChange.allUnsubscribe()
+              break
             }
-            // remove these listeners
-            result.peerConnection.chatChannel.stateChanged.allUnsubscribe()
-            result.peerConnection.ctlChannel.stateChanged.allUnsubscribe()
-            result.peerConnection.rtc.connectionStateChange.allUnsubscribe()
+            case 'disconnected': {
+              if (this.peerConnection == result.peerConnection) {
+                this.connectionStatus = 'online-rtc-disconnected'
+                console.error(`Temporarily disconnected from ${this.friend.nickname}`)
+              }
+              break
+            }
+            case 'connected': {
+              if (this.peerConnection == result.peerConnection) {
+                this.connectionStatus = 'online-connected'
+              }
+              break
+            }
+            case 'new':
+            case 'connecting':
+              break
           }
         })
 

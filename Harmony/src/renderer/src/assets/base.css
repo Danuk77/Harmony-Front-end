@@ -10,6 +10,8 @@
 
   --ev-c-pink-1: #952b6a;
 
+  --ev-c-red-1: #e10053;
+
   --ev-c-gray-0: #d9d9d9;
   --ev-c-gray-1: #6d6d6d;
   --ev-c-gray-2: #363636;
@@ -59,6 +61,7 @@
 
   --color-lightbulb-connected: var(--ev-c-green-1);
   --color-lightbulb-disconnected: var(--ev-c-amber-1);
+  --color-lightbulb-error: var(--ev-c-red-1);
   --color-lightbulb-offline: var(--ev-c-gray-4);
 
   --color-border: var(--ev-c-gray-1);
