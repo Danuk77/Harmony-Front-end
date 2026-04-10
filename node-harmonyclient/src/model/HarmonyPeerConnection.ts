@@ -11,10 +11,19 @@ export class HarmonyPeerConnection {
     this.ctlChannel = ctl
   }
 
+  removeAllListeners() {
+    this.chatChannel.stateChanged.allUnsubscribe()
+    this.ctlChannel.stateChanged.allUnsubscribe()
+    this.rtc.connectionStateChange.allUnsubscribe()
+    this.chatChannel.onMessage.allUnsubscribe()
+    this.ctlChannel.onMessage.allUnsubscribe()
+  }
+
   close() {
-    this.rtc.close()
     this.chatChannel.close()
     this.ctlChannel.close()
+    this.rtc.close()
+    this.removeAllListeners()
   }
 }
 

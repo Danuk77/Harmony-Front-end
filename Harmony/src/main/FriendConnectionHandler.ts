@@ -209,7 +209,7 @@ export class FriendConnectionHandler {
     this.onAcceptOrRejectVideoCall?.(status)
   }
 
-  private attemptConnection = () => {
+  public attemptConnection = () => {
     if (this.paused) {
       this.shouldReconnectWhenUnpaused = true
       return
@@ -282,10 +282,7 @@ export class FriendConnectionHandler {
               this.connectionStatus = 'online-disconnected'
               this.controlChannelTransactionHandler.clear()
             }
-            // remove listeners
-            result.peerConnection.chatChannel.stateChanged.allUnsubscribe()
-            result.peerConnection.ctlChannel.stateChanged.allUnsubscribe()
-            result.peerConnection.rtc.connectionStateChange.allUnsubscribe()
+            result.peerConnection.removeAllListeners()
           }
         }
         this.peerConnection.chatChannel.stateChanged.subscribe(onChannelStateChanged)
@@ -294,25 +291,24 @@ export class FriendConnectionHandler {
         result.peerConnection.rtc.connectionStateChange.subscribe(() => {
           switch (result.peerConnection.rtc.connectionState) {
             case 'closed':
-            case 'failed': {
+            case 'failed':
+            case 'disconnected': {
               // set to online-disconnected - if the peer connection was still in use
               if (this.peerConnection == result.peerConnection) {
                 this.connectionStatus = 'online-disconnected'
                 this.controlChannelTransactionHandler.clear()
               }
-              // remove these listeners
-              result.peerConnection.chatChannel.stateChanged.allUnsubscribe()
-              result.peerConnection.ctlChannel.stateChanged.allUnsubscribe()
-              result.peerConnection.rtc.connectionStateChange.allUnsubscribe()
+              result.peerConnection.removeAllListeners()
+              result.peerConnection.close()
               break
             }
-            case 'disconnected': {
-              if (this.peerConnection == result.peerConnection) {
-                this.connectionStatus = 'online-rtc-disconnected'
-                console.error(`Temporarily disconnected from ${this.friend.nickname}`)
-              }
-              break
-            }
+            // {
+            //   if (this.peerConnection == result.peerConnection) {
+            //     this.connectionStatus = 'online-rtc-disconnected'
+            //     console.error(`Temporarily disconnected from ${this.friend.nickname}`)
+            //   }
+            //   break
+            // }
             case 'connected': {
               if (this.peerConnection == result.peerConnection) {
                 this.connectionStatus = 'online-connected'

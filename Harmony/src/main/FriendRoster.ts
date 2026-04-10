@@ -178,6 +178,17 @@ export class FriendRoster {
     }
   }
 
+  public forceFriendReconnect = (publicKey: string) => {
+    const friendHandler = this.friends.get(publicKey)
+    if (!friendHandler) {
+      throw new Error('Friend does not exist')
+    }
+    if (friendHandler.friend.status != 'accept') {
+      throw new Error('Friend request not accepted')
+    }
+    friendHandler.attemptConnection()
+  }
+
   // public getFriendConnectionStatus = (publicKey: string) => {
   //   return this.friends.get(publicKey)?.connectionStatus
   // }

@@ -5,8 +5,9 @@
     friendBlockContextMenuAvailableOptions,
     type FriendBlockContextMenuOptions
   } from '../../../../common/friendBlockContextMenu'
-  import { changeFriendStatus } from '../../endpointIoWrappers'
+  import { executeFriendOption } from '../../endpointIoWrappers'
   import SettingsOption from '../../components/SettingsOption.svelte'
+  import { assertNever } from '../../../../common/utils'
 
   const friendState = $derived.by(() =>
     $store.friendStates.find(
@@ -20,6 +21,8 @@
     switch (option) {
       case 'edit':
         return ''
+      case 'reconnect':
+        return 'Reconnect to friend'
       case 'block':
         return 'Block friend'
       case 'delete':
@@ -42,11 +45,13 @@
         return 'Withdraw unsent friend request'
       case 'withdrawAccept':
         return 'Withdraw unsent accept'
+      default:
+        assertNever(option)
     }
   }
 
   const onclickOption = (option: FriendBlockContextMenuOptions) => {
-    if (friendState) changeFriendStatus(friendState.friend, option)
+    if (friendState) executeFriendOption(friendState.friend, option)
   }
 </script>
 

@@ -4,7 +4,7 @@
   import { peerConnectionStatusToBulbColorCssVariable } from '../misc/misc'
   import type { FriendState } from '../../../common/redux'
   import { store } from '../redux'
-  import { changeFriendStatus } from '../endpointIoWrappers'
+  import { executeFriendOption } from '../endpointIoWrappers'
   let {
     selected,
     hasUnreadMessages,
@@ -105,7 +105,7 @@
   <button
     id="cog-container"
     style={`background-color: var(${editBackgroundColor})`}
-    onclick={() => changeFriendStatus(fs.friend, 'edit')}
+    onclick={() => executeFriendOption(fs.friend, 'edit')}
     aria-label="Edit"
     {oncontextmenu}
   >

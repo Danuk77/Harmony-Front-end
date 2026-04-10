@@ -1,8 +1,9 @@
 import type { FriendBlockContextMenuOptions } from '../../common/friendBlockContextMenu'
+import { assertNever } from '../../common/utils'
 import type { Friend } from '../../main/LocalDatabase'
 import { store } from './redux'
 
-export function changeFriendStatus(friend: Friend, option: FriendBlockContextMenuOptions) {
+export function executeFriendOption(friend: Friend, option: FriendBlockContextMenuOptions) {
   switch (option) {
     case 'edit':
       store.dispatch({ type: 'setSelectedFriendPk', payload: { pk: friend.peerPk } })
@@ -33,6 +34,11 @@ export function changeFriendStatus(friend: Friend, option: FriendBlockContextMen
     case 'withdrawAccept':
       withdrawFriendAccept(friend)
       break
+    case 'reconnect':
+      reconnectToFriend(friend)
+      break
+    default:
+      assertNever(option)
   }
 }
 
@@ -173,4 +179,8 @@ export async function withdrawFriendRequest(friend: Friend) {
 
 export async function withdrawFriendAccept(friend: Friend) {
   await window.api.withdrawFriendAccept(friend.localPk, friend.peerPk)
+}
+
+export async function reconnectToFriend(friend: Friend) {
+  window.api.forceFriendReconnect(friend.peerPk)
 }

@@ -132,14 +132,14 @@ export class TransactionHandler<T, S> {
 
     const send = async (msg: object): Promise<void> => {
       if (tsIsClosed) {
-        throw new HarmonyError('routine sent to closed transaction socket')
+        throw new HarmonyError('Message sent on closed transaction socket')
       }
 
       // client cancels.
       if (Object.prototype.hasOwnProperty.call(msg, 'terminate')) {
         tsIsClosed = true
         // enqueue HarmonyError in case there is any recv() being awaited - causes the recv to raise an error
-        messageQueue.enqueue(new HarmonyError('Routine was terminated by this client'))
+        messageQueue.enqueue(new HarmonyError('Transaction was terminated by this client'))
       }
 
       // TODO

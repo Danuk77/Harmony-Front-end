@@ -121,6 +121,9 @@ const api = {
   ),
   videoCallWindowOpens: <FriendRoster['videoCallWindowOpens']>(
     ((...args) => ipcRenderer.invoke('videoCallWindowOpens', ...args))
+  ),
+  forceFriendReconnect: <FriendRoster['forceFriendReconnect']>(
+    ((...args) => ipcRenderer.invoke('forceFriendReconnect', ...args))
   )
 }
 

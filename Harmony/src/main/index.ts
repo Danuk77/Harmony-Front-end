@@ -202,9 +202,11 @@ app.whenReady().then(() => {
   ipcMainTypesafe.handle('videoCallWindowOpens', (_, ...args) =>
     controller.friendRoster.videoCallWindowOpens(...args)
   )
+  ipcMainTypesafe.handle('forceFriendReconnect', (_, ...args) =>
+    controller.friendRoster.forceFriendReconnect(...args)
+  )
 
   focusMainWindow()
-  // focusVideoCallWindow('MCowBQYDK2VwAyEAbwNKp+lYsTGzZyCmRzMdDqULgidqqdrd1d7zEi7iacY=')
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
