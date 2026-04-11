@@ -112,9 +112,11 @@
     if (event.key == 'Enter' && !isShiftHeld && $store.ui.selectedFriendPk) {
       event.preventDefault()
       if (!inputEnabled) {
+        window.api.beep()
         return
       }
       if (textBoxContents == '') {
+        window.api.beep()
         return
       }
       if (!$store.user.keyPair) {

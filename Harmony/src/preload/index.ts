@@ -1,5 +1,5 @@
 import 'electron-redux/preload'
-import { contextBridge, dialog, ipcRenderer } from 'electron'
+import { contextBridge, dialog, ipcRenderer, Shell } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import { Friend, LocalDatabase, Message } from '../main/LocalDatabase'
 import { Controller } from '../main/Controller'
@@ -58,6 +58,7 @@ export type MainToRenderer1WayAction =
 // Custom APIs for renderer
 const api = {
   test: () => console.log('hello'),
+  beep: <Shell['beep']>((...args) => ipcRenderer.invoke('beep', ...args)),
   getConversation: <LocalDatabase['getConversation']>(
     ((...args) => ipcRenderer.invoke('getConversation', ...args))
   ),

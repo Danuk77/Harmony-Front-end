@@ -157,6 +157,7 @@ app.whenReady().then(() => {
   }
 
   // 2 way, initiated by renderer
+  ipcMainTypesafe.handle('beep', (_, ...args) => shell.beep(...args))
   ipcMainTypesafe.handle('getConversation', (_, ...args) => controller.db.getConversation(...args))
   ipcMainTypesafe.handle('sendMessage', (_, ...args) => controller.sendMessage(...args))
   ipcMainTypesafe.handle('sendFriendRequest', (_, ...args) => controller.sendFriendRequest(...args))
