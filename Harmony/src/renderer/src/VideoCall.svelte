@@ -9,7 +9,7 @@
   import '@fortawesome/fontawesome-free/js/all.min.js'
   import { store } from './redux'
   import { onMount } from 'svelte'
-  import type { IceServer } from '../../common/redux'
+  // import type { IceServer } from '../../common/redux'
   import { assertNever, eToStr } from '../../common/utils'
 
   let microphoneEnabled = $state(true)
@@ -32,10 +32,10 @@
 
   const pk = new URLSearchParams(document.location.search).get('pk') ?? ''
 
-  const iceServers: IceServer[] = [
+  let iceServers = $derived.by<RTCIceServer[]>(() => [
     ...($store.user.stunServer ? [$store.user.stunServer] : []),
     ...($store.user.turnServer ? [$store.user.turnServer] : [])
-  ]
+  ])
 
   function peerHangsUp(cs: ConnectionState) {
     removeListeners(cs)
@@ -52,7 +52,6 @@
   }
 
   function removeListeners(cs: ConnectionState) {
-    console.log('listeners removed')
     cs.peerConnection.onicecandidate = null
     cs.peerConnection.onconnectionstatechange = null
     cs.peerConnection.oniceconnectionstatechange = null
@@ -80,7 +79,6 @@
     }
 
     cs.peerConnection.onicecandidate = ({ candidate }) => {
-      console.log(candidate)
       if (candidate) {
         if (candidate.sdpMLineIndex === null) {
           return
@@ -96,7 +94,6 @@
       }
     }
     cs.peerConnection.onconnectionstatechange = () => {
-      console.log(cs.peerConnection.connectionState)
       switch (cs.peerConnection.connectionState) {
         case 'closed': {
           peerHangsUp(cs)
@@ -153,7 +150,6 @@
   }
 
   window.api.onMainToRenderer2WayAction(async ({ id, args }) => {
-    console.log(id, args)
     switch (args.type) {
       case 'genSdpOfferForVideoCall': {
         if (args.payload.pk != pk) {
@@ -356,8 +352,6 @@
 
   async function initDevices() {
     const devices = await navigator.mediaDevices.enumerateDevices()
-
-    console.log($store.user)
 
     // check that devices contains at least 1 audio and 1 video
     if (!devices.find((device) => device.kind == 'videoinput')) {
