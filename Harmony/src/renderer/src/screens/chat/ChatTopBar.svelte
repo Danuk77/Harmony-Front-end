@@ -6,6 +6,10 @@
   import IconBubble from '../../components/IconBubble.svelte'
   import HarmonyIcon from '../../components/HarmonyIcon.svelte'
 
+  $effect(() => {
+    console.log($store)
+  })
+
   let fs = $derived.by(() => {
     return $store.ui.selectedFriendPk
       ? $store.friendStates.find((fs) => fs.friend.peerPk == $store.ui.selectedFriendPk)
@@ -133,7 +137,6 @@
     flex-direction: row;
     height: 100%;
     width: 100%;
-    padding-right: 5px;
   }
   #friendDescription {
     display: flex;
@@ -150,6 +153,7 @@
     align-self: flex-end;
     align-items: center;
     justify-content: center;
+    padding-right: 5px;
   }
   #bulb {
     margin-left: 5px;

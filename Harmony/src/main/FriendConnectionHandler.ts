@@ -11,6 +11,7 @@ import {
 import { ICECandidate, VideoCallRoutine } from './friendCtlRoutines/VideoCallRoutine'
 import { sendMessage } from './friendCtlRoutines/initiated/sendMessage'
 import { assertNever } from '../common/utils'
+import { Controller } from './Controller'
 
 export type FriendConnectionStatus =
   | 'online-connected' // connected to the friend

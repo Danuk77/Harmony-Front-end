@@ -472,6 +472,7 @@ export class VideoCallManager {
             this.error('routine', eToStr(e), id)
           })
         })(oldStatus.id)
+        this.focusVideoCallWindow()
         return
       }
       default:
@@ -523,6 +524,7 @@ export class VideoCallManager {
         sendVideoCallRequest(this.fch, id).catch((e) => {
           this.error('routine', eToStr(e), id)
         })
+        this.focusVideoCallWindow()
         return
       }
       default:

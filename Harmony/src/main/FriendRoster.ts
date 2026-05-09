@@ -6,6 +6,7 @@ import { FriendConnectionHandler, FriendConnectionStatus } from './FriendConnect
 import { DEBUG } from '.'
 import { ICECandidate } from './friendCtlRoutines/VideoCallRoutine'
 import { FriendVideoCallStatus, VideoCallManager } from './VideoCallManager'
+import { Controller } from './Controller'
 
 /**
  * Collection of all friends.
@@ -37,6 +38,7 @@ export class FriendRoster {
     candidate: ICECandidate,
     callID: number
   ) => unknown
+  public onNotification?: Controller['onNotification']
 
   constructor(con: HarmonyConnection) {
     this.con = con

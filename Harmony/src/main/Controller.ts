@@ -348,6 +348,30 @@ export class Controller {
     }
 
     this.friendRoster.onVideoCallStatusChange = (peerPk, status) => {
+      // if state changes to incoming+ringing, send a notification
+      const friendState = store
+        .getState()
+        .friendStates.find((state) => state.friend.peerPk == peerPk)
+      if (
+        friendState &&
+        (friendState.videoCallStatus.callDirection != 'incoming' ||
+          friendState?.videoCallStatus.call != 'ringing') &&
+        status.callDirection == 'incoming' &&
+        status.call == 'ringing'
+      ) {
+        this.onNotification?.(
+          {
+            title: 'Incoming video call',
+            body: friendState.friend.nickname
+          },
+          false,
+          () => {
+            storeTypesafe.dispatch({ type: 'setSelectedFriendPk', payload: { pk: peerPk } })
+            storeTypesafe.dispatch({ type: 'set-screen-mode', payload: 'chat' })
+          }
+        )
+      }
+
       storeTypesafe.dispatch({
         type: 'friend-video-call-status-change',
         payload: {
@@ -379,6 +403,10 @@ export class Controller {
           callID
         }
       })
+    }
+
+    this.friendRoster.onNotification = (...args) => {
+      this.onNotification?.(...args)
     }
 
     //update friend roster and database when redux store changes
