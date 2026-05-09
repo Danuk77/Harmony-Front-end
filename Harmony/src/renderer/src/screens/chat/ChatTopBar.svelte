@@ -4,6 +4,7 @@
   import { peerConnectionStatusToBulbColorCssVariable } from '../../misc/misc'
   import { store } from '../../redux'
   import IconBubble from '../../components/IconBubble.svelte'
+  import HarmonyIcon from '../../components/HarmonyIcon.svelte'
 
   let fs = $derived.by(() => {
     return $store.ui.selectedFriendPk
@@ -15,20 +16,25 @@
       ? peerConnectionStatusToBulbColorCssVariable(fs.connectionStatus)
       : '--color-lightbulb-connected'
   )
-  let pickUpButtonColor = $derived.by(() => {
+  let pickUpButtonAppearence: { color: string; title: string } | null = $derived.by(() => {
     if (!fs) {
       return null
     }
     if (fs.videoCallStatus.callDirection == 'none') {
-      return '--color-button-normal'
+      return {
+        color: '--color-button-normal',
+        title:
+          'Request a video call' +
+          (fs.connectionStatus == 'online-connected' ? '' : ' (not available)')
+      }
     }
     if (fs.videoCallStatus.callDirection == 'incoming' && !fs.videoCallStatus.accepted) {
-      return '--color-button-incoming'
+      return { color: '--color-button-incoming', title: 'Accept incoming call' }
     }
     return null
   })
 
-  let hangUpButtonColor = $derived.by(() => {
+  let hangUpButtonAppearence: { color: string; title: string } | null = $derived.by(() => {
     if (!fs) {
       return null
     }
@@ -39,8 +45,9 @@
         return null
       case 'signalling':
       case 'in-call':
+        return { color: '--color-button-hangup', title: 'Hang up call' }
       case 'ringing':
-        return '--color-button-hangup'
+        return { color: '--color-button-hangup', title: 'Reject call' }
     }
   })
 
@@ -77,27 +84,45 @@
       </p>
     {/if}
   </div>
-  {#if fs && pickUpButtonColor}
+  {#if fs && pickUpButtonAppearence}
     <div class="button">
-      <IconBubble
+      <HarmonyIcon
+        onclick={requestOrAcceptVideoCall}
+        icon="fa-phone"
+        ariaLabel={pickUpButtonAppearence.title}
+        title={pickUpButtonAppearence.title}
+        color={`var(${pickUpButtonAppearence.color})`}
+        disabled={fs.connectionStatus != 'online-connected'}
+      />
+      <!-- <IconBubble
         ariaLabel="Pick up"
         icon="fa-phone"
         --background-color={`var(${pickUpButtonColor})`}
         onclick={requestOrAcceptVideoCall}
         disabled={fs.connectionStatus != 'online-connected'}
-      />
+      /> -->
     </div>
   {/if}
-  {#if fs && hangUpButtonColor}
+  {#if fs && hangUpButtonAppearence}
     <div class="button">
-      <IconBubble
-        ariaLabel="Hang up"
-        icon="fa-phone"
-        --background-color={`var(${hangUpButtonColor})`}
+      <HarmonyIcon
         onclick={declineOrHangUpVideoCall}
+        icon="fa-phone"
+        ariaLabel={hangUpButtonAppearence.title}
+        title={hangUpButtonAppearence.title}
+        color={`var(${hangUpButtonAppearence.color})`}
         disabled={fs.connectionStatus != 'online-connected'}
         --icon-rotation="135deg"
       />
+
+      <!-- <IconBubble
+        ariaLabel="Hang up"
+        icon="fa-phone"
+        --background-color={`var(${hangUpButtonAppearence})`}
+        onclick={declineOrHangUpVideoCall}
+        disabled={fs.connectionStatus != 'online-connected'}
+        --icon-rotation="135deg"
+      /> -->
     </div>
   {/if}
 </div>
@@ -108,6 +133,7 @@
     flex-direction: row;
     height: 100%;
     width: 100%;
+    padding-right: 5px;
   }
   #friendDescription {
     display: flex;
@@ -118,9 +144,10 @@
     width: 100%;
   }
   .button {
-    height: 100%;
+    /* height: 100%; */
     aspect-ratio: 1 / 1;
     display: flex;
+    align-self: flex-end;
     align-items: center;
     justify-content: center;
   }
@@ -128,14 +155,20 @@
     margin-left: 5px;
     margin-right: 5px;
     font-size: 25px;
+    app-region: no-drag;
   }
   #nicknameAndPk {
+    /* max-width: ; */
     width: calc(100%);
     text-overflow: ellipsis;
     overflow: hidden;
     white-space: nowrap;
     display: inline-block;
     container-type: inline-size;
+    /* margin: 0 auto; */
+  }
+  #nicknameAndPk > * {
+    app-region: no-drag;
   }
   #pk {
     color: var(--color-text-gray);

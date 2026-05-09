@@ -2,29 +2,53 @@
   let {
     onclick,
     ariaLabel,
-    icon
-  }: { onclick: HTMLButtonElement['onclick']; ariaLabel: string; icon: string } = $props()
+    title,
+    icon,
+    color = 'var(--color-icon)',
+    disabled = false
+  }: {
+    onclick: HTMLButtonElement['onclick']
+    ariaLabel: string
+    title?: string
+    icon: string
+    color?: string
+    disabled?: boolean
+  } = $props()
 </script>
 
-<button type="button" {onclick} id="icon" aria-label={ariaLabel}>
-  <i class="fa-solid fa-lg {icon}"></i>
+<button
+  type="button"
+  {onclick}
+  {disabled}
+  id="icon"
+  style={`color: ${disabled ? 'var(--color-button-disabled)' : color}`}
+  aria-label={ariaLabel}
+  {title}
+>
+  <i class="fa-solid fa-lg {icon}" id="glyph"></i>
 </button>
 
 <style>
   #icon {
     all: unset;
+    app-region: no-drag;
     color: var(--color-icon);
   }
-  #icon:hover {
+
+  #glyph {
+    transform: rotate(var(--icon-rotation));
+  }
+
+  #icon:enabled:hover {
     opacity: 50%;
     cursor: pointer;
   }
-  #icon:focus-visible {
+  #icon:enabled:focus-visible {
     opacity: 50%;
     cursor: pointer;
     outline: auto;
   }
-  #icon:active {
+  #icon:enabled:active {
     scale: 90%;
   }
 </style>

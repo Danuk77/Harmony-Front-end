@@ -32,12 +32,18 @@
   --scrollbar-width: 10px;
 }
 
+button,
+a {
+  app-region: no-drag;
+}
+
 :root {
   --color-button-disabled: var(--ev-c-gray-1);
   --color-button-normal: var(--ev-c-blue-purple-1);
   --color-button-highlighted: var(--ev-c-amber-2);
   --color-button-incoming: var(--ev-c-green-1);
   --color-button-hangup: var(--ev-c-pink-1);
+
   --color-button-text-enabled: var(--ev-c-white);
   --color-button-text-disabled: var(--ev-c-text-light-gray);
 
@@ -99,6 +105,7 @@ body {
   min-height: 100vh;
   color: var(--color-text);
   background: var(--color-background);
+  /* backdrop-filter: blur(10px); */
   line-height: 1.6;
   font-size: 10pt;
   font-family:

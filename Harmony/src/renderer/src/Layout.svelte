@@ -85,7 +85,7 @@
     background-color: var(--color-sidebar);
     box-shadow: 1px 1px 3px black;
     margin-top: 5px;
-    border-radius: 0px 10px 10px 0px;
+    border-radius: 0px 10px 0px 0px;
   }
   #main-panel {
     min-height: 0;
@@ -93,6 +93,7 @@
   }
 
   #row1 {
+    app-region: drag;
     z-index: 1;
     grid-row: 1;
     grid-column: 1 / 3;

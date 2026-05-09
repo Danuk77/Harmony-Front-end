@@ -322,7 +322,7 @@ export class VideoCallRoutine {
       }
       if (this.currentSignalling.waitCounter++ >= maxWaits) {
         // timeout
-        this.cancelCurrentRoutine()
+        this.fch.videoCallManager.error('routine', 'No response', this.currentSignalling?.id)
         return
       }
       try {
