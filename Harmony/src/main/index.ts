@@ -7,7 +7,8 @@ import {
   Menu,
   Notification,
   NativeImage,
-  nativeImage
+  nativeImage,
+  nativeTheme
 } from 'electron'
 import { join } from 'path'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
@@ -17,6 +18,7 @@ import { ipcMainTypesafe } from './ipcMainTypesafe'
 import { showFriendBlockContextMenu } from './showFriendBlockContextMenu'
 import { generateKeyPair, verifyKeyPair } from './generateKeyPair'
 import { mainToRendererComManager } from './MainToRendererComManager'
+import { applicationMenu } from './applicationMenu'
 export const DEBUG = true
 
 process.traceProcessWarnings = true
@@ -50,6 +52,8 @@ function focusMainWindow() {
   }
 }
 
+nativeTheme.themeSource = 'light'
+
 function createMainWindow(): BrowserWindow {
   // Create the browser window.
   const window = new BrowserWindow({
@@ -58,6 +62,7 @@ function createMainWindow(): BrowserWindow {
     minWidth: 550,
     minHeight: 300,
     titleBarStyle: 'hidden',
+    darkTheme: false,
     ...(process.platform !== 'darwin' ? { titleBarOverlay: true } : {}),
     show: false,
     autoHideMenuBar: true,
@@ -65,6 +70,22 @@ function createMainWindow(): BrowserWindow {
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false
+    }
+  })
+
+  const editableMenu = Menu.buildFromTemplate([
+    { role: 'cut' },
+    { role: 'copy' },
+    { role: 'paste' },
+    { role: 'selectAll' }
+  ])
+  const selectableMenu = Menu.buildFromTemplate([{ role: 'copy' }])
+  window.webContents.on('context-menu', (_event, params) => {
+    // only show the context menu if the element is editable
+    if (params.isEditable) {
+      editableMenu.popup()
+    } else if (params.selectionText) {
+      selectableMenu.popup()
     }
   })
 
@@ -88,12 +109,14 @@ function createMainWindow(): BrowserWindow {
   return window
 }
 
+Menu.setApplicationMenu(applicationMenu())
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
   // Set app user model id for windows
-  electronApp.setAppUserModelId('com.electron')
+  electronApp.setAppUserModelId('com.harmonyclient')
 
   // system tray
   let appIconImage: NativeImage | undefined = undefined

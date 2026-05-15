@@ -3,7 +3,6 @@
   import '@fortawesome/fontawesome-free/js/all.min.js'
   import { peerConnectionStatusToBulbColorCssVariable } from '../../misc/misc'
   import { store } from '../../redux'
-  import IconBubble from '../../components/IconBubble.svelte'
   import HarmonyIcon from '../../components/HarmonyIcon.svelte'
 
   $effect(() => {

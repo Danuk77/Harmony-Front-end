@@ -194,7 +194,7 @@
       class="bubble"
       id="message-input-container"
       style="background-color: var({inputBoxColor})"
-      contenteditable="true"
+      contenteditable="plaintext-only"
       onkeypress={messageBoxKeyEvent}
       role="textbox"
       tabindex="0"
@@ -228,6 +228,7 @@
     display: flex;
     flex-direction: column;
   }
+
   .bubble {
     border-radius: 18px;
     padding: 4px;
