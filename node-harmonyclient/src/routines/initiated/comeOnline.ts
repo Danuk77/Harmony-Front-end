@@ -44,12 +44,50 @@ export async function comeOnline(con: HarmonyWebsocketConnection, keyPair: KeyPa
 
       // recv server version and check number is correct
       const versionResponse = await recv(versionResponseSchema)
-      if (versionResponse.version != con.version) {
+
+      // check versions are compatible. Either:
+      // versions are the same, OR
+      // server is no more than one major version ahead
+      const serverVersionParts = versionResponse.version.split('.')
+      const clientVersionParts = con.server_api_version.split('.')
+
+      const versionsAreCompatible = (() => {
+        const majorDiff = parseInt(serverVersionParts[0]) - parseInt(clientVersionParts[0])
+        if (majorDiff != 0) {
+          return false
+        }
+        for (let i = 1; i < Math.max(serverVersionParts.length, clientVersionParts.length); i++) {
+          if (i >= clientVersionParts.length) {
+            // e.g. server=1.x, client=1
+            return true
+          }
+          if (i >= serverVersionParts.length) {
+            // e.g. server=1, client=1.x
+            return false
+          }
+          const minorDiff = parseInt(clientVersionParts[i]) - parseInt(serverVersionParts[i])
+          if (isNaN(minorDiff)) {
+            return false
+          }
+          if (minorDiff < 0) {
+            // e.g. server=1.2.x, client=1.1.y
+            return true
+          }
+          if (minorDiff > 0) {
+            // e.g. server=1.1.x, client=1.2.y
+            return false
+          }
+          // otherwise refer to sub-version
+        }
+        return true
+      })()
+
+      if (!versionsAreCompatible) {
         await send({
           terminate: 'cancel'
         })
         throw new HarmonyError(
-          `Version mismatch: server is version ${versionResponse.version}, client is version ${con.version}`
+          `Incompatible server api version: server uses version ${versionResponse.version}, client uses version ${con.server_api_version}`
         )
       }
 
