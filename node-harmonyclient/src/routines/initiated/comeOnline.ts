@@ -49,7 +49,7 @@ export async function comeOnline(con: HarmonyWebsocketConnection, keyPair: KeyPa
       // versions are the same, OR
       // server is no more than one major version ahead
       const serverVersionParts = versionResponse.version.split('.')
-      const clientVersionParts = con.server_api_version.split('.')
+      const clientVersionParts = con.serverAPIVersion.split('.')
 
       const versionsAreCompatible = (() => {
         const majorDiff = parseInt(serverVersionParts[0]) - parseInt(clientVersionParts[0])
@@ -87,7 +87,7 @@ export async function comeOnline(con: HarmonyWebsocketConnection, keyPair: KeyPa
           terminate: 'cancel'
         })
         throw new HarmonyError(
-          `Incompatible server api version: server uses version ${versionResponse.version}, client uses version ${con.server_api_version}`
+          `Incompatible server api version: server uses version ${versionResponse.version}, client uses version ${con.serverAPIVersion}`
         )
       }
 

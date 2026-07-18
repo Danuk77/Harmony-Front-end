@@ -36,7 +36,7 @@ export type WebsocketStatusType =
  * Callbacks must be added to this object for various actions, e.g. onIncomingConnectionRequest.
  */
 export class HarmonyWebsocketConnection {
-  public server_api_version = '1.0'
+  public serverAPIVersion = '1.0'
   public options: HarmonyWebsocketConnectionOptions
 
   private _serverUrl: string | null = null
