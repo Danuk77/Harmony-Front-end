@@ -2,6 +2,7 @@ import { KeyPair } from '../../utils'
 import { HarmonyWebsocketConnection } from '../../model/HarmonyWebsocketConnection'
 import { HarmonyError } from '../../model/routine'
 import { subtle, webcrypto } from 'node:crypto'
+import stringify from 'canonical-json'
 
 const versionResponseSchema = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',
@@ -13,13 +14,13 @@ const versionResponseSchema = {
   additionalProperties: false
 } as const
 
-const signThisResponseSchema = {
+const challengeResponseSchema = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',
   type: 'object',
   properties: {
-    signThis: { type: 'string' }
+    challenge: { type: 'string' }
   },
-  required: ['signThis'],
+  required: ['challenge'],
   additionalProperties: false
 } as const
 
@@ -96,31 +97,58 @@ export async function comeOnline(con: HarmonyWebsocketConnection, keyPair: KeyPa
         publicKey: keyPair.publicKey
       })
 
-      const signThisResponse = await recv(signThisResponseSchema)
-      const signThis = Buffer.from(signThisResponse.signThis)
+      const { challenge } = await recv(challengeResponseSchema)
 
       // import private key
       let privateKeyBytes: Buffer
       try {
         privateKeyBytes = Buffer.from(keyPair.privateKey, 'base64')
       } catch {
+        await send({ terminate: 'cancel' })
         throw new HarmonyError('Private key is not valid base64')
       }
       let privateKey: webcrypto.CryptoKey
       try {
         privateKey = await subtle.importKey('pkcs8', privateKeyBytes, 'Ed25519', false, ['sign'])
       } catch {
+        await send({ terminate: 'cancel' })
         throw new HarmonyError(
           'Private key could not be imported. Check that it is an Ed25519 key in PKCS#8+DER+base64 format'
         )
       }
 
+      // get hostname
+      if (!con.serverUrl) {
+        await send({ terminate: 'cancel' })
+        throw new HarmonyError(`No server URL`)
+      }
+
+      let hostname: string
+      try {
+        hostname = new URL(con.serverUrl).hostname
+      } catch {
+        await send({ terminate: 'cancel' })
+        throw new HarmonyError(`Invalid server address`)
+      }
+
+      const payload = {
+        challenge: challenge,
+        hostname: hostname,
+        purpose: 'comeOnline',
+        currentTime: new Date().toISOString()
+      }
+
+      const stringPayload = stringify(payload)
+      if (!stringPayload) {
+        throw new Error()
+      }
+
       // sign the message using private key
-      const signature = await subtle.sign('Ed25519', privateKey, signThis)
+      const signature = await subtle.sign('Ed25519', privateKey, Buffer.from(stringPayload))
       const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
 
       // send to server
-      await send({ signature: signatureBase64 })
+      await send({ payload, signature: signatureBase64 })
 
       const welcome = await recv(welcomeResponseSchema)
       console.log(welcome.welcome)
