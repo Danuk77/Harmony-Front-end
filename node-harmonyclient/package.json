@@ -2,6 +2,7 @@
   "name": "node-harmonyclient",
   "version": "1.0.0",
   "description": "Node client for HarmonyBackend (WebRTC signaling server) ",
+  "type": "commonjs",
   "main": "build/index.js",
   "types": "build/index.d.ts",
   "scripts": {
@@ -36,8 +37,9 @@
     "typescript-eslint": "^8.32.1"
   },
   "dependencies": {
+    "canonical-json": "^0.2.0",
     "jsonschema": "^1.5.0",
     "websocket": "^1.0.35",
-    "werift": "^0.22.1"
+    "werift": "0.22.1"
   }
 }
