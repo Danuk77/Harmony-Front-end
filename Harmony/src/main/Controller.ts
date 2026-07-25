@@ -5,10 +5,8 @@
 
 import { DEBUG } from '.'
 import { Action, KeyPair } from '../common/redux'
-import { FriendWithState, MainToRendererAction } from '../preload'
-import { HarmonyConnection } from './connection/HarmonyConnection'
-import { WebsocketStatusType } from './connection/model/HarmonyWebsocketConnection'
-import { FriendRequestResult } from './connection/routines/initiated/sendFriendRequest'
+import { FriendWithState, MainToRenderer1WayAction } from '../preload'
+import { HarmonyConnection, WebsocketStatusType, FriendRequestResult } from 'node-harmonyclient'
 import { FriendRoster } from './FriendRoster'
 import { Friend, LocalDatabase, Message } from './LocalDatabase'
 import { getFriendState, startAppListening, store, storeTypesafe } from './redux'
@@ -34,7 +32,7 @@ const resendFriendRequestTimeout = 300_000 // ms
 
 // links database and connections.
 export class Controller {
-  private friendRoster: FriendRoster
+  public friendRoster: FriendRoster
   private con: HarmonyConnection
   public db: LocalDatabase
   private _keyPair: KeyPair | null = null
@@ -42,7 +40,7 @@ export class Controller {
   private friendRequestTimers = new Map<string, NodeJS.Timeout>()
 
   // callback for IPCs to be sent to the renderer.
-  public onMainToRendererAction?: (arg0: MainToRendererAction) => unknown
+  public onMainToRenderer1WayAction?: (arg0: MainToRenderer1WayAction) => unknown
   // callback for system notifications
   public onNotification?: (
     notification: Electron.NotificationConstructorOptions,
@@ -256,19 +254,31 @@ export class Controller {
     }
 
     // friend roster listeners
-    this.friendRoster.onReceiveMessage = (pk, msg) => {
+    this.friendRoster.onReceiveMessage = async (pk, msg, msgNumber) => {
+      if (
+        msgNumber &&
+        (msgNumber < 0 || msgNumber > Number.MAX_SAFE_INTEGER || !Number.isInteger(msgNumber))
+      ) {
+        return { status: 'reject', reason: 'Bad msgNumber' }
+      }
+
+      if (msgNumber && (await this.db.hasMessage(pk, 'local', msgNumber))) {
+        return { status: 'reject', reason: 'Message has already been received' }
+      }
+
       const msgObj: Message = {
         date: Date.now(),
         fromPk: pk,
         toPk: 'local',
-        text: msg
+        text: msg,
+        msgNumber: msgNumber
       }
 
       // write message to database
       this.db.insertMessage(msgObj)
 
       // update renderer
-      this.onMainToRendererAction?.({
+      this.onMainToRenderer1WayAction?.({
         type: 'receive-message',
         payload: msgObj
       })
@@ -299,7 +309,7 @@ export class Controller {
 
       if (!this.con.keyPair) {
         // type narrowing
-        return
+        throw new Error()
       }
 
       // notification and unread! flag
@@ -321,6 +331,8 @@ export class Controller {
         }
         this.onNotification?.(notification, false /*display unconditionally*/, onClickNotification)
       }
+
+      return { status: 'accept' }
     }
 
     this.friendRoster.onFriendConnectionStatusChange = (peerPk, status) => {
@@ -333,6 +345,68 @@ export class Controller {
           connectionStatus: status
         }
       })
+    }
+
+    this.friendRoster.onVideoCallStatusChange = (peerPk, status) => {
+      // if state changes to incoming+ringing, send a notification
+      const friendState = store
+        .getState()
+        .friendStates.find((state) => state.friend.peerPk == peerPk)
+      if (
+        friendState &&
+        (friendState.videoCallStatus.callDirection != 'incoming' ||
+          friendState?.videoCallStatus.call != 'ringing') &&
+        status.callDirection == 'incoming' &&
+        status.call == 'ringing'
+      ) {
+        this.onNotification?.(
+          {
+            title: 'Incoming video call',
+            body: friendState.friend.nickname
+          },
+          false,
+          () => {
+            storeTypesafe.dispatch({ type: 'setSelectedFriendPk', payload: { pk: peerPk } })
+            storeTypesafe.dispatch({ type: 'set-screen-mode', payload: 'chat' })
+          }
+        )
+      }
+
+      storeTypesafe.dispatch({
+        type: 'friend-video-call-status-change',
+        payload: {
+          friend: {
+            peerPk: peerPk
+          },
+          callStatus: status
+        }
+      })
+    }
+
+    this.friendRoster.onPeerSdpAnswerForVideoCall = (peerPk, answerSdp, callID) => {
+      this.onMainToRenderer1WayAction?.({
+        type: 'peerSdpAnswerForVideoCall',
+        payload: {
+          peerPk,
+          sdp: answerSdp,
+          callID
+        }
+      })
+    }
+
+    this.friendRoster.onPeerIceCandidateForVideoCall = (peerPk, candidate, callID) => {
+      this.onMainToRenderer1WayAction?.({
+        type: 'peerIceCandidateForVideoCall',
+        payload: {
+          peerPk,
+          candidate,
+          callID
+        }
+      })
+    }
+
+    this.friendRoster.onNotification = (...args) => {
+      this.onNotification?.(...args)
     }
 
     //update friend roster and database when redux store changes
@@ -391,6 +465,8 @@ export class Controller {
           case 'hydrate-user':
             this.keyPair = action.payload.keyPair
             this.con.serverUrl = action.payload.serverUrl
+            this.con.options.stunServer = action.payload.stunServer
+            this.con.options.turnServer = action.payload.turnServer
             this.con.enabled = action.payload.serverEnabled
             break
           case 'set-key-pair':
@@ -406,9 +482,11 @@ export class Controller {
             this.db.updateUser({ serverEnabled: action.payload })
             break
           case 'set-stun-server':
+            this.con.options.stunServer = action.payload
             this.db.updateUser({ stunServer: action.payload })
             break
           case 'set-turn-server':
+            this.con.options.turnServer = action.payload
             this.db.updateUser({ turnServer: action.payload })
             break
         }
@@ -442,9 +520,11 @@ export class Controller {
    * Send a message to a peer, update the database, return a message to the front end.
    */
   public sendMessage = async (toPk: string, message: string): Promise<SendMessageReturnType> => {
+    const msgNumber = await this.db.getNewMessageNumber('local', toPk)
+
     // send message
     try {
-      this.friendRoster.sendMessage(toPk, message)
+      await this.friendRoster.sendMessage(toPk, message, msgNumber)
     } catch (e) {
       console.error(eToStr(e))
       return {
@@ -457,7 +537,8 @@ export class Controller {
       date: Date.now(),
       fromPk: 'local',
       toPk: toPk,
-      text: message
+      text: message,
+      msgNumber
     }
 
     // insert into database.
@@ -465,10 +546,10 @@ export class Controller {
       await this.db.insertMessage(msgObj)
     } catch (e) {
       console.error(eToStr(e))
-      this.onMainToRendererAction?.({
-        type: 'error',
-        payload: { msg: 'Failed to add message to local database: ' + eToStr(e) }
-      })
+      return {
+        msg: msgObj,
+        error: 'Failed to add message to local database: ' + eToStr(e)
+      }
     }
 
     return { msg: msgObj }

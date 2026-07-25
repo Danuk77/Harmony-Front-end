@@ -4,16 +4,18 @@
   import { peerConnectionStatusToBulbColorCssVariable } from '../misc/misc'
   import type { FriendState } from '../../../common/redux'
   import { store } from '../redux'
-  import { changeFriendStatus } from '../endpointIoWrappers'
+  import { executeFriendOption } from '../endpointIoWrappers'
   let {
     selected,
-    hasUnreadMessages: hasUnreadMessages,
+    hasUnreadMessages,
+    hasIncomingCall,
     fs,
     onclick,
     oncontextmenu
   }: {
     selected: boolean
     hasUnreadMessages: boolean
+    hasIncomingCall: boolean
     fs: FriendState
     onclick?: () => unknown
     oncontextmenu?: HTMLButtonElement['oncontextmenu']
@@ -37,14 +39,14 @@
 
   let statusAndNameBackgroundColor = $derived.by(() => {
     const lighten = selected && $store.ui.screenMode == 'chat'
-    const amber = hasUnreadMessages
+    const amber = hasUnreadMessages || hasIncomingCall
 
     return getButtonBackgroundColor(amber, lighten)
   })
 
   let editBackgroundColor = $derived.by(() => {
     const lighten = selected && $store.ui.screenMode == 'edit-friend'
-    const amber = hasUnreadMessages
+    const amber = hasUnreadMessages || hasIncomingCall
 
     return getButtonBackgroundColor(amber, lighten)
   })
@@ -62,6 +64,10 @@
     }
   })
   let icon = $derived.by(() => {
+    if (hasIncomingCall) {
+      return 'fa-phone-volume'
+    }
+
     switch (fs.friend.status) {
       case 'accept':
         return 'fa-lightbulb'
@@ -99,7 +105,7 @@
   <button
     id="cog-container"
     style={`background-color: var(${editBackgroundColor})`}
-    onclick={() => changeFriendStatus(fs.friend, 'edit')}
+    onclick={() => executeFriendOption(fs.friend, 'edit')}
     aria-label="Edit"
     {oncontextmenu}
   >
@@ -125,6 +131,7 @@
     min-width: 0px;
     padding-right: 2px;
     border-radius: 5px 0 0 5px;
+    box-shadow: var(--dark-box-shadow);
   }
   button:hover {
     opacity: 80%;
@@ -163,6 +170,7 @@
     margin-left: 2px;
     padding-right: 5px;
     border-radius: 0 5px 5px 0;
+    box-shadow: var(--dark-box-shadow);
   }
   #bulb {
     margin-left: 5px;

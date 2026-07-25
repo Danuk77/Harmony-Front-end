@@ -2,6 +2,7 @@ import { Friend } from '../main/LocalDatabase'
 
 export type FriendBlockContextMenuOptions =
   | 'edit'
+  | 'reconnect'
   | 'block'
   | 'delete'
   | 'unblock'
@@ -15,6 +16,7 @@ export type FriendBlockContextMenuOptions =
   | 'withdrawAccept'
 export const friendBlockContextMenuLabels: Record<FriendBlockContextMenuOptions, string> = {
   accept: 'Accept',
+  reconnect: 'Reconnect',
   block: 'Block',
   delete: 'Delete',
   edit: 'Edit',
@@ -33,7 +35,7 @@ export const friendBlockContextMenuAvailableOptions = (friend: Friend) => {
   const options: FriendBlockContextMenuOptions[] = ['edit']
   switch (friend.status) {
     case 'accept':
-      options.push('renew', 'block')
+      options.push('reconnect', 'renew', 'block')
       break
     case 'blocking':
       options.push('send', 'block')

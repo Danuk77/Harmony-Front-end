@@ -1,18 +1,24 @@
 import 'electron-redux/preload'
-import { contextBridge, dialog, ipcRenderer } from 'electron'
+import { contextBridge, dialog, ipcRenderer, Shell } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import { Friend, LocalDatabase, Message } from '../main/LocalDatabase'
-import { FriendConnectionStatus } from '../main/FriendConnectionHandler'
 import { Controller } from '../main/Controller'
 import { showFriendBlockContextMenu } from '../main/showFriendBlockContextMenu'
 import { generateKeyPair, verifyKeyPair } from '../main/generateKeyPair'
+import {
+  MainToRenderer2WayActionArgs,
+  MainToRendererComManager
+} from '../main/MainToRendererComManager'
+import { FriendConnectionStatus } from '../main/FriendConnectionHandler'
+import { FriendRoster } from '../main/FriendRoster'
+import { ICECandidate } from '../main/friendCtlRoutines/VideoCallRoutine'
 
 export type FriendWithState = Friend & {
   connectionStatus: FriendConnectionStatus
 }
 
 // all one-way actions sent from main to renderer.
-export type MainToRendererAction =
+export type MainToRenderer1WayAction =
   | {
       type: 'failed-login'
       payload: {
@@ -29,16 +35,42 @@ export type MainToRendererAction =
         msg: string
       }
     }
+  | {
+      type: 'peerSdpAnswerForVideoCall'
+      payload: {
+        peerPk: string
+        sdp: {
+          type: 'answer'
+          sdp: string
+        }
+        callID: number
+      }
+    }
+  | {
+      type: 'peerIceCandidateForVideoCall'
+      payload: {
+        peerPk: string
+        candidate: ICECandidate
+        callID: number
+      }
+    }
 
 // Custom APIs for renderer
 const api = {
   test: () => console.log('hello'),
+  beep: <Shell['beep']>((...args) => ipcRenderer.invoke('beep', ...args)),
   getConversation: <LocalDatabase['getConversation']>(
     ((...args) => ipcRenderer.invoke('getConversation', ...args))
   ),
   sendMessage: <Controller['sendMessage']>((...args) => ipcRenderer.invoke('sendMessage', ...args)),
-  onMainToRendererAction: (callback: (arg0: MainToRendererAction) => unknown) =>
-    ipcRenderer.on('mainToRendererAction', (_event, value) => callback(value)),
+  onMainToRenderer1WayAction: (callback: (arg0: MainToRenderer1WayAction) => unknown) =>
+    ipcRenderer.on('mainToRenderer1WayAction', (_event, value) => callback(value)),
+  onMainToRenderer2WayAction: (
+    callback: (arg0: { id: number; args: MainToRenderer2WayActionArgs }) => unknown
+  ) => ipcRenderer.on('mainToRenderer2WayAction', (_event, value) => callback(value)),
+  mainToRenderer2WayActionResponse: <MainToRendererComManager['receiveMessageFromRenderer']>(
+    ((...args) => ipcRenderer.invoke('mainToRenderer2WayActionResponse', ...args))
+  ),
   sendFriendRequest: <Controller['sendFriendRequest']>(
     ((...args) => ipcRenderer.invoke('sendFriendRequest', ...args))
   ),
@@ -66,7 +98,34 @@ const api = {
   generateKeyPair: <typeof generateKeyPair>(
     ((...args) => ipcRenderer.invoke('generateKeyPair', ...args))
   ),
-  verifyKeyPair: <typeof verifyKeyPair>((...args) => ipcRenderer.invoke('verifyKeyPair', ...args))
+  verifyKeyPair: <typeof verifyKeyPair>((...args) => ipcRenderer.invoke('verifyKeyPair', ...args)),
+  forwardICECandidateForVideoCall: <FriendRoster['forwardICECandidateForVideoCall']>(
+    ((...args) => ipcRenderer.invoke('forwardICECandidateForVideoCall', ...args))
+  ),
+  hangUpAndCloseVideoCall: <FriendRoster['hangUpAndCloseVideoCall']>(
+    ((...args) => ipcRenderer.invoke('hangUpAndCloseVideoCall', ...args))
+  ),
+  errorVideoCall: <FriendRoster['errorVideoCall']>(
+    ((...args) => ipcRenderer.invoke('errorVideoCall', ...args))
+  ),
+  signallingCompleteVideoCall: <FriendRoster['signallingCompleteVideoCall']>(
+    ((...args) => ipcRenderer.invoke('signallingCompleteVideoCall', ...args))
+  ),
+  peerHangsUpVideoCall: <FriendRoster['peerHangsUpVideoCall']>(
+    ((...args) => ipcRenderer.invoke('peerHangsUpVideoCall', ...args))
+  ),
+  weAcceptVideoCall: <FriendRoster['weAcceptVideoCall']>(
+    ((...args) => ipcRenderer.invoke('weAcceptVideoCall', ...args))
+  ),
+  sendVideoCallRequest: <FriendRoster['sendVideoCallRequest']>(
+    ((...args) => ipcRenderer.invoke('sendVideoCallRequest', ...args))
+  ),
+  videoCallWindowOpens: <FriendRoster['videoCallWindowOpens']>(
+    ((...args) => ipcRenderer.invoke('videoCallWindowOpens', ...args))
+  ),
+  forceFriendReconnect: <FriendRoster['forceFriendReconnect']>(
+    ((...args) => ipcRenderer.invoke('forceFriendReconnect', ...args))
+  )
 }
 
 export type Api = typeof api

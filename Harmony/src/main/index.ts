@@ -7,15 +7,18 @@ import {
   Menu,
   Notification,
   NativeImage,
-  nativeImage
+  nativeImage,
+  nativeTheme
 } from 'electron'
 import { join } from 'path'
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import icon from '../../build/icon.png?asset'
 import { Controller } from './Controller'
 import { ipcMainTypesafe } from './ipcMainTypesafe'
 import { showFriendBlockContextMenu } from './showFriendBlockContextMenu'
 import { generateKeyPair, verifyKeyPair } from './generateKeyPair'
+import { mainToRendererComManager } from './MainToRendererComManager'
+import { applicationMenu } from './applicationMenu'
 export const DEBUG = true
 
 process.traceProcessWarnings = true
@@ -49,17 +52,40 @@ function focusMainWindow() {
   }
 }
 
+nativeTheme.themeSource = 'light'
+
 function createMainWindow(): BrowserWindow {
   // Create the browser window.
   const window = new BrowserWindow({
     width: 900,
     height: 670,
+    minWidth: 550,
+    minHeight: 300,
+    titleBarStyle: 'hidden',
+    darkTheme: false,
+    ...(process.platform !== 'darwin' ? { titleBarOverlay: true } : {}),
     show: false,
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false
+    }
+  })
+
+  const editableMenu = Menu.buildFromTemplate([
+    { role: 'cut' },
+    { role: 'copy' },
+    { role: 'paste' },
+    { role: 'selectAll' }
+  ])
+  const selectableMenu = Menu.buildFromTemplate([{ role: 'copy' }])
+  window.webContents.on('context-menu', (_event, params) => {
+    // only show the context menu if the element is editable
+    if (params.isEditable) {
+      editableMenu.popup()
+    } else if (params.selectionText) {
+      selectableMenu.popup()
     }
   })
 
@@ -83,12 +109,14 @@ function createMainWindow(): BrowserWindow {
   return window
 }
 
+Menu.setApplicationMenu(applicationMenu())
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
   // Set app user model id for windows
-  electronApp.setAppUserModelId('com.electron')
+  electronApp.setAppUserModelId('com.harmonyclient')
 
   // system tray
   let appIconImage: NativeImage | undefined = undefined
@@ -136,7 +164,25 @@ app.whenReady().then(() => {
     }
   }
 
+  // main to renderer 2 way
+  mainToRendererComManager.setSendCallback((id, args) => {
+    BrowserWindow.getAllWindows().forEach((window) => {
+      window.webContents.send('mainToRenderer2WayAction', { id, args })
+    })
+  })
+  ipcMainTypesafe.handle('mainToRenderer2WayActionResponse', (_, ...args) =>
+    mainToRendererComManager.receiveMessageFromRenderer(...args)
+  )
+
+  // main to renderer 1 way
+  controller.onMainToRenderer1WayAction = (action) => {
+    BrowserWindow.getAllWindows().forEach((window) => {
+      window.webContents.send('mainToRenderer1WayAction', action)
+    })
+  }
+
   // 2 way, initiated by renderer
+  ipcMainTypesafe.handle('beep', (_, ...args) => shell.beep(...args))
   ipcMainTypesafe.handle('getConversation', (_, ...args) => controller.db.getConversation(...args))
   ipcMainTypesafe.handle('sendMessage', (_, ...args) => controller.sendMessage(...args))
   ipcMainTypesafe.handle('sendFriendRequest', (_, ...args) => controller.sendFriendRequest(...args))
@@ -158,12 +204,33 @@ app.whenReady().then(() => {
   ipcMainTypesafe.handle('generateKeyPair', (_, ...args) => generateKeyPair(...args))
   ipcMainTypesafe.handle('verifyKeyPair', (_, ...args) => verifyKeyPair(...args))
 
-  // main to renderer
-  controller.onMainToRendererAction = (action) => {
-    BrowserWindow.getAllWindows().forEach((window) => {
-      window.webContents.send('mainToRendererAction', action)
-    })
-  }
+  ipcMainTypesafe.handle('forwardICECandidateForVideoCall', (_, ...args) =>
+    controller.friendRoster.forwardICECandidateForVideoCall(...args)
+  )
+  ipcMainTypesafe.handle('hangUpAndCloseVideoCall', (_, ...args) =>
+    controller.friendRoster.hangUpAndCloseVideoCall(...args)
+  )
+  ipcMainTypesafe.handle('errorVideoCall', (_, ...args) =>
+    controller.friendRoster.errorVideoCall(...args)
+  )
+  ipcMainTypesafe.handle('signallingCompleteVideoCall', (_, ...args) =>
+    controller.friendRoster.signallingCompleteVideoCall(...args)
+  )
+  ipcMainTypesafe.handle('peerHangsUpVideoCall', (_, ...args) =>
+    controller.friendRoster.peerHangsUpVideoCall(...args)
+  )
+  ipcMainTypesafe.handle('weAcceptVideoCall', (_, ...args) =>
+    controller.friendRoster.weAcceptVideoCall(...args)
+  )
+  ipcMainTypesafe.handle('sendVideoCallRequest', (_, ...args) =>
+    controller.friendRoster.sendVideoCallRequest(...args)
+  )
+  ipcMainTypesafe.handle('videoCallWindowOpens', (_, ...args) =>
+    controller.friendRoster.videoCallWindowOpens(...args)
+  )
+  ipcMainTypesafe.handle('forceFriendReconnect', (_, ...args) =>
+    controller.friendRoster.forceFriendReconnect(...args)
+  )
 
   focusMainWindow()
 

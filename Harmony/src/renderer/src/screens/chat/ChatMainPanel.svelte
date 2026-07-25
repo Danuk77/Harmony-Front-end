@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
   import type { Message } from '../../../../main/LocalDatabase'
-  import type { MainToRendererAction } from '../../../../preload'
+  import type { MainToRenderer1WayAction } from '../../../../preload'
   import { store } from '../../redux'
 
   const friendState = $derived.by(() =>
@@ -21,9 +21,9 @@
 
   // uupdate with incoming messasges
   onMount(() => {
-    const bc = new BroadcastChannel('mainToRendererAction')
+    const bc = new BroadcastChannel('mainToRenderer1WayAction')
     bc.onmessage = (_event) => {
-      const action = _event.data as MainToRendererAction
+      const action = _event.data as MainToRenderer1WayAction
       if (action.type == 'receive-message') {
         if (action.payload.fromPk == $store.ui.selectedFriendPk && action.payload.toPk == 'local') {
           messages.push(action.payload)
@@ -112,16 +112,21 @@
     if (event.key == 'Enter' && !isShiftHeld && $store.ui.selectedFriendPk) {
       event.preventDefault()
       if (!inputEnabled) {
+        window.api.beep()
         return
       }
       if (textBoxContents == '') {
+        window.api.beep()
         return
       }
       if (!$store.user.keyPair) {
         return
       }
       window.api.sendMessage($store.ui.selectedFriendPk, textBoxContents).then(({ msg, error }) => {
-        if (!error && msg) messages.push(msg)
+        if (error) {
+          alert(error)
+        }
+        if (msg) messages.push(msg)
       })
       textBoxContents = ''
     }
@@ -189,7 +194,7 @@
       class="bubble"
       id="message-input-container"
       style="background-color: var({inputBoxColor})"
-      contenteditable="true"
+      contenteditable="plaintext-only"
       onkeypress={messageBoxKeyEvent}
       role="textbox"
       tabindex="0"
@@ -223,6 +228,7 @@
     display: flex;
     flex-direction: column;
   }
+
   .bubble {
     border-radius: 18px;
     padding: 4px;
@@ -253,6 +259,7 @@
   }
   #message-input-container {
     /* background color now set by inline css */
+    box-shadow: inset 0px 3px 4px 0px;
     max-width: 700px;
     width: 90%;
     max-height: 50%;

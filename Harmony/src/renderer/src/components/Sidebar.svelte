@@ -6,7 +6,7 @@
   import HarmonyIcon from './HarmonyIcon.svelte'
   import LocalStatusBubble from './LocalStatusBubble.svelte'
   import type { FriendState } from '../../../common/redux'
-  import { changeFriendStatus } from '../endpointIoWrappers'
+  import { executeFriendOption } from '../endpointIoWrappers'
 
   function navigateToAddFriendScreen() {
     store.dispatch({ type: 'set-screen-mode', payload: 'add-friend' })
@@ -19,7 +19,7 @@
     if (localPk) {
       const result = await window.api.showFriendBlockContextMenu(fs.friend)
       if (result) {
-        changeFriendStatus(fs.friend, result)
+        executeFriendOption(fs.friend, result)
       }
     }
   }
@@ -40,6 +40,8 @@
         {#if fs.friend.status != 'blocked'}
           <FriendBlock
             hasUnreadMessages={fs.friend.hasUnreadMessages}
+            hasIncomingCall={fs.videoCallStatus.callDirection == 'incoming' &&
+              !fs.videoCallStatus.accepted}
             selected={fs.friend.peerPk == $store.ui.selectedFriendPk}
             {fs}
             onclick={() => {

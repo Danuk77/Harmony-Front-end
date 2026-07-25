@@ -10,6 +10,14 @@ An Electron application with Svelte and TypeScript
 
 ### Install
 
+First build `node-harmonyclient` (in parent directory)
+
+```bash
+$ cd ../node-harmonyclient && npm install
+```
+
+Then, back in this directory
+
 ```bash
 $ npm install
 ```

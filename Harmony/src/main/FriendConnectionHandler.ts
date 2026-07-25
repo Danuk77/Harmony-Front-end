@@ -1,18 +1,22 @@
+import { sendVideoCallRequest } from './friendCtlRoutines/initiated/sendVideoCallRequest'
+import { masterRoutine } from './friendCtlRoutines/received/masterRoutine'
+import { VideoCallManager } from './VideoCallManager'
 import { Friend } from './LocalDatabase'
-import { HarmonyConnection } from './connection/HarmonyConnection'
 import {
+  HarmonyConnection,
   HarmonyPeerConnection,
-  PeerConnectionCreationResult
-} from './connection/model/HarmonyPeerConnection'
-
-const offlineReconnectPeriod = 300_000 // ms (5 minutes)
-const disconnectedReconnectPeriod = 10_000 //ms
-const failedReconnectPeriod = 300_000 // ms
-const rejectedReconnectPeriod = 10_000 // ms
+  PeerConnectionCreationResult,
+  TransactionHandler
+} from 'node-harmonyclient'
+import { ICECandidate, VideoCallRoutine } from './friendCtlRoutines/VideoCallRoutine'
+import { sendMessage } from './friendCtlRoutines/initiated/sendMessage'
+import { assertNever } from '../common/utils'
+import { Controller } from './Controller'
 
 export type FriendConnectionStatus =
   | 'online-connected' // connected to the friend
   | 'online-disconnected' // peer connection to the friend was lost
+  | 'online-rtc-disconnected' // rtc peer connection is still alive, but connection is faulty. Might regain connection or switch to online-disconnected if the rtc connection is lost entirely.
   | 'failed' // conenction request failed before it was determined whether the user was online or not.
   | 'offline' // no peer connection, and friend is not connected to the signalling server.
   | 'unknown' // not yet attemted to connect to the friend. Will do so immediately.
@@ -22,10 +26,19 @@ export type FriendConnectionStatus =
   | 'closed' // Our side has terminated the connection, and it cannot be reopened. Called when we wish to delete the friend or edit their public key.
   | 'unset'
 
+const offlineReconnectPeriod = 300_000 // ms (5 minutes)
+const disconnectedReconnectPeriod = 10_000 //ms
+const failedReconnectPeriod = 300_000 // ms
+const rejectedReconnectPeriod = 10_000 // ms
+
 export class FriendConnectionHandler {
+  // set from redux store
   // @ts-ignore this.friend is set in the constructor - that sets this in turn.
   private _friend: Friend
+
+  // set to redux store
   private _connectionStatus: FriendConnectionStatus = 'unset'
+
   // _paused == true: Stop trying to connect to the peer. E.g., may be used when the websocket connection is broken.
   private _paused: boolean = true
   private shouldReconnectWhenUnpaused = false
@@ -35,20 +48,61 @@ export class FriendConnectionHandler {
   public con: HarmonyConnection
   private peerConnection?: HarmonyPeerConnection
 
+  public controlChannelTransactionHandler: TransactionHandler<void, this>
+  // public videoCallRoutine: VideoCallRoutine
+  public videoCallManager: VideoCallManager
+
   // callbacks
-  public onConnectionStatusChange?: (status: typeof this._connectionStatus) => unknown
-  public onReceiveMessage?: (msg: string) => unknown
+  public onConnectionStatusChange: (status: typeof this._connectionStatus) => unknown
+  public onReceiveMessage: (msg: string, msgNumber: number | null) => unknown | Promise<unknown>
+  public onPeerSdpAnswerForVideoCall: (
+    sdp: { type: 'answer'; sdp: string },
+    callID: number
+  ) => unknown
+  public onPeerIceCandidateForVideoCall: (candidate: ICECandidate, callID: number) => unknown
+
+  // used in inner functions
+  public onAcceptOrRejectVideoCall?: (status: 'accept' | 'reject') => unknown
 
   constructor(
     con: HarmonyConnection,
     friendDB: Friend,
-    onConnectionStatusChange: typeof this.onConnectionStatusChange,
-    onReceiveMessage: typeof this.onReceiveMessage
+    // videoCallStatus: FriendVideoCallStatus,
+    callbacks: {
+      onConnectionStatusChange: FriendConnectionHandler['onConnectionStatusChange']
+      onVideoCallStatusChange: VideoCallManager['onVideoCallStatusChange']
+      onReceiveMessage: FriendConnectionHandler['onReceiveMessage']
+      onPeerSdpAnswerForVideoCall: FriendConnectionHandler['onPeerSdpAnswerForVideoCall']
+      onPeerIceCandidateForVideoCall: FriendConnectionHandler['onPeerIceCandidateForVideoCall']
+    }
   ) {
-    this.onReceiveMessage = onReceiveMessage
-    this.onConnectionStatusChange = onConnectionStatusChange
+    // set callbacks
+    this.onReceiveMessage = callbacks.onReceiveMessage
+    this.onConnectionStatusChange = callbacks.onConnectionStatusChange
+    this.onPeerSdpAnswerForVideoCall = callbacks.onPeerSdpAnswerForVideoCall
+    this.onPeerIceCandidateForVideoCall = callbacks.onPeerIceCandidateForVideoCall
+
+    // this.onCallStatusChange = onCallStatusChange
     this.friend = friendDB
+    // this.videoCallStatus = videoCallStatus
     this.con = con
+
+    // messages on the ctl channel
+    this.controlChannelTransactionHandler = new TransactionHandler(
+      async (msg, _) => {
+        console.log('📮 CTLsend: ' + msg)
+        this.peerConnection?.ctlChannel.send(msg)
+      },
+      masterRoutine,
+      this
+    )
+    const videoCallRoutine = new VideoCallRoutine(friendDB.peerPk, this)
+    this.videoCallManager = new VideoCallManager(
+      friendDB.peerPk,
+      callbacks.onVideoCallStatusChange,
+      videoCallRoutine,
+      this
+    )
   }
 
   public get friend() {
@@ -141,17 +195,22 @@ export class FriendConnectionHandler {
         this.attemptConnection() // attempt to connect immediately
         break
       case 'connecting':
-        break
       case 'do-not-connect':
-        break
       case 'online-connected':
-        break
       case 'closed':
+      case 'unset':
+      case 'online-rtc-disconnected':
         break
+      default:
+        assertNever(status)
     }
   }
 
-  private attemptConnection = () => {
+  public acceptOrRejectVideoCall = (status: 'accept' | 'reject') => {
+    this.onAcceptOrRejectVideoCall?.(status)
+  }
+
+  public attemptConnection = () => {
     if (this.paused) {
       this.shouldReconnectWhenUnpaused = true
       return
@@ -173,8 +232,7 @@ export class FriendConnectionHandler {
     if (this.connectionStatus == 'closed') {
       // close it immediately.
       if (result.status == 'succeed') {
-        result.peerConnection.chatChannel.close()
-        result.peerConnection.rtc.close()
+        result.peerConnection.close()
       }
       return
     }
@@ -185,8 +243,7 @@ export class FriendConnectionHandler {
         // reassign this.channel first so the event listener for the old channel doesn't change the status when it closes.
         const oldPeerConnection = this.peerConnection
         this.peerConnection = result.peerConnection
-        oldPeerConnection?.chatChannel.close()
-        oldPeerConnection?.rtc.close()
+        oldPeerConnection?.close()
       } else {
         // ignore the new failed connection. As far as we're concerned, we already have a working connection.
         return
@@ -209,31 +266,59 @@ export class FriendConnectionHandler {
 
         // add event listeners
         this.peerConnection.chatChannel.onMessage.subscribe((msg) => {
-          this.onReceiveMessage?.(msg.toString())
+          this.onReceiveMessage?.(msg.toString(), null)
         })
-        this.peerConnection.chatChannel.stateChanged.subscribe((state) => {
+        this.peerConnection.ctlChannel.onMessage.subscribe((msg) => {
+          console.log('📬 CTLrecv: ' + msg)
+          this.controlChannelTransactionHandler.recv(msg.toString())
+        })
+
+        const onChannelStateChanged: Parameters<
+          typeof this.peerConnection.chatChannel.stateChanged.subscribe
+        >[0] = (state) => {
           if (state == 'closing' || state == 'closed') {
             // check chat channel has not changed
             if (this.peerConnection == result.peerConnection) {
               // in future we could get an explicit disconnect message from the user.
               this.connectionStatus = 'online-disconnected'
+              this.controlChannelTransactionHandler.clear()
             }
-            // remove listeners
-            result.peerConnection.chatChannel.stateChanged.allUnsubscribe()
-            result.peerConnection.rtc.connectionStateChange.allUnsubscribe()
+            result.peerConnection.removeAllListeners()
           }
-        })
+        }
+        this.peerConnection.chatChannel.stateChanged.subscribe(onChannelStateChanged)
+        this.peerConnection.ctlChannel.stateChanged.subscribe(onChannelStateChanged)
+
         result.peerConnection.rtc.connectionStateChange.subscribe(() => {
-          if (
-            ['closed', 'disconnected', 'failed'].includes(result.peerConnection.rtc.connectionState)
-          ) {
-            // set to online-disconnected - if the peer connection was still in use
-            if (this.peerConnection == result.peerConnection) {
-              this.connectionStatus = 'online-disconnected'
+          switch (result.peerConnection.rtc.connectionState) {
+            case 'closed':
+            case 'failed':
+            case 'disconnected': {
+              // set to online-disconnected - if the peer connection was still in use
+              if (this.peerConnection == result.peerConnection) {
+                this.connectionStatus = 'online-disconnected'
+                this.controlChannelTransactionHandler.clear()
+              }
+              result.peerConnection.removeAllListeners()
+              result.peerConnection.close()
+              break
             }
-            // remove these listeners
-            result.peerConnection.chatChannel.stateChanged.allUnsubscribe()
-            result.peerConnection.rtc.connectionStateChange.allUnsubscribe()
+            // {
+            //   if (this.peerConnection == result.peerConnection) {
+            //     this.connectionStatus = 'online-rtc-disconnected'
+            //     console.error(`Temporarily disconnected from ${this.friend.nickname}`)
+            //   }
+            //   break
+            // }
+            case 'connected': {
+              if (this.peerConnection == result.peerConnection) {
+                this.connectionStatus = 'online-connected'
+              }
+              break
+            }
+            case 'new':
+            case 'connecting':
+              break
           }
         })
 
@@ -245,21 +330,24 @@ export class FriendConnectionHandler {
   }
 
   /**
-   * Attempt to send a message. Might throw an error.
+   * Attempt to send a message. Might throw an error
    * @param msg
    */
-  public sendMessage(msg: string) {
-    if (!this.peerConnection) {
-      throw new Error('Chat channel not established')
+  public async sendMessage(msg: string, msgNumber: number) {
+    if (!this.peerConnection?.ctlChannel) {
+      throw new Error('Chat control channel not established')
     }
+    // routine.
+    await sendMessage(this, msg, msgNumber)
+  }
 
-    this.peerConnection.chatChannel.send(msg) // might throw an error
+  public sendVideoCallRequest(callID: number) {
+    return sendVideoCallRequest(this, callID)
   }
 
   // close the connection and prevent reconnections.
   public close() {
     this.connectionStatus = 'closed'
-    this.peerConnection?.chatChannel.close()
-    this.peerConnection?.rtc.close()
+    this.peerConnection?.close()
   }
 }

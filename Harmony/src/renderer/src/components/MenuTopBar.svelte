@@ -26,4 +26,8 @@
     display: flex;
     align-items: center;
   }
+
+  #contents > * {
+    app-region: no-drag;
+  }
 </style>

@@ -3,34 +3,52 @@
   --ev-c-black: #000000;
 
   --ev-c-purple-1: #482960;
-  --ev-c-purple-2: #35223C;
-  --ev-c-purple-3: #201B2F;
+  --ev-c-purple-2: #35223c;
+  --ev-c-purple-3: #201b2f;
 
-  --ev-c-pink-1: #952B6A;
+  --ev-c-blue-purple-1: #6963bd;
 
-  --ev-c-gray-0: #D9D9D9;
-  --ev-c-gray-1: #6D6D6D;
-  --ev-c-gray-2: #343434;
-  --ev-c-gray-3: #28282B;
-  --ev-c-gray-4: #1C1D21;
+  --ev-c-pink-1: #952b6a;
+
+  --ev-c-red-1: #e10053;
+
+  --ev-c-gray-0: #d9d9d9;
+  --ev-c-gray-1: #6d6d6d;
+  --ev-c-gray-2: #363636;
+  --ev-c-gray-3: #28282b;
+  --ev-c-gray-4: #1c1d21;
 
   --ev-c-green-1: #298200;
+  --ev-c-green-2: #3eb607;
 
-  --ev-c-amber-1: #AD7302;
-  --ev-c-amber-2: #573E26;
-  --ev-c-amber-3: #805C3C;
+  --ev-c-amber-1: #ad7302;
+  --ev-c-amber-2: #573e26;
+  --ev-c-amber-3: #805c3c;
 
   --ev-c-text-white: #ffffff;
-  --ev-c-text-gray: #6D6D6D;
+  --ev-c-text-gray: #6d6d6d;
+  --ev-c-text-light-gray: #afafaf;
 
   --scrollbar-width: 10px;
+}
 
-
+button,
+a {
+  app-region: no-drag;
 }
 
 :root {
+  --color-button-disabled: var(--ev-c-gray-1);
+  --color-button-normal: var(--ev-c-blue-purple-1);
+  --color-button-highlighted: var(--ev-c-amber-2);
+  --color-button-incoming: var(--ev-c-green-1);
+  --color-button-hangup: var(--ev-c-pink-1);
+
+  --color-button-text-enabled: var(--ev-c-white);
+  --color-button-text-disabled: var(--ev-c-text-light-gray);
 
   --color-sender-bubble: var(--ev-c-purple-1);
+  --color-video-caller-status-bubble: var(--ev-c-pink-1);
   --color-background: var(--ev-c-purple-2);
   --color-form-panel-background: var(--ev-c-purple-3);
   --color-form-panel-border: var(--ev-c-gray-1);
@@ -49,6 +67,7 @@
 
   --color-lightbulb-connected: var(--ev-c-green-1);
   --color-lightbulb-disconnected: var(--ev-c-amber-1);
+  --color-lightbulb-error: var(--ev-c-red-1);
   --color-lightbulb-offline: var(--ev-c-gray-4);
 
   --color-border: var(--ev-c-gray-1);
@@ -60,9 +79,15 @@
 }
 
 :root {
-  user-select: none;
+  --dark-box-shadow: inset 0px 3px 3px 0px rgb(255 255 255 / 0.025),
+    0px 3px 3px 0px rgb(0 0 0 / 0.2);
+  --light-box-shadow: inset 0px 3px 3px 0px rgb(255 255 255 / 0.15),
+    0px 3px 3px 0px rgb(0 0 0 / 0.2);
 }
 
+:root {
+  user-select: none;
+}
 
 *,
 *::before,
@@ -80,6 +105,7 @@ body {
   min-height: 100vh;
   color: var(--color-text);
   background: var(--color-background);
+  /* backdrop-filter: blur(10px); */
   line-height: 1.6;
   font-size: 10pt;
   font-family:
@@ -118,7 +144,6 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #555;
 }
-
 
 /* border-style: solid;
   border-width: 1px;

@@ -1,7 +1,8 @@
 // stores are synced  between main and renderer processes. Both need access to these types and functions.
 
-import type { WebsocketStatusType } from '../main/connection/model/HarmonyWebsocketConnection'
+import type { WebsocketStatusType } from 'node-harmonyclient'
 import { Friend, User } from '../main/LocalDatabase'
+import { FriendVideoCallStatus } from '../main/VideoCallManager'
 import { FriendConnectionStatus } from '../main/FriendConnectionHandler'
 
 export const defaultState: State = {
@@ -16,12 +17,23 @@ export const defaultState: State = {
     serverEnabled: true,
     serverUrl: null,
     stunServer: null,
-    turnServer: null
+    turnServer: null,
+    cameraId: null,
+    microphoneId: null
   },
   ui: {
     selectedFriendPk: null,
     screenMode: 'chat'
   }
+}
+
+export const defaultVideoCallStatus: FriendVideoCallStatus = {
+  callDirection: 'none',
+  accepted: false,
+  window: 'closed',
+  call: 'none',
+  errorMsg: null,
+  id: null
 }
 
 export type KeyPair = {
@@ -30,7 +42,12 @@ export type KeyPair = {
 }
 
 export type FriendState = {
+  // main source of truth.
   friend: Friend
+
+  // not main source of truth - updated from FriendConnectionHandler - main use is for the ui
+  videoCallStatus: FriendVideoCallStatus
+  // not main source of truth - updated from FriendConnectionHandler - main use is for the ui
   connectionStatus: FriendConnectionStatus
 }
 
@@ -82,6 +99,13 @@ export type Action =
       }
     }
   | {
+      type: 'friend-video-call-status-change'
+      payload: {
+        friend: Pick<Friend, 'peerPk'>
+        callStatus: FriendState['videoCallStatus']
+      }
+    }
+  | {
       type: 'remove-friend'
       payload: Pick<Friend, 'peerPk' | 'localPk'>
     }
@@ -111,7 +135,14 @@ export function reducer(state: State | undefined = defaultState, action: Action)
     case 'add-friend':
       return {
         ...state,
-        friendStates: [...state.friendStates, { friend: action.payload, connectionStatus: 'unset' }]
+        friendStates: [
+          ...state.friendStates,
+          {
+            friend: action.payload,
+            connectionStatus: 'unset',
+            videoCallStatus: defaultVideoCallStatus
+          }
+        ]
       }
     case 'friend-change':
       return {
@@ -178,6 +209,20 @@ export function reducer(state: State | undefined = defaultState, action: Action)
           }
         })
       }
+    case 'friend-video-call-status-change':
+      return {
+        ...state,
+        friendStates: state.friendStates.map((fs) => {
+          if (fs.friend.peerPk == action.payload.friend.peerPk) {
+            return {
+              ...fs,
+              videoCallStatus: action.payload.callStatus
+            }
+          } else {
+            return fs
+          }
+        })
+      }
     case 'hydrate-friends':
       return {
         ...state,
@@ -186,7 +231,10 @@ export function reducer(state: State | undefined = defaultState, action: Action)
           // keep the old connection status if it exists
           connectionStatus:
             state.friendStates.find((fr) => fr.friend.peerPk == friend.peerPk)?.connectionStatus ??
-            'unset'
+            'unset',
+          videoCallStatus:
+            state.friendStates.find((fr) => fr.friend.peerPk == friend.peerPk)?.videoCallStatus ??
+            defaultVideoCallStatus
         }))
       }
     case 'hydrate-user':

@@ -50,6 +50,7 @@
     outline: auto;
   }
   #block {
+    box-shadow: var(--dark-box-shadow);
     background-color: var(--color-block);
     padding-top: 3px;
     padding-bottom: 3px;

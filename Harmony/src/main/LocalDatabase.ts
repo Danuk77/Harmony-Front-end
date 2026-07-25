@@ -2,6 +2,7 @@ import DataStore from '@seald-io/nedb'
 import { app } from '.'
 import path from 'path'
 import { IceServer, KeyPair } from '../common/redux'
+import { randomInt } from 'crypto'
 
 export const DB_LOC = path.join(app.getPath('userData'), '/UserData/')
 export const DB_MESSAGES_LOC = path.join(DB_LOC, '/messages.db')
@@ -16,6 +17,9 @@ export type User = {
   serverEnabled: boolean
   stunServer: IceServer | null
   turnServer: IceServer | null
+  // null for system default
+  microphoneId: string | null
+  cameraId: string | null
 }
 type UserDoc = User & {
   _id?: string // nedb thing
@@ -26,7 +30,9 @@ const defaultUser: User = {
   serverUrl: null,
   serverEnabled: true,
   stunServer: null,
-  turnServer: null
+  turnServer: null,
+  cameraId: null,
+  microphoneId: null
 }
 
 export type Friend = {
@@ -56,6 +62,7 @@ export type Message = {
   text: string
   // ms since UNIX epoch
   date: number
+  msgNumber: number | null
 }
 
 type MessageDoc = Message & {
@@ -78,7 +85,7 @@ export class LocalDatabase {
   }
 
   public getConversation = async (pk0: string, pk1: string) => {
-    const friends = await this.messagesDb
+    const messages = await this.messagesDb
       .findAsync({
         $or: [
           {
@@ -92,7 +99,35 @@ export class LocalDatabase {
         ]
       })
       .sort({ date: 1 })
-    return friends
+    return messages
+  }
+
+  public hasMessage = async (fromPk: string, toPk: string, msgNumber: number) => {
+    return !!(await this.messagesDb.findOneAsync({
+      fromPk,
+      toPk,
+      msgNumber
+    }))
+  }
+
+  public getNewMessageNumber = async (fromPk: string, toPk: string) => {
+    let msgNumber: number
+
+    while (true) {
+      msgNumber = randomInt(0, 281474976710654)
+
+      // check if number is already in db (very rare)
+      const inDb = !!(await this.messagesDb.findOneAsync({
+        fromPk,
+        toPk,
+        msgNumber
+      }))
+
+      if (!inDb) {
+        break
+      }
+    }
+    return msgNumber
   }
 
   public getFriend = async (localPk: string, peerPk: string) => {
