@@ -12,9 +12,9 @@
   // import type { IceServer } from '../../common/redux'
   import { assertNever, eToStr } from '../../common/utils'
 
-  let microphoneEnabled = $state(true)
-  let cameraEnabled = $state(true)
-  let audioOutputEnabled = $state(true)
+  // let microphoneEnabled = $state(true)
+  // let cameraEnabled = $state(true)
+  // let audioOutputEnabled = $state(true)
   let failedToInitDevicesMessage: string | null = $state(null)
 
   let temporaryConnectionIssues = $state(false)
@@ -421,17 +421,17 @@
     /**@todo stop tracks?*/
   }
 
-  function microphone() {
-    microphoneEnabled = !microphoneEnabled
-  }
+  // function microphone() {
+  //   microphoneEnabled = !microphoneEnabled
+  // }
 
-  function video() {
-    cameraEnabled = !cameraEnabled
-  }
+  // function video() {
+  //   cameraEnabled = !cameraEnabled
+  // }
 
-  function audioOutput() {
-    audioOutputEnabled = !audioOutputEnabled
-  }
+  // function audioOutput() {
+  //   audioOutputEnabled = !audioOutputEnabled
+  // }
 
   let stateText = $derived.by(() => {
     const state = $store.friendStates.find((f) => f.friend.peerPk == pk)?.videoCallStatus
@@ -483,7 +483,7 @@
   </div>
   <div id="iconBand">
     <div id="iconPanel">
-      <IconBubble
+      <!-- <IconBubble
         ariaLabel="Enable/disable microphone"
         icon={'fa-microphone'}
         --background-color="var(--color-button-normal)"
@@ -503,7 +503,7 @@
         --background-color="var(--color-button-normal)"
         onclick={audioOutput}
         strikethrough={!audioOutputEnabled}
-      />
+      /> -->
       <IconBubble
         ariaLabel="Hang up"
         icon="fa-phone"
