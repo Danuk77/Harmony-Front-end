@@ -14,7 +14,7 @@ import { assertNever } from '../common/utils'
 import { sendVerifyIdentity } from './friendCtlRoutines/initiated/sendVerifyIdentity'
 import { eToStr } from './Controller'
 import { sendGetCapabilities } from './friendCtlRoutines/initiated/sendGetCapabilities'
-import { capabilities, capAlternatives } from './friendCtlRoutines/capabilities'
+import { capAlternatives } from './friendCtlRoutines/capabilities'
 
 export type FriendConnectionStatus =
   | 'verified-connected' // connected to the friend and friend's identity verified
