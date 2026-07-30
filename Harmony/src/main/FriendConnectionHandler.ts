@@ -13,6 +13,8 @@ import { sendMessage } from './friendCtlRoutines/initiated/sendMessage'
 import { assertNever } from '../common/utils'
 import { sendVerifyIdentity } from './friendCtlRoutines/initiated/sendVerifyIdentity'
 import { eToStr } from './Controller'
+import { sendGetCapabilities } from './friendCtlRoutines/initiated/sendGetCapabilities'
+import { capabilities, capAlternatives } from './friendCtlRoutines/capabilities'
 
 export type FriendConnectionStatus =
   | 'verified-connected' // connected to the friend and friend's identity verified
@@ -41,6 +43,7 @@ export class FriendConnectionHandler {
 
   // set to redux store
   private _connectionStatus: FriendConnectionStatus = 'unset'
+  private _capabilities: string[] | null = null
 
   // _paused == true: Stop trying to connect to the peer. E.g., may be used when the websocket connection is broken.
   private _paused: boolean = true
@@ -207,6 +210,35 @@ export class FriendConnectionHandler {
       default:
         assertNever(status)
     }
+
+    // clear capabilities
+    switch (status) {
+      case 'verified-connected':
+      case 'unverified-connected':
+        break
+      case 'online-disconnected':
+      case 'failed':
+      case 'offline':
+      case 'unknown':
+      case 'do-not-connect':
+      case 'rejected':
+      case 'connecting':
+      case 'closed':
+      case 'unset':
+        this.capabilities = null
+        break
+      default:
+        assertNever(status)
+    }
+  }
+
+  private get capabilities() {
+    return this._capabilities
+  }
+
+  private set capabilities(capabilities) {
+    this._capabilities = capabilities
+    /**@todo fire listener */
   }
 
   public acceptOrRejectVideoCall = (status: 'accept' | 'reject') => {
@@ -250,6 +282,7 @@ export class FriendConnectionHandler {
         const oldPeerConnection = this.peerConnection
         this.peerConnection = result.peerConnection
         oldPeerConnection?.close()
+        this.capabilities = null
       } else {
         // ignore the new failed connection. As far as we're concerned, we already have a working connection.
         return
@@ -330,8 +363,9 @@ export class FriendConnectionHandler {
 
         this.connectionStatus = 'unverified-connected'
 
-        // verify peer's identity (async)
         const ctlId = result.peerConnection.ctlChannel.id
+
+        // verify peer's identity (async)
         sendVerifyIdentity(this)
           .then((verified) => {
             // check that the connection has not changed
@@ -351,10 +385,40 @@ export class FriendConnectionHandler {
               `Friend with pk ${this.friend.peerPk} could not be verified. ${eToStr(e)}`
             )
           )
+
+        // get friend's capabilities (async)
+        sendGetCapabilities(this)
+          .then((capabilities) => {
+            // check that the connection has not changed
+            if (this.peerConnection?.ctlChannel.id != ctlId) {
+              return
+            }
+            this.capabilities = capabilities
+          })
+          .catch((e) =>
+            console.error(
+              `Could not get capabilities of friend with pk ${this.friend.peerPk}. ${eToStr(e)}`
+            )
+          )
         break
       default:
         this.connectionStatus = 'failed'
     }
+  }
+
+  // choose the newest capability alt that is supported by both us and the client
+  private getSupportedCapabilityAlt<E extends keyof typeof capAlternatives>(
+    cap: E
+  ): (typeof capAlternatives)[E][number] | null {
+    // choose a routine that the peer supports
+    if (this.capabilities) {
+      for (const alt of capAlternatives[cap]) {
+        if (this.capabilities.includes(alt)) {
+          return alt
+        }
+      }
+    }
+    return null
   }
 
   /**
@@ -365,12 +429,25 @@ export class FriendConnectionHandler {
     if (!this.peerConnection?.ctlChannel) {
       throw new Error('Chat control channel not established')
     }
-    // routine.
-    await sendMessage(this, msg, msgNumber)
+
+    const alt = this.getSupportedCapabilityAlt('message') ?? 'message'
+    switch (alt) {
+      case 'message':
+        await sendMessage(this, msg, msgNumber)
+        break
+      default:
+        assertNever(alt)
+    }
   }
 
   public sendVideoCallRequest(callID: number) {
-    return sendVideoCallRequest(this, callID)
+    const alt = this.getSupportedCapabilityAlt('videoCallRequest') ?? 'videoCallRequest'
+    switch (alt) {
+      case 'videoCallRequest':
+        return sendVideoCallRequest(this, callID)
+      default:
+        assertNever(alt)
+    }
   }
 
   // close the connection and prevent reconnections.

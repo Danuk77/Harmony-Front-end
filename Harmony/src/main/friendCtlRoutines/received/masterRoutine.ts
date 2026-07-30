@@ -6,6 +6,8 @@ import { Validator } from 'jsonschema'
 import { receiveVideoCallRequest } from './receiveVideoCallRequest'
 import { receiveMessage } from './receiveMessage'
 import { receiveVerifyIdentity } from './receiveVerifyIdentity'
+import { capabilities } from '../capabilities'
+import { receiveGetCapabilities } from './receiveGetCapabilities'
 
 export const validator = new Validator()
 
@@ -14,7 +16,7 @@ const initiateSchema = {
   type: 'object',
   properties: {
     initiate: {
-      enum: ['videoCallRequest', 'message', 'verifyIdentity']
+      enum: capabilities
     }
   },
   required: ['initiate']
@@ -43,6 +45,10 @@ export async function masterRoutine(
     }
     case 'verifyIdentity': {
       await receiveVerifyIdentity(fch, firstMsg, { send, recv })
+      break
+    }
+    case 'getCapabilities': {
+      await receiveGetCapabilities(fch, firstMsg, { send, recv })
       break
     }
     default:
