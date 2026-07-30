@@ -6,7 +6,7 @@ import {
   rfc3339TimePattern,
   signatureIsValid
 } from 'node-harmonyclient'
-import stringify from 'canonical-json'
+import { stringify } from 'canonical-json'
 
 const schema = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',

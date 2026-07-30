@@ -7,7 +7,7 @@ import { FriendConnectionHandler } from '../../FriendConnectionHandler'
 import { validator } from './masterRoutine'
 import { HarmonyError } from 'node-harmonyclient'
 import { FromSchema } from 'json-schema-to-ts'
-import stringify from 'canonical-json'
+import { stringify } from 'canonical-json'
 
 const initiateSchema = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',
