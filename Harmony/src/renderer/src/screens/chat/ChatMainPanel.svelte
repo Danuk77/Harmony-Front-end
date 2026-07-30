@@ -94,7 +94,8 @@
 
   // input box
   let inputEnabled = $derived(
-    friendState?.connectionStatus && friendState.connectionStatus == 'online-connected'
+    (friendState?.connectionStatus && friendState.connectionStatus == 'verified-connected') ||
+      friendState?.connectionStatus == 'unverified-connected'
   )
   let textBoxContents = $state('')
   let isShiftHeld = false
@@ -158,6 +159,9 @@
 <svelte:window onkeydown={globalKeydown} on:keyup={globalKeyup} />
 
 <div id="chat">
+  {#if friendState?.connectionStatus == 'unverified-connected'}
+    <p id="identity-warning">Caution - peer's public key couldn't be verified</p>
+  {/if}
   <div id="message-scroll-container" bind:this={viewport}>
     <div id="messages">
       {#each messageGroups as messageGroup}
@@ -269,5 +273,14 @@
     height: max-content;
     color: var(--color-text-black);
     overflow-y: scroll;
+  }
+  #identity-warning {
+    background-color: var(--color-lightbulb-unverified);
+    color: var(--color-text-black);
+    width: 100%;
+    text-align: left;
+    padding-left: 13px;
+    box-shadow: 1px 1px 3px black;
+    z-index: 1;
   }
 </style>

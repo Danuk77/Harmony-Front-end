@@ -18,6 +18,7 @@
   --ev-c-gray-3: #28282b;
   --ev-c-gray-4: #1c1d21;
 
+  --ev-c-green-0: #d4c600;
   --ev-c-green-1: #298200;
   --ev-c-green-2: #3eb607;
 
@@ -66,6 +67,7 @@ a {
   --color-input-box-disabled: var(--ev-c-gray-1);
 
   --color-lightbulb-connected: var(--ev-c-green-1);
+  --color-lightbulb-unverified: var(--ev-c-green-0);
   --color-lightbulb-disconnected: var(--ev-c-amber-1);
   --color-lightbulb-error: var(--ev-c-red-1);
   --color-lightbulb-offline: var(--ev-c-gray-4);

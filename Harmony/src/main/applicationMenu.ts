@@ -1,5 +1,5 @@
 const { shell } = require('electron/common')
-const { app, Menu } = require('electron/main')
+const { Menu } = require('electron/main')
 
 export function applicationMenu() {
   const isMac = process.platform === 'darwin'

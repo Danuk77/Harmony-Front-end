@@ -4,7 +4,7 @@ import { electronAPI } from '@electron-toolkit/preload'
 import { Friend, LocalDatabase, Message } from '../main/LocalDatabase'
 import { Controller } from '../main/Controller'
 import { showFriendBlockContextMenu } from '../main/showFriendBlockContextMenu'
-import { generateKeyPair, verifyKeyPair } from '../main/generateKeyPair'
+import { generateKeyPair, verifyKeyPair } from 'node-harmonyclient'
 import {
   MainToRenderer2WayActionArgs,
   MainToRendererComManager

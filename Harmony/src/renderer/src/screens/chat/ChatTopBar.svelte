@@ -28,7 +28,10 @@
         color: '--color-button-normal',
         title:
           'Request a video call' +
-          (fs.connectionStatus == 'online-connected' ? '' : ' (not available)')
+          (fs.connectionStatus == 'verified-connected' ||
+          fs.connectionStatus == 'unverified-connected'
+            ? ''
+            : ' (not available)')
       }
     }
     if (fs.videoCallStatus.callDirection == 'incoming' && !fs.videoCallStatus.accepted) {
@@ -95,7 +98,10 @@
         ariaLabel={pickUpButtonAppearence.title}
         title={pickUpButtonAppearence.title}
         color={`var(${pickUpButtonAppearence.color})`}
-        disabled={fs.connectionStatus != 'online-connected'}
+        disabled={!(
+          fs.connectionStatus == 'verified-connected' ||
+          fs.connectionStatus == 'unverified-connected'
+        )}
       />
       <!-- <IconBubble
         ariaLabel="Pick up"
@@ -114,7 +120,10 @@
         ariaLabel={hangUpButtonAppearence.title}
         title={hangUpButtonAppearence.title}
         color={`var(${hangUpButtonAppearence.color})`}
-        disabled={fs.connectionStatus != 'online-connected'}
+        disabled={!(
+          fs.connectionStatus == 'verified-connected' ||
+          fs.connectionStatus == 'unverified-connected'
+        )}
         --icon-rotation="135deg"
       />
 

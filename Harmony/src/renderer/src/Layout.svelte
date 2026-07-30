@@ -14,6 +14,17 @@
   import EditFriendTopBar from './screens/edit-friend/EditFriendTopBar.svelte'
   import EditKeyPairTopBar from './screens/edit-keypair/EditKeyPairTopBar.svelte'
   import EditKeyPairMainPanel from './screens/edit-keypair/EditKeyPairMainPanel.svelte'
+
+  let stabColor = $derived.by(() => {
+    if (
+      $store.ui.screenMode == 'chat' &&
+      $store.friendStates.find((friend) => $store.ui.selectedFriendPk == friend.friend.peerPk)
+        ?.connectionStatus == 'unverified-connected'
+    ) {
+      return 'var(--color-lightbulb-unverified)'
+    }
+    return 'inherit'
+  })
 </script>
 
 <div id="overlay">
@@ -39,8 +50,10 @@
   </div>
 
   <div id="row2">
-    <div id="sidebar">
-      <Sidebar />
+    <div id="sidebar-container" style:background-color={stabColor}>
+      <div id="sidebar">
+        <Sidebar />
+      </div>
     </div>
 
     <div id="main-panel">
@@ -79,6 +92,9 @@
   #top-bar {
     background-color: var(--color-sidebar);
   }
+  #sidebar-container {
+    z-index: 2;
+  }
   #sidebar {
     min-height: 0;
     min-width: 0;
@@ -86,6 +102,8 @@
     box-shadow: 1px 1px 3px black;
     margin-top: 5px;
     border-radius: 0px 10px 0px 0px;
+    z-index: 2;
+    height: 100%;
   }
   #main-panel {
     min-height: 0;
@@ -94,7 +112,7 @@
 
   #row1 {
     app-region: drag;
-    z-index: 1;
+    z-index: 3;
     grid-row: 1;
     grid-column: 1 / 3;
     display: grid;

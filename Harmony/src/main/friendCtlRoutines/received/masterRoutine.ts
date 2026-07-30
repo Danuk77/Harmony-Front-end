@@ -5,6 +5,7 @@ import { assertNever, eToStr } from '../../../common/utils'
 import { Validator } from 'jsonschema'
 import { receiveVideoCallRequest } from './receiveVideoCallRequest'
 import { receiveMessage } from './receiveMessage'
+import { receiveVerifyIdentity } from './receiveVerifyIdentity'
 
 export const validator = new Validator()
 
@@ -13,7 +14,7 @@ const initiateSchema = {
   type: 'object',
   properties: {
     initiate: {
-      enum: ['videoCallRequest', 'message']
+      enum: ['videoCallRequest', 'message', 'verifyIdentity']
     }
   },
   required: ['initiate']
@@ -38,6 +39,10 @@ export async function masterRoutine(
     }
     case 'message': {
       await receiveMessage(fch, firstMsg, { send, recv })
+      break
+    }
+    case 'verifyIdentity': {
+      await receiveVerifyIdentity(fch, firstMsg, { send, recv })
       break
     }
     default:

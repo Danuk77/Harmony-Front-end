@@ -11,12 +11,15 @@ import {
 import { ICECandidate, VideoCallRoutine } from './friendCtlRoutines/VideoCallRoutine'
 import { sendMessage } from './friendCtlRoutines/initiated/sendMessage'
 import { assertNever } from '../common/utils'
-import { Controller } from './Controller'
+import { sendVerifyIdentity } from './friendCtlRoutines/initiated/sendVerifyIdentity'
+import { eToStr } from './Controller'
 
 export type FriendConnectionStatus =
-  | 'online-connected' // connected to the friend
+  | 'verified-connected' // connected to the friend and friend's identity verified
+  // | 'verified-rtc-disconnected' // verified, & see below "online-rtc-disconnected"
+  | 'unverified-connected' // connected to the friend, friend's identity not verified
+  // | 'online-rtc-disconnected' // rtc peer connection is still alive, but connection is faulty. Might regain connection or switch to online-disconnected if the rtc connection is lost entirely.
   | 'online-disconnected' // peer connection to the friend was lost
-  | 'online-rtc-disconnected' // rtc peer connection is still alive, but connection is faulty. Might regain connection or switch to online-disconnected if the rtc connection is lost entirely.
   | 'failed' // conenction request failed before it was determined whether the user was online or not.
   | 'offline' // no peer connection, and friend is not connected to the signalling server.
   | 'unknown' // not yet attemted to connect to the friend. Will do so immediately.
@@ -196,10 +199,10 @@ export class FriendConnectionHandler {
         break
       case 'connecting':
       case 'do-not-connect':
-      case 'online-connected':
+      case 'unverified-connected':
       case 'closed':
       case 'unset':
-      case 'online-rtc-disconnected':
+      case 'verified-connected':
         break
       default:
         assertNever(status)
@@ -238,9 +241,12 @@ export class FriendConnectionHandler {
     }
 
     // if we already have a connection and we are receiving a new connection, replace and close the old one.
-    if (this.connectionStatus == 'online-connected') {
+    if (
+      this.connectionStatus == 'unverified-connected' ||
+      this.connectionStatus == 'verified-connected'
+    ) {
       if (result.status == 'succeed') {
-        // reassign this.channel first so the event listener for the old channel doesn't change the status when it closes.
+        // reassign this.peerConnection first before closing so the event listener for the old channel doesn't change the status when it closes.
         const oldPeerConnection = this.peerConnection
         this.peerConnection = result.peerConnection
         oldPeerConnection?.close()
@@ -312,7 +318,7 @@ export class FriendConnectionHandler {
             // }
             case 'connected': {
               if (this.peerConnection == result.peerConnection) {
-                this.connectionStatus = 'online-connected'
+                this.connectionStatus = 'unverified-connected'
               }
               break
             }
@@ -322,7 +328,29 @@ export class FriendConnectionHandler {
           }
         })
 
-        this.connectionStatus = 'online-connected'
+        this.connectionStatus = 'unverified-connected'
+
+        // verify peer's identity (async)
+        const ctlId = result.peerConnection.ctlChannel.id
+        sendVerifyIdentity(this)
+          .then((verified) => {
+            // check that the connection has not changed
+            if (this.peerConnection?.ctlChannel.id != ctlId) {
+              return
+            }
+            if (verified) {
+              if (this.connectionStatus == 'unverified-connected') {
+                this.connectionStatus = 'verified-connected'
+              }
+            } else {
+              console.error(`Friend with pk ${this.friend.peerPk} could not be verified.`)
+            }
+          })
+          .catch((e) =>
+            console.error(
+              `Friend with pk ${this.friend.peerPk} could not be verified. ${eToStr(e)}`
+            )
+          )
         break
       default:
         this.connectionStatus = 'failed'

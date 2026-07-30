@@ -6,12 +6,14 @@ export function peerConnectionStatusToBulbColorCssVariable(
   status: FriendWithState['connectionStatus']
 ) {
   switch (status) {
-    case 'online-connected':
+    case 'verified-connected':
       return '--color-lightbulb-connected'
+    case 'unverified-connected':
+      return '--color-lightbulb-unverified'
     case 'online-disconnected':
       return '--color-lightbulb-disconnected'
-    case 'online-rtc-disconnected':
-      return '--color-lightbulb-disconnected'
+    // case 'online-rtc-disconnected':
+    //   return '--color-lightbulb-disconnected'
     case 'failed':
       return '--color-lightbulb-error'
     case 'offline':

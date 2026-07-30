@@ -1,7 +1,7 @@
 import { /*HarmonyError,*/ HarmonyRoutineParams } from 'node-harmonyclient'
 import { FriendConnectionHandler } from '../../FriendConnectionHandler'
 import { validator } from './masterRoutine'
-import { HarmonyError } from 'node-harmonyclient/build/model/routine'
+import { HarmonyError } from 'node-harmonyclient'
 import { FromSchema } from 'json-schema-to-ts'
 
 const initiateSchema = {
