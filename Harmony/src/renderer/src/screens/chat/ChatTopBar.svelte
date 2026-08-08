@@ -28,8 +28,8 @@
         color: '--color-button-normal',
         title:
           'Request a video call' +
-          (fs.connectionStatus == 'verified-connected' ||
-          fs.connectionStatus == 'unverified-connected'
+          (fs.connectionStatus == 'encrypted-connected' ||
+          fs.connectionStatus == 'unencrypted-connected'
             ? ''
             : ' (not available)')
       }
@@ -99,8 +99,8 @@
         title={pickUpButtonAppearence.title}
         color={`var(${pickUpButtonAppearence.color})`}
         disabled={!(
-          fs.connectionStatus == 'verified-connected' ||
-          fs.connectionStatus == 'unverified-connected'
+          fs.connectionStatus == 'encrypted-connected' ||
+          fs.connectionStatus == 'unencrypted-connected'
         )}
       />
       <!-- <IconBubble
@@ -121,8 +121,8 @@
         title={hangUpButtonAppearence.title}
         color={`var(${hangUpButtonAppearence.color})`}
         disabled={!(
-          fs.connectionStatus == 'verified-connected' ||
-          fs.connectionStatus == 'unverified-connected'
+          fs.connectionStatus == 'encrypted-connected' ||
+          fs.connectionStatus == 'unencrypted-connected'
         )}
         --icon-rotation="135deg"
       />

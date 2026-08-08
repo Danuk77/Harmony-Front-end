@@ -18,10 +18,12 @@ export function executeFriendOption(friend: Friend, option: FriendBlockContextMe
     case 'unblock':
       unblockFriend(friend)
       break
+    case 'renew':
+      resendFriendRequest(friend.localPk, friend.peerPk, friend.nickname)
+      break
     case 'send':
     case 'sendAnother':
     case 'sendNow':
-    case 'renew':
       sendFriendRequest(friend.localPk, friend.peerPk, friend.nickname)
       break
     case 'accept':
@@ -44,7 +46,7 @@ export function executeFriendOption(friend: Friend, option: FriendBlockContextMe
 
 export async function deleteFriendRecord(friend: Friend) {
   const confirm = await window.api.showMessageBox({
-    message: `Are you sure you want to delete "${friend.nickname}"?`,
+    message: `Are you sure you want to delete ${friend.nickname}?`,
     detail: 'Your client will no longer connect to, or accept connections from this friend.',
     type: 'question',
     buttons: ['Cancel', 'Confirm']
@@ -56,6 +58,19 @@ export async function deleteFriendRecord(friend: Friend) {
     type: 'remove-friend',
     payload: { localPk: friend.localPk, peerPk: friend.peerPk }
   })
+}
+
+export async function resendFriendRequest(localPk: string, peerPk: string, nickname: string) {
+  const confirm = await window.api.showMessageBox({
+    message: `Resend friend request to ${nickname}?`,
+    detail: `You are already friends with ${nickname}. Resending the friend request will prevent automatic connections until ${nickname} accepts the new request.`,
+    type: 'question',
+    buttons: ['Cancel', 'Confirm']
+  })
+  if (confirm.response != 1) {
+    return
+  }
+  sendFriendRequest(localPk, peerPk, nickname)
 }
 
 /**Send a friend request, and display result in message boxes */
@@ -71,7 +86,7 @@ export function sendFriendRequest(localPk: string, peerPk: string, nickname: str
         break
       case 'offline':
         window.api.showMessageBox({
-          message: 'Friend is currently offline',
+          message: `${nickname} is currently offline`,
           detail: 'The request will be periodically resent.',
           type: 'info'
         })
@@ -98,9 +113,8 @@ export function sendFriendRequest(localPk: string, peerPk: string, nickname: str
 
 export async function blockFriend(friend: Friend) {
   const confirm = await window.api.showMessageBox({
-    message: `Are you sure you want to block "${friend.nickname}"?`,
-    detail:
-      'This will send a friend rejection message to the friend via the server, and hide this friend in this client.',
+    message: `Are you sure you want to block ${friend.nickname}?`,
+    detail: `This will send a friend rejection message to ${friend.nickname} via the server, and hide this friend in this client.`,
     type: 'question',
     buttons: ['Cancel', 'Confirm']
   })
@@ -113,13 +127,13 @@ export async function blockFriend(friend: Friend) {
     case 'fail':
       window.api.showMessageBox({
         message: `The friend rejection failed to be delivered.`,
-        detail: `If the friend ever tries to connect to us, another rejection will be sent. Reason: ${result.msg}`,
+        detail: `If ${friend.nickname} tries to connect to us, another rejection will be sent. Reason: ${result.msg}`,
         type: 'error'
       })
       return false
     case 'offline':
       window.api.showMessageBox({
-        message: `The friend is currently offline, so the rejection was not delivered.`,
+        message: `${friend.nickname} is currently offline, so the rejection was not delivered.`,
         detail: `If the friend ever tries to connect to us, another rejection will be sent.`,
         type: 'info'
       })
@@ -141,7 +155,7 @@ export async function acceptFriendRequest(friend: Friend) {
       break
     case 'offline':
       window.api.showMessageBox({
-        message: 'Friend is currently offline.',
+        message: `${friend.nickname} is currently offline.`,
         detail: 'The acceptance will be periodically resent.',
         type: 'info'
       })
@@ -153,14 +167,13 @@ export async function acceptFriendRequest(friend: Friend) {
           break
         case 'reject':
           window.api.showMessageBox({
-            message: 'Your friend acceptance was rejected by the peer.',
+            message: `${friend.nickname} rejected your friend accept.`,
             type: 'info'
           })
           break
         case 'pending':
           window.api.showMessageBox({
-            message:
-              'The friend has deleted their original friend request. A new friend request has been sent to them.',
+            message: `${friend.nickname} has deleted their original friend request. A new friend request has been sent to them.`,
             type: 'info'
           })
           store.dispatch({ type: 'set-screen-mode', payload: 'chat' })

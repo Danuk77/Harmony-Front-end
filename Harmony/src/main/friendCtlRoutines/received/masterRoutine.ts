@@ -1,13 +1,13 @@
 import { HarmonyRoutineParams } from 'node-harmonyclient'
-import { FriendConnectionHandler } from '../../FriendConnectionHandler'
+import { CtlChannelTransactionHandlerState } from '../../FriendConnectionHandler'
 import { FromSchema } from 'json-schema-to-ts'
 import { assertNever, eToStr } from '../../../common/utils'
 import { Validator } from 'jsonschema'
 import { receiveVideoCallRequest } from './receiveVideoCallRequest'
 import { receiveMessage } from './receiveMessage'
-import { receiveVerifyIdentity } from './receiveVerifyIdentity'
 import { capabilities } from '../capabilities'
 import { receiveGetCapabilities } from './receiveGetCapabilities'
+import { receiveGetDHPublicKey } from './receiveGetDHPublicKey'
 
 export const validator = new Validator()
 
@@ -23,7 +23,7 @@ const initiateSchema = {
 } as const
 
 export async function masterRoutine(
-  fch: FriendConnectionHandler,
+  { fch }: CtlChannelTransactionHandlerState,
   { send, recv }: HarmonyRoutineParams
 ) {
   let firstMsg: FromSchema<typeof initiateSchema>
@@ -43,12 +43,16 @@ export async function masterRoutine(
       await receiveMessage(fch, firstMsg, { send, recv })
       break
     }
-    case 'verifyIdentity': {
-      await receiveVerifyIdentity(fch, firstMsg, { send, recv })
-      break
-    }
+    // case 'verifyIdentity': {
+    //   await receiveVerifyIdentity(fch, firstMsg, { send, recv })
+    //   break
+    // }
     case 'getCapabilities': {
       await receiveGetCapabilities(fch, firstMsg, { send, recv })
+      break
+    }
+    case 'getDHPublicKey': {
+      await receiveGetDHPublicKey(fch, firstMsg, { send, recv })
       break
     }
     default:

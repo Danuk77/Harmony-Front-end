@@ -10,9 +10,9 @@ export type HarmonyRoutineParams = {
 }
 
 export type HarmonyRoutineOptions = {
-  id?: string
+  id?: Buffer
   // first message to be recv'd. Used when an incoming message causes a routine to be initiated - it appears here.
-  firstMsg?: string
+  firstMsg?: Buffer
   loginRequired?: boolean
 }
 

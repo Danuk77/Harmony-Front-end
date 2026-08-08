@@ -18,8 +18,11 @@
   let stabColor = $derived.by(() => {
     if (
       $store.ui.screenMode == 'chat' &&
-      $store.friendStates.find((friend) => $store.ui.selectedFriendPk == friend.friend.peerPk)
-        ?.connectionStatus == 'unverified-connected'
+      $store.friendStates.find(
+        (friend) =>
+          friend.friend.peerPk == $store.ui.selectedFriendPk &&
+          friend.friend.localPk == $store.user.keyPair?.publicKey
+      )?.connectionStatus == 'unencrypted-connected'
     ) {
       return 'var(--color-lightbulb-unverified)'
     }

@@ -227,10 +227,10 @@ export class Controller {
     }
     if (DEBUG) {
       this.con.onSendMessage = (msg) => {
-        console.log('📮 WSsend: ' + msg)
+        console.log('📮 WSsend: ' + Buffer.from(msg).toString('utf-8'))
       }
       this.con.onReceiveMessage = (msg) => {
-        console.log('📬 WSrecv: ' + msg)
+        console.log('📬 WSrecv: ' + Buffer.from(msg).toString('utf-8'))
       }
     }
     this.con.onWsStatusChange = (status) => {

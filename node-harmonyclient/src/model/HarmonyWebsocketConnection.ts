@@ -57,8 +57,8 @@ export class HarmonyWebsocketConnection {
     publicKey: string
   ) => 'accept' | 'reject' | Promise<'accept' | 'reject'>
   public onIncomingConnectionResult?: (peerConnection: PeerConnectionCreationResult) => unknown
-  public onSendMessage?: (msg: string) => unknown
-  public onReceiveMessage?: (msg: string) => unknown
+  public onSendMessage?: (msg: Buffer) => unknown
+  public onReceiveMessage?: (msg: Buffer) => unknown
   public onReceiveFriendRequest?: (
     pk: string
   ) => FriendRequestResponseType | Promise<FriendRequestResponseType>
@@ -278,10 +278,19 @@ export class HarmonyWebsocketConnection {
   }
 
   private wsMessage = (message: Message): void => {
-    if (message.type == 'utf8') {
-      this.onReceiveMessage?.(message.utf8Data)
-      this.transactionHandler.recv(message.utf8Data)
+    let data: Buffer
+    switch (message.type) {
+      case 'utf8': {
+        data = Buffer.from(message.utf8Data)
+        break
+      }
+      case 'binary': {
+        data = Buffer.from(message.binaryData)
+        break
+      }
     }
+    this.onReceiveMessage?.(data)
+    this.transactionHandler.recv(data)
   }
 
   public async launchRoutine<T>(
