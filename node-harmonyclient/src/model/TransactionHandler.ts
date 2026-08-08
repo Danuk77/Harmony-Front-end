@@ -73,13 +73,12 @@ export class TransactionHandler<T, S> {
    */
   public clear() {
     // send a HarmonyError message to all open transactions.
-    // this causes them to error out and (hopefully) prevent memony leaks
+    // this causes them to error out and (hopefully) prevent memory leaks
     for (const { messageCallback } of this.transactionSockets.values()) {
       messageCallback?.(new HarmonyError('Channel closed'))
     }
     // clear map
     this.transactionSockets = new Map()
-    console.log('Channel closed')
   }
 
   /**

@@ -244,6 +244,7 @@ export class FriendConnectionHandler {
       case 'connecting':
       case 'closed':
       case 'unset': {
+        this.controlChannelTransactionHandler?.clear()
         this._peerState = {
           connectionStatus: status,
           capabilities: null,
@@ -361,6 +362,8 @@ export class FriendConnectionHandler {
   private encryptionError(e: Error | string) {
     console.error(e)
     console.error(`Encryption error with ${this.friend.peerPk}. Closing peer connection.`)
+    this.connectionStatus = 'failed'
+    this.peerConnection?.removeAllListeners()
     this.peerConnection?.close()
   }
 
@@ -555,7 +558,7 @@ export class FriendConnectionHandler {
       throw new Error("Don't have the secret key to encode this message")
     }
     const nonce = randomBytes(12)
-    const cipher = createCipheriv('aes-128-gcm', this.encryptionParams.AESKey, nonce, {
+    const cipher = createCipheriv('aes-256-gcm', this.encryptionParams.AESKey, nonce, {
       authTagLength: 16
     })
     const encrypted = cipher.update(msg)
