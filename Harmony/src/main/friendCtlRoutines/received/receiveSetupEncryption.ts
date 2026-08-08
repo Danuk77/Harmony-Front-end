@@ -13,7 +13,7 @@ import { validator } from './masterRoutine'
 import { FromSchema } from 'json-schema-to-ts'
 import { getDiffieHellman } from 'crypto'
 import { DateTime } from 'luxon'
-import stringify from 'canonical-json'
+import { stringify } from 'canonical-json'
 
 const initiateSchema = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',

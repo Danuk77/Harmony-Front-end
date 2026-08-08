@@ -7,7 +7,7 @@ import {
 import { FriendConnectionHandler } from '../../FriendConnectionHandler'
 import { validator } from './masterRoutine'
 import { DateTime } from 'luxon'
-import stringify from 'canonical-json'
+import { stringify } from 'canonical-json'
 
 const initiateSchema = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',
@@ -51,7 +51,7 @@ export async function receiveGetDHPublicKey(
   }
 
   const payload = {
-    DHPublicKey: fch.getDHPublicKey(),
+    DHPublicKey: (await fch.getDHPublicKey()).toString('base64'),
     toPk: fch.friend.peerPk,
     purpose: 'getDHPublicKey',
     expires: DateTime.now().plus({ seconds: 10 }).toISO()

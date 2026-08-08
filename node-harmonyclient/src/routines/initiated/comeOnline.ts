@@ -1,7 +1,7 @@
 import { KeyPair } from '../../utils'
 import { HarmonyWebsocketConnection } from '../../model/HarmonyWebsocketConnection'
 import { HarmonyError } from '../../model/routine'
-import stringify from 'canonical-json'
+import { stringify } from 'canonical-json'
 import { importPrivateKey, signWithPrivateKey } from '../../keys'
 
 const versionResponseSchema = {
