@@ -9,11 +9,13 @@ type MsgFromServerCallbackType = (msg: Buffer | HarmonyError) => void
  */
 export class HarmonyTransactionSocket {
   id: Buffer
+  timeout: number
   // connection.ts calls this when a message is received for this transaction socket id
   messageCallback: undefined | MsgFromServerCallbackType
 
-  constructor(id: Buffer) {
+  constructor(id: Buffer, timeout: number) {
     this.id = id
+    this.timeout = timeout
   }
 
   // add a callback

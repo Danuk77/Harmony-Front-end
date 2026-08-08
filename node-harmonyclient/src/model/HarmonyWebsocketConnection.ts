@@ -290,7 +290,11 @@ export class HarmonyWebsocketConnection {
       }
     }
     this.onReceiveMessage?.(data)
-    this.transactionHandler.recv(data)
+    try {
+      this.transactionHandler.recv(data)
+    } catch (e) {
+      console.error(`Error during processing of websocket message: ${eToStr(e)}`)
+    }
   }
 
   public async launchRoutine<T>(

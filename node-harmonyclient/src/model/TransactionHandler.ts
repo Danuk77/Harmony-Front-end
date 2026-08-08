@@ -16,7 +16,7 @@ import {
 import { eToStr } from '../utils'
 import { Validator } from 'jsonschema'
 
-const TRANSACTION_SOCKET_TIMEOUT = 20000 //ms
+export const TRANSACTION_SOCKET_TIMEOUT = 20000 //ms
 
 export const validator = new Validator()
 
@@ -103,7 +103,10 @@ export class TransactionHandler<T, S> {
       routineOptions.id = this.newTransactionSocketID()
     }
 
-    const transactionSocket = new HarmonyTransactionSocket(routineOptions.id)
+    const transactionSocket = new HarmonyTransactionSocket(
+      routineOptions.id,
+      routineOptions.timeout
+    )
     this.transactionSockets.set(transactionSocket.id.toString('hex'), transactionSocket)
 
     // flag that determines if the user can still send/receive messages on this id
@@ -171,7 +174,7 @@ export class TransactionHandler<T, S> {
           send({
             terminate: 'cancel'
           }).catch(() => {})
-        }, TRANSACTION_SOCKET_TIMEOUT)
+        }, transactionSocket.timeout)
 
         // wait for a message/error
         const messageOrError = await messageQueue.dequeue()

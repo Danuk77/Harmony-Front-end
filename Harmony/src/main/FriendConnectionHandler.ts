@@ -456,7 +456,7 @@ export class FriendConnectionHandler {
             // not encrypted
             console.log('📬 CTLrecv: ' + bufMsg.toString('utf8'))
           }
-          this.controlChannelTransactionHandler.recv(Buffer.from(msg))
+          this.controlChannelTransactionHandler.recv(bufMsg)
         })
 
         const onChannelStateChanged: Parameters<

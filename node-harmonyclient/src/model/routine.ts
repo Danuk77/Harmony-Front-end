@@ -1,4 +1,5 @@
 import { FromSchema, JSONSchema } from 'json-schema-to-ts'
+import { TRANSACTION_SOCKET_TIMEOUT } from './TransactionHandler'
 
 // single function that uses send() and recv() to communication.
 // returns when routine is finished
@@ -13,13 +14,15 @@ export type HarmonyRoutineOptions = {
   id?: Buffer
   // first message to be recv'd. Used when an incoming message causes a routine to be initiated - it appears here.
   firstMsg?: Buffer
-  loginRequired?: boolean
+  loginRequired: boolean
+  timeout: number // ms until routine times out
 }
 
 const harmonyRoutineDefaultOptions: HarmonyRoutineOptions = {
   id: undefined,
   firstMsg: undefined,
-  loginRequired: true
+  loginRequired: true,
+  timeout: TRANSACTION_SOCKET_TIMEOUT
 }
 export { harmonyRoutineDefaultOptions }
 

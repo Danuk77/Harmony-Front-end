@@ -94,8 +94,9 @@
 
   // input box
   let inputEnabled = $derived(
-    (friendState?.connectionStatus && friendState.connectionStatus == 'encrypted-connected') ||
-      friendState?.connectionStatus == 'unencrypted-connected'
+    friendState?.connectionStatus &&
+      (friendState.connectionStatus == 'encrypted-connected' ||
+        friendState?.connectionStatus == 'unencrypted-connected')
   )
   let textBoxContents = $state('')
   let isShiftHeld = false
@@ -123,11 +124,13 @@
       if (!$store.user.keyPair) {
         return
       }
-      window.api.sendMessage($store.ui.selectedFriendPk, textBoxContents).then(({ msg, error }) => {
+      const message = textBoxContents
+      window.api.sendMessage($store.ui.selectedFriendPk, message).then(({ msg: msgObj, error }) => {
         if (error) {
-          alert(error)
+          const shortenedMessage = message.length > 30 ? message.slice(0, 30) + '...' : message
+          window.api.showErrorBox(`Failed to send message "${shortenedMessage}"`, error)
         }
-        if (msg) messages.push(msg)
+        if (msgObj) messages.push(msgObj)
       })
       textBoxContents = ''
     }
