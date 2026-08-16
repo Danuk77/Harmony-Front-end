@@ -323,7 +323,7 @@ export class FriendConnectionHandler {
     return ecdh.getPublicKey()
   }
 
-  public confirmPeerHasReceivedDHPublicKey() {
+  public confirmPeerHasReceivedECDHPublicKey() {
     if (!this.encryptionParams?.ecdh) {
       console.error("Peer has our Elyptic Curve Diffie-Hellman public key, yet we don't?")
       return
@@ -598,7 +598,7 @@ export class FriendConnectionHandler {
 
     // if we weren't sure whether the peer has received our dh public key, we are now, since they are using it.
     if (this.connectionStatus == 'unencrypted-connected') {
-      this.confirmPeerHasReceivedDHPublicKey()
+      this.confirmPeerHasReceivedECDHPublicKey()
     }
 
     return plaintext

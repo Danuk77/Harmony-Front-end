@@ -64,5 +64,5 @@ export async function receiveGetECDHPublicKey(
 
   await send({ payload, signature })
   await recv(terminateSchema)
-  fch.confirmPeerHasReceivedDHPublicKey()
+  fch.confirmPeerHasReceivedECDHPublicKey()
 }

@@ -11,17 +11,7 @@ export async function sendVideoCallRequest(fch: FriendConnectionHandler, callID:
   }
 
   await fch.controlChannelTransactionHandler.launchRoutine((_, { send, recv }) => {
-    return new Promise<void>(async (resolve2, reject2) => {
-      /**@todo delete these */
-      const reject = (...args) => {
-        console.log('rejected')
-        reject2(...args)
-      }
-      const resolve = (...args) => {
-        console.log('resolved')
-        resolve2(...args)
-      }
-
+    return new Promise<void>(async (resolve, reject) => {
       // send initiate
       try {
         await send({
