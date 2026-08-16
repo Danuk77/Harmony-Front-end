@@ -2,7 +2,7 @@ export const capabilities = [
   'getCapabilities',
   'message',
   // 'verifyIdentity',
-  'getDHPublicKey',
+  'getECDHPublicKey',
   'videoCallRequest'
 ] as const
 
@@ -12,7 +12,7 @@ export const capabilities = [
 // message should only be used if the client does not have the message1.0 capability
 export const capAlternatives = {
   getCapabilities: ['getCapabilities'],
-  getDHPublicKey: ['getDHPublicKey'],
+  getECDHPublicKey: ['getECDHPublicKey'],
   message: ['message'],
   // verifyIdentity: ['verifyIdentity'],
   videoCallRequest: ['videoCallRequest']

@@ -14,7 +14,7 @@ const initiateSchema = {
   type: 'object',
   properties: {
     initiate: {
-      const: 'getDHPublicKey'
+      const: 'getECDHPublicKey'
     }
   },
   required: ['initiate'],
@@ -33,7 +33,7 @@ const terminateSchema = {
   additionalProperties: false
 } as const
 
-export async function receiveGetDHPublicKey(
+export async function receiveGetECDHPublicKey(
   fch: FriendConnectionHandler,
   firstMsg: object,
   { send, recv }: HarmonyRoutineParams
@@ -51,9 +51,9 @@ export async function receiveGetDHPublicKey(
   }
 
   const payload = {
-    DHPublicKey: (await fch.getDHPublicKey()).toString('base64'),
+    ECDHPublicKey: (await fch.getECDHPublicKey()).toString('base64'),
     toPk: fch.friend.peerPk,
-    purpose: 'getDHPublicKey',
+    purpose: 'getECDHPublicKey',
     expires: DateTime.now().plus({ seconds: 10 }).toISO()
   }
 

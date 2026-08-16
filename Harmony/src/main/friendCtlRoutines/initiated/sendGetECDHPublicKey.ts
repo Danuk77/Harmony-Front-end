@@ -16,7 +16,7 @@ const schema = {
     payload: {
       type: 'object',
       properties: {
-        DHPublicKey: {
+        ECDHPublicKey: {
           type: 'string',
           pattern: base64RegexString
         },
@@ -24,14 +24,14 @@ const schema = {
           type: 'string'
         },
         purpose: {
-          const: 'getDHPublicKey'
+          const: 'getECDHPublicKey'
         },
         expires: {
           type: 'string',
           pattern: rfc3339TimePattern
         }
       },
-      required: ['DHPublicKey', 'toPk', 'purpose', 'expires'],
+      required: ['ECDHPublicKey', 'toPk', 'purpose', 'expires'],
       additionalProperties: false
     },
     signature: {
@@ -42,13 +42,13 @@ const schema = {
   required: ['payload', 'signature'],
   additionalProperties: false
 } as const
-export async function sendGetDHPublicKey(fch: FriendConnectionHandler) {
+export async function sendGetECDHPublicKey(fch: FriendConnectionHandler) {
   return await fch.controlChannelTransactionHandler.launchRoutine(async (_, { send, recv }) => {
     if (!fch.con.keyPair) {
       throw new Error()
     }
 
-    await send({ initiate: 'getDHPublicKey' })
+    await send({ initiate: 'getECDHPublicKey' })
 
     const { payload, signature } = await recv(schema)
 
@@ -69,10 +69,10 @@ export async function sendGetDHPublicKey(fch: FriendConnectionHandler) {
       throw new HarmonyError("Peer's signature has expired")
     }
 
-    const peerDHPublicKey = Buffer.from(payload.DHPublicKey, 'base64')
+    const peerECDHPublicKey = Buffer.from(payload.ECDHPublicKey, 'base64')
 
     await send({ terminate: 'done' })
 
-    return peerDHPublicKey
+    return peerECDHPublicKey
   })
 }

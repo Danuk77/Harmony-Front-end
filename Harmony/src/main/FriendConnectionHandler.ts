@@ -14,15 +14,8 @@ import { assertNever } from '../common/utils'
 import { eToStr } from './Controller'
 import { sendGetCapabilities } from './friendCtlRoutines/initiated/sendGetCapabilities'
 import { capAlternatives } from './friendCtlRoutines/capabilities'
-import {
-  createCipheriv,
-  createDecipheriv,
-  DiffieHellmanGroup,
-  getDiffieHellman,
-  hkdf,
-  randomBytes
-} from 'crypto'
-import { sendGetDHPublicKey } from './friendCtlRoutines/initiated/sendGetDHPublicKey'
+import { createCipheriv, createDecipheriv, createECDH, ECDH, hkdf, randomBytes } from 'crypto'
+import { sendGetECDHPublicKey } from './friendCtlRoutines/initiated/sendGetECDHPublicKey'
 
 const ENCRYPTED_MESSAGE_BYTE = 0b1000_0001
 
@@ -68,8 +61,8 @@ export class FriendConnectionHandler {
   }
 
   public encryptionParams: {
-    dh: DiffieHellmanGroup | null
-    peerDHPublicKey: Buffer | null
+    ecdh: ECDH | null
+    peerECDHPublicKey: Buffer | null
     AESKey: Buffer | null
     peerHasReceivedPublicKey: boolean
   } | null = null
@@ -149,7 +142,13 @@ export class FriendConnectionHandler {
           this.peerConnection?.ctlChannel.send(msg)
         }
       },
-      masterRoutine,
+      async (...args: Parameters<typeof masterRoutine>) => {
+        try {
+          return await masterRoutine(...args)
+        } catch (e) {
+          console.error(eToStr(e))
+        }
+      },
       { fch: this, ctlChannelId: this.peerConnection?.chatChannel.id }
     )
     const videoCallRoutine = new VideoCallRoutine(friendDB.peerPk, this)
@@ -300,32 +299,33 @@ export class FriendConnectionHandler {
     /**@todo fire listener */
   }
 
-  public async getDHPublicKey() {
-    const dh = getDiffieHellman('modp14')
-    dh.generateKeys()
+  public async getECDHPublicKey() {
+    const ecdh = createECDH('prime256v1')
+    ecdh.generateKeys()
 
-    if (this.encryptionParams?.peerDHPublicKey) {
+    if (this.encryptionParams?.peerECDHPublicKey) {
+      const secret = ecdh.computeSecret(this.encryptionParams.peerECDHPublicKey)
+
       this.encryptionParams = {
-        dh,
-        AESKey: await this.deriveAESKey(dh.computeSecret(this.encryptionParams.peerDHPublicKey)),
-        peerDHPublicKey: this.encryptionParams.peerDHPublicKey,
+        ecdh: ecdh,
+        AESKey: await this.deriveAESKey(secret),
+        peerECDHPublicKey: this.encryptionParams.peerECDHPublicKey,
         peerHasReceivedPublicKey: false
       }
     } else {
       this.encryptionParams = {
-        dh,
+        ecdh: ecdh,
         AESKey: null,
-        peerDHPublicKey: null,
+        peerECDHPublicKey: null,
         peerHasReceivedPublicKey: false
       }
     }
-
-    return dh.getPublicKey()
+    return ecdh.getPublicKey()
   }
 
   public confirmPeerHasReceivedDHPublicKey() {
-    if (!this.encryptionParams?.dh) {
-      console.error("Peer has our Diffie-Hellman public key, yet we don't?")
+    if (!this.encryptionParams?.ecdh) {
+      console.error("Peer has our Elyptic Curve Diffie-Hellman public key, yet we don't?")
       return
     }
     this.encryptionParams = {
@@ -338,11 +338,12 @@ export class FriendConnectionHandler {
   }
 
   private async setDHPeerPublicKey(key: Buffer) {
-    if (this.encryptionParams?.dh) {
+    if (this.encryptionParams?.ecdh) {
+      const secret = this.encryptionParams.ecdh.computeSecret(key)
       this.encryptionParams = {
-        dh: this.encryptionParams.dh,
-        peerDHPublicKey: key,
-        AESKey: await this.deriveAESKey(this.encryptionParams.dh.computeSecret(key)),
+        ecdh: this.encryptionParams.ecdh,
+        peerECDHPublicKey: key,
+        AESKey: await this.deriveAESKey(secret),
         peerHasReceivedPublicKey:
           this.encryptionParams == null ? false : this.encryptionParams.peerHasReceivedPublicKey
       }
@@ -351,9 +352,9 @@ export class FriendConnectionHandler {
       }
     } else {
       this.encryptionParams = {
-        dh: null,
+        ecdh: null,
         AESKey: null,
-        peerDHPublicKey: key,
+        peerECDHPublicKey: key,
         peerHasReceivedPublicKey: false
       }
     }
@@ -541,13 +542,13 @@ export class FriendConnectionHandler {
       )
       return
     }
-    sendGetDHPublicKey(this)
+    sendGetECDHPublicKey(this)
       .then((DHPeerPublicKey) => {
         this.setDHPeerPublicKey(DHPeerPublicKey)
       })
       .catch((e) => {
         console.error(
-          `Couldn't get peer's Diffie-Hellman public key. Perhaps they don't support encryption. ${eToStr(e)}`
+          `Couldn't get peer's Elyptic Curve Diffie-Hellman public key. Perhaps they don't support encryption. ${eToStr(e)}`
         )
       })
     this._peerState.encryptionAttempts++

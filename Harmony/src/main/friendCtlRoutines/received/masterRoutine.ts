@@ -7,7 +7,7 @@ import { receiveVideoCallRequest } from './receiveVideoCallRequest'
 import { receiveMessage } from './receiveMessage'
 import { capabilities } from '../capabilities'
 import { receiveGetCapabilities } from './receiveGetCapabilities'
-import { receiveGetDHPublicKey } from './receiveGetDHPublicKey'
+import { receiveGetECDHPublicKey } from './receiveGetECDHPublicKey'
 
 export const validator = new Validator()
 
@@ -51,8 +51,8 @@ export async function masterRoutine(
       await receiveGetCapabilities(fch, firstMsg, { send, recv })
       break
     }
-    case 'getDHPublicKey': {
-      await receiveGetDHPublicKey(fch, firstMsg, { send, recv })
+    case 'getECDHPublicKey': {
+      await receiveGetECDHPublicKey(fch, firstMsg, { send, recv })
       break
     }
     default:
