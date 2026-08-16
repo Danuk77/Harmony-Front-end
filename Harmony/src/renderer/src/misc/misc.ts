@@ -6,12 +6,14 @@ export function peerConnectionStatusToBulbColorCssVariable(
   status: FriendWithState['connectionStatus']
 ) {
   switch (status) {
-    case 'online-connected':
+    case 'encrypted-connected':
       return '--color-lightbulb-connected'
+    case 'unencrypted-connected':
+      return '--color-lightbulb-unverified'
     case 'online-disconnected':
       return '--color-lightbulb-disconnected'
-    case 'online-rtc-disconnected':
-      return '--color-lightbulb-disconnected'
+    // case 'online-rtc-disconnected':
+    //   return '--color-lightbulb-disconnected'
     case 'failed':
       return '--color-lightbulb-error'
     case 'offline':
@@ -42,7 +44,7 @@ export function serverConnectionStatusToBulbColorCssVariable(status: WebsocketSt
     case 'disconnected':
       return '--color-lightbulb-offline'
     case 'connected':
-      return '--color-lightbulb-connected'
+      return '--color-lightbulb-disconnected'
     case 'logged-in':
       return '--color-lightbulb-connected'
     case 'login-failed':

@@ -28,7 +28,10 @@
         color: '--color-button-normal',
         title:
           'Request a video call' +
-          (fs.connectionStatus == 'online-connected' ? '' : ' (not available)')
+          (fs.connectionStatus == 'encrypted-connected' ||
+          fs.connectionStatus == 'unencrypted-connected'
+            ? ''
+            : ' (not available)')
       }
     }
     if (fs.videoCallStatus.callDirection == 'incoming' && !fs.videoCallStatus.accepted) {
@@ -95,7 +98,10 @@
         ariaLabel={pickUpButtonAppearence.title}
         title={pickUpButtonAppearence.title}
         color={`var(${pickUpButtonAppearence.color})`}
-        disabled={fs.connectionStatus != 'online-connected'}
+        disabled={!(
+          fs.connectionStatus == 'encrypted-connected' ||
+          fs.connectionStatus == 'unencrypted-connected'
+        )}
       />
       <!-- <IconBubble
         ariaLabel="Pick up"
@@ -114,7 +120,10 @@
         ariaLabel={hangUpButtonAppearence.title}
         title={hangUpButtonAppearence.title}
         color={`var(${hangUpButtonAppearence.color})`}
-        disabled={fs.connectionStatus != 'online-connected'}
+        disabled={!(
+          fs.connectionStatus == 'encrypted-connected' ||
+          fs.connectionStatus == 'unencrypted-connected'
+        )}
         --icon-rotation="135deg"
       />
 
@@ -158,7 +167,7 @@
     margin-left: 5px;
     margin-right: 5px;
     font-size: 25px;
-    app-region: no-drag;
+    -webkit-app-region: no-drag;
   }
   #nicknameAndPk {
     /* max-width: ; */
@@ -171,7 +180,7 @@
     /* margin: 0 auto; */
   }
   #nicknameAndPk > * {
-    app-region: no-drag;
+    -webkit-app-region: no-drag;
   }
   #pk {
     color: var(--color-text-gray);

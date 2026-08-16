@@ -24,13 +24,7 @@ export async function masterRoutine(
   con: HarmonyWebsocketConnection,
   { send, recv }: HarmonyRoutineParams
 ) {
-  let firstMsg: FromSchema<typeof initiateSchema>
-  try {
-    firstMsg = await recv(initiateSchema)
-  } catch (e) {
-    console.error(eToStr(e))
-    return
-  }
+  const firstMsg = await recv(initiateSchema)
 
   switch (firstMsg.initiate) {
     case 'receiveConnectionRequest':

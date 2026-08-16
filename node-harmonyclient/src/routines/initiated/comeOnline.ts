@@ -1,8 +1,8 @@
 import { KeyPair } from '../../utils'
 import { HarmonyWebsocketConnection } from '../../model/HarmonyWebsocketConnection'
 import { HarmonyError } from '../../model/routine'
-import { subtle, webcrypto } from 'node:crypto'
-import stringify from 'canonical-json'
+import { stringify } from 'canonical-json'
+import { importPrivateKey, signWithPrivateKey } from '../../keys'
 
 const versionResponseSchema = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',
@@ -99,23 +99,7 @@ export async function comeOnline(con: HarmonyWebsocketConnection, keyPair: KeyPa
 
       const { challenge } = await recv(challengeResponseSchema)
 
-      // import private key
-      let privateKeyBytes: Buffer
-      try {
-        privateKeyBytes = Buffer.from(keyPair.privateKey, 'base64')
-      } catch {
-        await send({ terminate: 'cancel' })
-        throw new HarmonyError('Private key is not valid base64')
-      }
-      let privateKey: webcrypto.CryptoKey
-      try {
-        privateKey = await subtle.importKey('pkcs8', privateKeyBytes, 'Ed25519', false, ['sign'])
-      } catch {
-        await send({ terminate: 'cancel' })
-        throw new HarmonyError(
-          'Private key could not be imported. Check that it is an Ed25519 key in PKCS#8+DER+base64 format'
-        )
-      }
+      const privateKey = await importPrivateKey(keyPair.privateKey)
 
       // get hostname
       if (!con.serverUrl) {
@@ -143,9 +127,7 @@ export async function comeOnline(con: HarmonyWebsocketConnection, keyPair: KeyPa
         throw new Error()
       }
 
-      // sign the message using private key
-      const signature = await subtle.sign('Ed25519', privateKey, Buffer.from(stringPayload))
-      const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
+      const signatureBase64 = await signWithPrivateKey(privateKey, stringPayload)
 
       // send to server
       await send({ payload, signature: signatureBase64 })

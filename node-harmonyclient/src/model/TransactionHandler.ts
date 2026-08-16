@@ -16,7 +16,7 @@ import {
 import { eToStr } from '../utils'
 import { Validator } from 'jsonschema'
 
-const TRANSACTION_SOCKET_TIMEOUT = 20000 //ms
+export const TRANSACTION_SOCKET_TIMEOUT = 20000 //ms
 
 export const validator = new Validator()
 
@@ -27,14 +27,13 @@ export const validator = new Validator()
 // }
 
 export class TransactionHandler<T, S> {
-  private onSend: (msg: string, routineOptions?: HarmonyRoutineOptions) => Promise<any>
-  private transactionSockets: Map<string, HarmonyTransactionSocket>
+  private onSend: (msg: Buffer, routineOptions?: HarmonyRoutineOptions) => Promise<any>
+  private transactionSockets: Map<string /*hex-encoded id*/, HarmonyTransactionSocket>
   private masterRoutine: HarmonyRoutine<T, S>
   private state: S
 
   constructor(
-    // channel: MultiplexedTransactionChannel,
-    onSend: (msg: string, routineOptions?: HarmonyRoutineOptions) => Promise<any>,
+    onSend: (msg: Buffer, routineOptions?: HarmonyRoutineOptions) => Promise<any>,
     masterRoutine: HarmonyRoutine<T, S>,
     state: S
   ) {
@@ -47,26 +46,29 @@ export class TransactionHandler<T, S> {
   /**
    *
    * @param msg an incoming message
-   * @returns
+   * @returns If this message led to a new master routine transaction being created, this function returns a promise containing the return value of that transaction. Otherwise returns null.
    */
-  public recv(msg: string) {
-    if (msg.length < 17) {
-      console.error('Malformed message: ' + msg)
-      return
+  public recv(msg: Buffer): Promise<T> | null {
+    if (msg.byteLength < 17) {
+      throw new Error('Malformed message: ' + msg)
     }
-    const id = msg.slice(0, 16)
-    const content = msg.slice(16)
+    const id = Buffer.copyBytesFrom(msg.subarray(0, 16))
+    const content = Buffer.copyBytesFrom(msg.subarray(16))
 
     // check if this routine belongs to an in-progress ts
-    const ts = this.transactionSockets.get(id)
+    const ts = this.transactionSockets.get(id.toString('hex'))
     if (ts) {
       ts.messageCallback?.(content)
     } else {
-      this.launchRoutine((state, { send, recv }) => this.masterRoutine(state, { send, recv }), {
-        id: id,
-        firstMsg: content
-      })
+      return this.launchRoutine(
+        (state, { send, recv }) => this.masterRoutine(state, { send, recv }),
+        {
+          id: id,
+          firstMsg: content
+        }
+      )
     }
+    return null
   }
 
   /**
@@ -74,13 +76,12 @@ export class TransactionHandler<T, S> {
    */
   public clear() {
     // send a HarmonyError message to all open transactions.
-    // this causes them to error out and (hopefully) prevent memony leaks
+    // this causes them to error out and (hopefully) prevent memory leaks
     for (const { messageCallback } of this.transactionSockets.values()) {
       messageCallback?.(new HarmonyError('Channel closed'))
     }
     // clear map
     this.transactionSockets = new Map()
-    console.log('Channel closed')
   }
 
   /**
@@ -105,8 +106,11 @@ export class TransactionHandler<T, S> {
       routineOptions.id = this.newTransactionSocketID()
     }
 
-    const transactionSocket = new HarmonyTransactionSocket(routineOptions.id)
-    this.transactionSockets.set(transactionSocket.id, transactionSocket)
+    const transactionSocket = new HarmonyTransactionSocket(
+      routineOptions.id,
+      routineOptions.timeout
+    )
+    this.transactionSockets.set(transactionSocket.id.toString('hex'), transactionSocket)
 
     // flag that determines if the user can still send/receive messages on this id
     let tsIsClosed = false
@@ -118,7 +122,7 @@ export class TransactionHandler<T, S> {
 
     // incoming messages
     // if the websocket is closed then a HarmonyError is pushed to this queue.
-    const messageQueue = new AsyncBlockingQueue<string | HarmonyError>()
+    const messageQueue = new AsyncBlockingQueue<Buffer | HarmonyError>()
     transactionSocket.onReceiveMessage((msg) => {
       // if there was an error coming in, then something must be wrong.
       // set tsIsClosed to prevent sending any further messages to the server
@@ -143,11 +147,13 @@ export class TransactionHandler<T, S> {
       }
 
       // TODO
-
-      const strMsg = transactionSocket.id + JSON.stringify(msg)
+      const bufMsg = Buffer.concat([
+        Buffer.from(transactionSocket.id),
+        Buffer.from(JSON.stringify(msg))
+      ])
 
       // may throw an error due to auth required, etc
-      this.onSend(strMsg, routineOptions)
+      this.onSend(bufMsg, routineOptions)
     }
 
     /**
@@ -158,7 +164,7 @@ export class TransactionHandler<T, S> {
         throw new HarmonyError('recv on closed transaction socket')
       }
 
-      let msg: string
+      let msg: Buffer
       if (mustSendFirstMessageThatWasProvidedInTheOptions) {
         /**@ts-expect-error if the above flag is set, we know that firstMsg is not undefined. */
         msg = routineOptions.firstMsg
@@ -171,7 +177,7 @@ export class TransactionHandler<T, S> {
           send({
             terminate: 'cancel'
           }).catch(() => {})
-        }, TRANSACTION_SOCKET_TIMEOUT)
+        }, transactionSocket.timeout)
 
         // wait for a message/error
         const messageOrError = await messageQueue.dequeue()
@@ -186,11 +192,13 @@ export class TransactionHandler<T, S> {
         msg = messageOrError
       }
 
+      const msgStr = Buffer.from(msg).toString('utf8')
+
       // parse
       // let parsed: S extends JSONSchema ? FromSchema<S> : object
       let parsed: object
       try {
-        parsed = JSON.parse(msg)
+        parsed = JSON.parse(msgStr)
       } catch (e) {
         throw new HarmonyError(eToStr(e))
       }
@@ -241,8 +249,6 @@ export class TransactionHandler<T, S> {
     try {
       return await routine(this.state, { recv, send })
     } catch (e) {
-      // todo remove this
-      console.log(e)
       throw e
     } finally {
       // cause all recv()s to error if any are still active
@@ -258,24 +264,26 @@ export class TransactionHandler<T, S> {
         }
       }
       tsIsClosed = true
-      this.transactionSockets.delete(routineOptions.id)
+      this.transactionSockets.delete(routineOptions.id.toString('hex'))
     }
   }
 
-  private newTransactionSocketID(): string {
-    // 16 random characters
+  private newTransactionSocketID(): Buffer {
+    // return randomBytes(16)
+
     const charset = 'abcdefghijklmnopqrstuvwxyz0123456789'
-    let id: string | undefined = undefined
+    let id: Buffer | undefined = undefined
 
     // randomly generate a key
     // In the tiny chance such an id already exists, do it again.
-    while (!id || this.transactionSockets.has(id)) {
-      id = new Array(16)
-        .fill('')
-        .map(() => charset[Math.floor(Math.random() * charset.length)])
-        .join('')
+    while (!id || this.transactionSockets.has(id.toString('hex'))) {
+      id = Buffer.from(
+        new Array(16)
+          .fill('')
+          .map(() => charset[Math.floor(Math.random() * charset.length)])
+          .join('')
+      )
     }
-
     return id
   }
 }

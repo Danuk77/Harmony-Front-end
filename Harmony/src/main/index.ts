@@ -16,7 +16,7 @@ import icon from '../../build/icon.png?asset'
 import { Controller } from './Controller'
 import { ipcMainTypesafe } from './ipcMainTypesafe'
 import { showFriendBlockContextMenu } from './showFriendBlockContextMenu'
-import { generateKeyPair, verifyKeyPair } from './generateKeyPair'
+import { generateKeyPair, verifyKeyPair } from 'node-harmonyclient'
 import { mainToRendererComManager } from './MainToRendererComManager'
 import { applicationMenu } from './applicationMenu'
 export const DEBUG = true

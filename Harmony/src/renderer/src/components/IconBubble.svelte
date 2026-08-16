@@ -40,7 +40,7 @@
 
   #icon {
     all: unset;
-    app-region: no-drag;
+    -webkit-app-region: no-drag;
     width: 30px;
     height: 30px;
     border-radius: 30px;

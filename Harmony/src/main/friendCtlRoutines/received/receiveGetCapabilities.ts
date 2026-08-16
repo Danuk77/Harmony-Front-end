@@ -1,31 +1,23 @@
-import { /*HarmonyError,*/ HarmonyRoutineParams } from 'node-harmonyclient'
+import { HarmonyRoutineParams } from 'node-harmonyclient'
 import { FriendConnectionHandler } from '../../FriendConnectionHandler'
 import { validator } from './masterRoutine'
 import { HarmonyError } from 'node-harmonyclient'
-import { FromSchema } from 'json-schema-to-ts'
+import { capabilities } from '../capabilities'
 
 const initiateSchema = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',
   type: 'object',
   properties: {
     initiate: {
-      const: 'message'
-    },
-    message: {
-      type: 'string'
-    },
-    number: {
-      type: 'integer',
-      minimum: 0,
-      maximum: 9007199254740991
+      const: 'getCapabilities'
     }
   },
-  required: ['initiate', 'message', 'number'],
+  required: ['initiate'],
   additionalProperties: false
 } as const
 
-export async function receiveMessage(
-  fch: FriendConnectionHandler,
+export async function receiveGetCapabilities(
+  _: FriendConnectionHandler,
   firstMsg: object,
   { send }: HarmonyRoutineParams
 ) {
@@ -37,9 +29,5 @@ export async function receiveMessage(
     )
   }
 
-  const { message, number } = firstMsg as FromSchema<typeof initiateSchema>
-
-  await fch.onReceiveMessage(message, number)
-
-  await send({ terminate: 'done' })
+  await send({ capabilities, terminate: 'done' })
 }
