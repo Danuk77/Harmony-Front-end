@@ -28,6 +28,6 @@
   }
 
   #contents > * {
-    app-region: no-drag;
+    -webkit-app-region: no-drag;
   }
 </style>

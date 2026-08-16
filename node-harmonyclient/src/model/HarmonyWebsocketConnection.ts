@@ -290,11 +290,14 @@ export class HarmonyWebsocketConnection {
       }
     }
     this.onReceiveMessage?.(data)
-    try {
-      this.transactionHandler.recv(data)
-    } catch (e) {
-      console.error(`Error during processing of websocket message: ${eToStr(e)}`)
-    }
+    ;(async () => {
+      // if recv starts a new routine, we may get promise rejections here from future messages sent to that routine.
+      try {
+        await this.transactionHandler.recv(data)
+      } catch (e) {
+        console.error(`Error during processing of websocket message: ${eToStr(e)}`)
+      }
+    })()
   }
 
   public async launchRoutine<T>(

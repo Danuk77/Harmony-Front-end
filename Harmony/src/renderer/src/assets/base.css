@@ -35,7 +35,7 @@
 
 button,
 a {
-  app-region: no-drag;
+  -webkit-app-region: no-drag;
 }
 
 :root {

@@ -167,7 +167,7 @@
     margin-left: 5px;
     margin-right: 5px;
     font-size: 25px;
-    app-region: no-drag;
+    -webkit-app-region: no-drag;
   }
   #nicknameAndPk {
     /* max-width: ; */
@@ -180,7 +180,7 @@
     /* margin: 0 auto; */
   }
   #nicknameAndPk > * {
-    app-region: no-drag;
+    -webkit-app-region: no-drag;
   }
   #pk {
     color: var(--color-text-gray);

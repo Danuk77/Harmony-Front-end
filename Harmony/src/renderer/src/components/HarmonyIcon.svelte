@@ -31,7 +31,7 @@
 <style>
   #icon {
     all: unset;
-    app-region: no-drag;
+    -webkit-app-region: no-drag;
     color: var(--color-icon);
   }
 

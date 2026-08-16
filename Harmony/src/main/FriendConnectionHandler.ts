@@ -337,7 +337,7 @@ export class FriendConnectionHandler {
     }
   }
 
-  private async setDHPeerPublicKey(key: Buffer) {
+  private async setECDHPeerPublicKey(key: Buffer) {
     if (this.encryptionParams?.ecdh) {
       const secret = this.encryptionParams.ecdh.computeSecret(key)
       this.encryptionParams = {
@@ -410,6 +410,7 @@ export class FriendConnectionHandler {
         this.peerConnection = result.peerConnection
         oldPeerConnection?.close()
         this.capabilities = null
+        this.encryptionParams = null
       } else {
         // ignore the new failed connection. As far as we're concerned, we already have a working connection.
         return
@@ -428,111 +429,116 @@ export class FriendConnectionHandler {
         this.connectionStatus = 'failed'
         break
       case 'succeed':
-        this.peerConnection = result.peerConnection
-
-        // add event listeners
-        this.peerConnection.chatChannel.onMessage.subscribe((msg) => {
-          this.onReceiveMessage?.(msg.toString(), null)
-        })
-        this.peerConnection.ctlChannel.onMessage.subscribe((msg) => {
-          let bufMsg: Buffer
-          if (!(msg instanceof Buffer)) {
-            bufMsg = Buffer.from(msg)
-          } else {
-            bufMsg = msg
-          }
-
-          if (bufMsg.length > 29 && bufMsg.at(16) == ENCRYPTED_MESSAGE_BYTE) {
-            // attempt to decrypt
-            try {
-              bufMsg = this.decryptMessage(bufMsg)
-            } catch (e) {
-              console.log('📬❗ CTLrecv: ' + bufMsg.toString('utf8'))
-              console.error(`Could not decode peer's message.`)
-              this.encryptionError(eToStr(e))
-              return
-            }
-            console.log('📬🔓 CTLrecv: ' + bufMsg.toString('utf8'))
-          } else {
-            // not encrypted
-            console.log('📬 CTLrecv: ' + bufMsg.toString('utf8'))
-          }
-          this.controlChannelTransactionHandler.recv(bufMsg)
-        })
-
-        const onChannelStateChanged: Parameters<
-          typeof this.peerConnection.chatChannel.stateChanged.subscribe
-        >[0] = (state) => {
-          if (state == 'closing' || state == 'closed') {
-            // check chat channel has not changed
-            if (this.peerConnection == result.peerConnection) {
-              // in future we could get an explicit disconnect message from the user.
-              this.connectionStatus = 'online-disconnected'
-              this.controlChannelTransactionHandler.clear()
-            }
-            result.peerConnection.removeAllListeners()
-          }
-        }
-        this.peerConnection.chatChannel.stateChanged.subscribe(onChannelStateChanged)
-        this.peerConnection.ctlChannel.stateChanged.subscribe(onChannelStateChanged)
-
-        result.peerConnection.rtc.connectionStateChange.subscribe(() => {
-          switch (result.peerConnection.rtc.connectionState) {
-            case 'closed':
-            case 'failed':
-            case 'disconnected': {
-              // set to online-disconnected - if the peer connection was still in use
-              if (this.peerConnection == result.peerConnection) {
-                this.connectionStatus = 'online-disconnected'
-                this.controlChannelTransactionHandler.clear()
-              }
-              result.peerConnection.removeAllListeners()
-              result.peerConnection.close()
-              break
-            }
-            // {
-            //   if (this.peerConnection == result.peerConnection) {
-            //     this.connectionStatus = 'online-rtc-disconnected'
-            //     console.error(`Temporarily disconnected from ${this.friend.nickname}`)
-            //   }
-            //   break
-            // }
-            case 'connected': {
-              if (this.peerConnection == result.peerConnection) {
-                this.connectionStatus = 'unencrypted-connected'
-              }
-              break
-            }
-            case 'new':
-            case 'connecting':
-              break
-          }
-        })
-
+        this.setupSuccessfulPeerConnection(result)
         this.connectionStatus = 'unencrypted-connected'
-
-        const ctlId = result.peerConnection.ctlChannel.id
-
-        this.tryEncryptionAsync()
-
-        // get friend's capabilities (async)
-        sendGetCapabilities(this)
-          .then((capabilities) => {
-            // check that the connection has not changed
-            if (this.peerConnection?.ctlChannel.id != ctlId) {
-              return
-            }
-            this.capabilities = capabilities
-          })
-          .catch((e) =>
-            console.error(
-              `Could not get capabilities of friend with pk ${this.friend.peerPk}. ${eToStr(e)}`
-            )
-          )
         break
+
       default:
         this.connectionStatus = 'failed'
     }
+  }
+
+  private setupSuccessfulPeerConnection(
+    result: PeerConnectionCreationResult & { status: 'succeed' }
+  ) {
+    this.encryptionParams = null
+    this.peerConnection = result.peerConnection
+    this.addPeerConnectionListeners(result.peerConnection)
+
+    this.tryEncryptionAsync()
+
+    // get friend's capabilities (async)
+    const ctlId = result.peerConnection.ctlChannel.id
+    sendGetCapabilities(this)
+      .then((capabilities) => {
+        // check that the connection has not changed
+        if (this.peerConnection?.ctlChannel.id != ctlId) {
+          return
+        }
+        this.capabilities = capabilities
+      })
+      .catch((e) =>
+        console.error(
+          `Could not get capabilities of friend with pk ${this.friend.peerPk}. ${eToStr(e)}`
+        )
+      )
+  }
+
+  private addPeerConnectionListeners(peerConnection: HarmonyPeerConnection) {
+    peerConnection.chatChannel.onMessage.subscribe((msg) => {
+      this.onReceiveMessage?.(msg.toString(), null)
+    })
+    peerConnection.ctlChannel.onMessage.subscribe((msg) => {
+      let bufMsg: Buffer
+      if (!(msg instanceof Buffer)) {
+        bufMsg = Buffer.from(msg)
+      } else {
+        bufMsg = msg
+      }
+
+      if (bufMsg.length > 29 && bufMsg.at(16) == ENCRYPTED_MESSAGE_BYTE) {
+        // attempt to decrypt
+        try {
+          bufMsg = this.decryptMessage(bufMsg)
+        } catch (e) {
+          console.log('📬❗ CTLrecv: ' + bufMsg.toString('utf8'))
+          console.error(`Could not decode peer's message.`)
+          this.encryptionError(eToStr(e))
+          return
+        }
+        console.log('📬🔓 CTLrecv: ' + bufMsg.toString('utf8'))
+      } else {
+        // not encrypted
+        console.log('📬 CTLrecv: ' + bufMsg.toString('utf8'))
+      }
+      ;(async () => {
+        try {
+          await this.controlChannelTransactionHandler.recv(bufMsg)
+        } catch (e) {
+          console.error(eToStr(e))
+        }
+      })()
+    })
+    const onChannelStateChanged: Parameters<
+      typeof peerConnection.chatChannel.stateChanged.subscribe
+    >[0] = (state) => {
+      if (state == 'closing' || state == 'closed') {
+        // check chat channel has not changed
+        if (this.peerConnection == peerConnection) {
+          // in future we could get an explicit disconnect message from the user.
+          this.connectionStatus = 'online-disconnected'
+          this.controlChannelTransactionHandler.clear()
+        }
+        peerConnection.removeAllListeners()
+      }
+    }
+    peerConnection.chatChannel.stateChanged.subscribe(onChannelStateChanged)
+    peerConnection.ctlChannel.stateChanged.subscribe(onChannelStateChanged)
+    peerConnection.rtc.connectionStateChange.subscribe(() => {
+      switch (peerConnection.rtc.connectionState) {
+        case 'closed':
+        case 'failed':
+        case 'disconnected': {
+          // set to online-disconnected - if the peer connection was still in use
+          if (this.peerConnection == peerConnection) {
+            this.connectionStatus = 'online-disconnected'
+            this.controlChannelTransactionHandler.clear()
+          }
+          peerConnection.removeAllListeners()
+          peerConnection.close()
+          break
+        }
+        case 'connected': {
+          if (this.peerConnection == peerConnection) {
+            this.connectionStatus = 'unencrypted-connected'
+          }
+          break
+        }
+        case 'new':
+        case 'connecting':
+          break
+      }
+    })
   }
 
   private async tryEncryptionAsync() {
@@ -544,7 +550,7 @@ export class FriendConnectionHandler {
     }
     sendGetECDHPublicKey(this)
       .then((DHPeerPublicKey) => {
-        this.setDHPeerPublicKey(DHPeerPublicKey)
+        this.setECDHPeerPublicKey(DHPeerPublicKey)
       })
       .catch((e) => {
         console.error(

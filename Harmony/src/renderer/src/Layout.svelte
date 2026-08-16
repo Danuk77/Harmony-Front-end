@@ -114,7 +114,7 @@
   }
 
   #row1 {
-    app-region: drag;
+    -webkit-app-region: drag;
     z-index: 3;
     grid-row: 1;
     grid-column: 1 / 3;

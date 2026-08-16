@@ -46,12 +46,11 @@ export class TransactionHandler<T, S> {
   /**
    *
    * @param msg an incoming message
-   * @returns
+   * @returns If this message led to a new master routine transaction being created, this function returns a promise containing the return value of that transaction. Otherwise returns null.
    */
-  public recv(msg: Buffer) {
+  public recv(msg: Buffer): Promise<T> | null {
     if (msg.byteLength < 17) {
-      console.error('Malformed message: ' + msg)
-      return
+      throw new Error('Malformed message: ' + msg)
     }
     const id = Buffer.copyBytesFrom(msg.subarray(0, 16))
     const content = Buffer.copyBytesFrom(msg.subarray(16))
@@ -61,11 +60,15 @@ export class TransactionHandler<T, S> {
     if (ts) {
       ts.messageCallback?.(content)
     } else {
-      this.launchRoutine((state, { send, recv }) => this.masterRoutine(state, { send, recv }), {
-        id: id,
-        firstMsg: content
-      })
+      return this.launchRoutine(
+        (state, { send, recv }) => this.masterRoutine(state, { send, recv }),
+        {
+          id: id,
+          firstMsg: content
+        }
+      )
     }
+    return null
   }
 
   /**
