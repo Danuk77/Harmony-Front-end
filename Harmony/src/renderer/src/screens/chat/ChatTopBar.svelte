@@ -5,10 +5,6 @@
   import { store } from '../../redux'
   import HarmonyIcon from '../../components/HarmonyIcon.svelte'
 
-  $effect(() => {
-    console.log($store)
-  })
-
   let fs = $derived.by(() => {
     return $store.ui.selectedFriendPk
       ? $store.friendStates.find((fs) => fs.friend.peerPk == $store.ui.selectedFriendPk)

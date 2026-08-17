@@ -11,7 +11,6 @@
       case 'error':
       case 'failed-login':
       case 'receive-message': {
-        console.log(action)
         bc.postMessage(action)
         break
       }

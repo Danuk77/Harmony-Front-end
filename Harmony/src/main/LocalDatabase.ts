@@ -98,7 +98,7 @@ export class LocalDatabase {
           }
         ]
       })
-      .sort({ date: 1 })
+      .sort({ date: 1, msgNumber: 1 })
     return messages
   }
 
