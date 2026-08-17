@@ -429,8 +429,8 @@ export class FriendConnectionHandler {
         this.connectionStatus = 'failed'
         break
       case 'succeed':
-        this.setupSuccessfulPeerConnection(result)
         this.connectionStatus = 'unencrypted-connected'
+        this.setupSuccessfulPeerConnection(result)
         break
 
       default:
