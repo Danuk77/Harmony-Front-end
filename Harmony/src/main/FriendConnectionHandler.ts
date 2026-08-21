@@ -16,6 +16,10 @@ import { sendGetCapabilities } from './friendCtlRoutines/initiated/sendGetCapabi
 import { capAlternatives } from './friendCtlRoutines/capabilities'
 import { createCipheriv, createDecipheriv, createECDH, ECDH, hkdf, randomBytes } from 'crypto'
 import { sendGetECDHPublicKey } from './friendCtlRoutines/initiated/sendGetECDHPublicKey'
+import { DEBUG } from '.'
+import { getPeerLogger, logger } from './logging'
+import winston from 'winston'
+import { FriendRoster } from './FriendRoster'
 
 const ENCRYPTED_MESSAGE_BYTE = 0b1000_0001
 
@@ -89,7 +93,10 @@ export class FriendConnectionHandler {
 
   // callbacks
   public onConnectionStatusChange: (status: typeof this._peerState.connectionStatus) => unknown
-  public onReceiveMessage: (msg: string, msgNumber: number | null) => unknown | Promise<unknown>
+  public onReceiveMessage: (
+    msg: string,
+    msgNumber: number | null
+  ) => ReturnType<NonNullable<FriendRoster['onReceiveMessage']>>
   public onPeerSdpAnswerForVideoCall: (
     sdp: { type: 'answer'; sdp: string },
     callID: number
@@ -98,6 +105,8 @@ export class FriendConnectionHandler {
 
   // used in inner functions
   public onAcceptOrRejectVideoCall?: (status: 'accept' | 'reject') => unknown
+
+  public logger: winston.Logger
 
   constructor(
     con: HarmonyConnection,
@@ -117,10 +126,9 @@ export class FriendConnectionHandler {
     this.onPeerSdpAnswerForVideoCall = callbacks.onPeerSdpAnswerForVideoCall
     this.onPeerIceCandidateForVideoCall = callbacks.onPeerIceCandidateForVideoCall
 
-    // this.onCallStatusChange = onCallStatusChange
     this.friend = friendDB
-    // this.videoCallStatus = videoCallStatus
     this.con = con
+    this.logger = getPeerLogger({ pk: friendDB.peerPk })
 
     // messages on the ctl channel
     this.controlChannelTransactionHandler = new TransactionHandler(
@@ -131,14 +139,17 @@ export class FriendConnectionHandler {
           try {
             encrypted = this.encryptMessage(msg)
           } catch (e) {
-            console.error('Could not encrypt message')
             this.encryptionError(eToStr(e))
             throw e
           }
-          console.log('📮🔓 CTLsend: ' + msg)
+          if (DEBUG) {
+            this.logger.verbose('📮🔓 CTLsend: ' + msg)
+          }
           this.peerConnection?.ctlChannel.send(encrypted)
         } else {
-          console.log('📮 CTLsend: ' + msg)
+          if (DEBUG) {
+            this.logger.verbose('📮 CTLsend: ' + msg)
+          }
           this.peerConnection?.ctlChannel.send(msg)
         }
       },
@@ -146,7 +157,7 @@ export class FriendConnectionHandler {
         try {
           return await masterRoutine(...args)
         } catch (e) {
-          console.error(eToStr(e))
+          this.logger.error(eToStr(e))
         }
       },
       { fch: this, ctlChannelId: this.peerConnection?.chatChannel.id }
@@ -325,7 +336,7 @@ export class FriendConnectionHandler {
 
   public confirmPeerHasReceivedECDHPublicKey() {
     if (!this.encryptionParams?.ecdh) {
-      console.error("Peer has our Elyptic Curve Diffie-Hellman public key, yet we don't?")
+      this.logger.error("Peer has our Elyptic Curve Diffie-Hellman public key, yet we don't?")
       return
     }
     this.encryptionParams = {
@@ -334,6 +345,7 @@ export class FriendConnectionHandler {
     }
     if (this.encryptionParams.AESKey) {
       this.connectionStatus = 'encrypted-connected'
+      this.logger.info('CTL channel is now encrypted')
     }
   }
 
@@ -349,6 +361,7 @@ export class FriendConnectionHandler {
       }
       if (this.encryptionParams.peerHasReceivedPublicKey) {
         this.connectionStatus = 'encrypted-connected'
+        this.logger.info('CTL channel is now encrypted')
       }
     } else {
       this.encryptionParams = {
@@ -361,8 +374,7 @@ export class FriendConnectionHandler {
   }
 
   private encryptionError(e: Error | string) {
-    console.error(e)
-    console.error(`Encryption error with ${this.friend.peerPk}. Closing peer connection.`)
+    this.logger.warn(`Encryption error: ${e}. Closing peer connection.`)
     this.connectionStatus = 'failed'
     this.peerConnection?.removeAllListeners()
     this.peerConnection?.close()
@@ -379,6 +391,7 @@ export class FriendConnectionHandler {
     }
     this.reconnectTimeout = undefined
     this.connectionStatus = 'connecting'
+    this.logger.info('Attempting peer connection')
     this.con.initiatePeerConnection(this.friend.peerPk).then((result) => {
       this.receiveConnection(result)
     })
@@ -394,6 +407,9 @@ export class FriendConnectionHandler {
     if (this.connectionStatus == 'closed') {
       // close it immediately.
       if (result.status == 'succeed') {
+        this.logger.info(
+          `Friend connection state is "${this.connectionStatus}", new connections not allowed. Closing new peer connection.`
+        )
         result.peerConnection.close()
       }
       return
@@ -406,6 +422,7 @@ export class FriendConnectionHandler {
     ) {
       if (result.status == 'succeed') {
         // reassign this.peerConnection first before closing so the event listener for the old channel doesn't change the status when it closes.
+        this.logger.info('Replacing old peer connection with new one')
         const oldPeerConnection = this.peerConnection
         this.peerConnection = result.peerConnection
         oldPeerConnection?.close()
@@ -413,6 +430,7 @@ export class FriendConnectionHandler {
         this.encryptionParams = null
       } else {
         // ignore the new failed connection. As far as we're concerned, we already have a working connection.
+        this.logger.info('Ignoring new failed peer connection. We already have a working one.')
         return
       }
     }
@@ -420,13 +438,16 @@ export class FriendConnectionHandler {
     switch (result.status) {
       case 'offline':
         this.connectionStatus = 'offline'
+        this.logger.info('Peer is offline')
         break
       case 'reject':
         this.connectionStatus = 'rejected'
+        this.logger.info('Peer rejected connection')
         // this DOES NOT mean that we should unfriend them - perhaps another friend request is in progress.
         break
       case 'fail':
         this.connectionStatus = 'failed'
+        this.logger.error(`Peer connection failed: ${result.msg}`)
         break
       case 'succeed':
         this.connectionStatus = 'unencrypted-connected'
@@ -434,13 +455,14 @@ export class FriendConnectionHandler {
         break
 
       default:
-        this.connectionStatus = 'failed'
+        assertNever(result)
     }
   }
 
   private setupSuccessfulPeerConnection(
     result: PeerConnectionCreationResult & { status: 'succeed' }
   ) {
+    this.logger.info('Setting up new peer connection')
     this.encryptionParams = null
     this.peerConnection = result.peerConnection
     this.addPeerConnectionListeners(result.peerConnection)
@@ -457,11 +479,7 @@ export class FriendConnectionHandler {
         }
         this.capabilities = capabilities
       })
-      .catch((e) =>
-        console.error(
-          `Could not get capabilities of friend with pk ${this.friend.peerPk}. ${eToStr(e)}`
-        )
-      )
+      .catch((e) => this.logger.error(`Could not get capabilities. ${eToStr(e)}`))
   }
 
   private addPeerConnectionListeners(peerConnection: HarmonyPeerConnection) {
@@ -481,21 +499,28 @@ export class FriendConnectionHandler {
         try {
           bufMsg = this.decryptMessage(bufMsg)
         } catch (e) {
-          console.log('📬❗ CTLrecv: ' + bufMsg.toString('utf8'))
-          console.error(`Could not decode peer's message.`)
+          const strMsg = bufMsg.toString('utf8')
+          if (DEBUG) {
+            this.logger.verbose('📬❗ CTLrecv: ' + strMsg)
+          }
+          this.logger.error(`Could not decode peer's message: ` + strMsg)
           this.encryptionError(eToStr(e))
           return
         }
-        console.log('📬🔓 CTLrecv: ' + bufMsg.toString('utf8'))
+        if (DEBUG) {
+          this.logger.verbose('📬🔓 CTLrecv: ' + bufMsg.toString('utf8'))
+        }
       } else {
         // not encrypted
-        console.log('📬 CTLrecv: ' + bufMsg.toString('utf8'))
+        if (DEBUG) {
+          this.logger.verbose('📬 CTLrecv: ' + bufMsg.toString('utf8'))
+        }
       }
       ;(async () => {
         try {
           await this.controlChannelTransactionHandler.recv(bufMsg)
         } catch (e) {
-          console.error(eToStr(e))
+          this.logger.warn(`Transaction closed unexpectedly: ${eToStr(e)}`)
         }
       })()
     })
@@ -507,6 +532,7 @@ export class FriendConnectionHandler {
         if (this.peerConnection == peerConnection) {
           // in future we could get an explicit disconnect message from the user.
           this.connectionStatus = 'online-disconnected'
+          this.logger.info('Disconnected')
           this.controlChannelTransactionHandler.clear()
         }
         peerConnection.removeAllListeners()
@@ -522,6 +548,7 @@ export class FriendConnectionHandler {
           // set to online-disconnected - if the peer connection was still in use
           if (this.peerConnection == peerConnection) {
             this.connectionStatus = 'online-disconnected'
+            this.logger.info('Disconnected')
             this.controlChannelTransactionHandler.clear()
           }
           peerConnection.removeAllListeners()
@@ -543,8 +570,8 @@ export class FriendConnectionHandler {
 
   private async tryEncryptionAsync() {
     if (this._peerState.encryptionAttempts > 5) {
-      console.error(
-        `Attempted to establish encryption ${this._peerState.encryptionAttempts} times with peer pk ${this.friend.peerPk}. Will not make any more attempts.`
+      this.logger.info(
+        `Attempted to establish encryption ${this._peerState.encryptionAttempts} times. Will not make any more attempts.`
       )
       return
     }
@@ -553,7 +580,7 @@ export class FriendConnectionHandler {
         this.setECDHPeerPublicKey(DHPeerPublicKey)
       })
       .catch((e) => {
-        console.error(
+        this.logger.warn(
           `Couldn't get peer's Elyptic Curve Diffie-Hellman public key. Perhaps they don't support encryption. ${eToStr(e)}`
         )
       })

@@ -205,7 +205,7 @@ export class VideoCallRoutine {
 
   public async startRecvLoop() {
     if (!this.currentSignalling) {
-      console.warn('Failed to start video call recv interval - no routine')
+      this.fch.logger.warn('Failed to start video call recv interval - no routine')
     }
 
     try {
@@ -288,7 +288,6 @@ export class VideoCallRoutine {
       if (eStr == '') {
         eStr = 'Unknown error'
       }
-      // console.error('Error while setting up the video call: ' + eStr)
       /**@todo do something about videoCallManager.error being called multiple times for the same transaction */
       if (this.currentSignalling) {
         this.fch.videoCallManager.error('routine', eStr, this.currentSignalling.id)
@@ -306,7 +305,7 @@ export class VideoCallRoutine {
       clearInterval(this.currentSignalling.waitInverval)
     }
     if (!this.currentSignalling) {
-      console.error('Failed to start video call wait interval - no routine')
+      this.fch.logger.error('Failed to start video call wait interval - no routine')
       return
     }
 

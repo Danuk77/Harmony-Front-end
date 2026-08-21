@@ -310,12 +310,6 @@
     flex-direction: column;
   }
 
-  .loading {
-    margin-top: 10px;
-    color: var(--color-text-white);
-    background-color: var(--color-notice-bubble);
-  }
-
   .bubble {
     border-radius: 18px;
     padding: 4px;

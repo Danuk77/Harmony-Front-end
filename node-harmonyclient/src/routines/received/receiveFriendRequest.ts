@@ -1,7 +1,7 @@
 import { FromSchema } from 'json-schema-to-ts'
 import { HarmonyWebsocketConnection, validator } from '../../model/HarmonyWebsocketConnection'
 import { HarmonyError, HarmonyRoutineParams } from '../../model/routine'
-import { base64RegexString } from '../../utils'
+import { base64RegexString, eToStr } from '../../utils'
 
 const initiateSchema = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',
@@ -45,14 +45,10 @@ export async function receiveFriendRequest(
     throw new Error('No handler defined for onReceiveFriendRequest')
   }
 
-  try {
-    await send({
-      forward: {
-        type: shouldAccept
-      }
-    })
-    await recv() // terminate:done
-  } catch (e) {
-    console.error((e as Error).message)
-  }
+  await send({
+    forward: {
+      type: shouldAccept
+    }
+  })
+  await recv() // terminate:done
 }

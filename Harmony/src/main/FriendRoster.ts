@@ -7,6 +7,7 @@ import { DEBUG } from '.'
 import { ICECandidate } from './friendCtlRoutines/VideoCallRoutine'
 import { FriendVideoCallStatus, VideoCallManager } from './VideoCallManager'
 import { Controller } from './Controller'
+import { getPeerLogger, logger } from './logging'
 
 /**
  * Collection of all friends.
@@ -23,11 +24,7 @@ export class FriendRoster {
     status: FriendConnectionStatus
   ) => unknown
   public onVideoCallStatusChange?: (publicKey: string, status: FriendVideoCallStatus) => unknown
-  public onReceiveMessage?: (
-    publicKey: string,
-    msg: string,
-    msgNumber: number | null
-  ) => Promise<{ status: 'accept' } | { status: 'reject'; reason: string }>
+  public onReceiveMessage?: (publicKey: string, msg: string, msgNumber: number | null) => void
   public onPeerSdpAnswerForVideoCall?: (
     publicKey: string,
     sdpAnswer: { type: 'answer'; sdp: string },
@@ -174,8 +171,9 @@ export class FriendRoster {
     if (friendWrapper) {
       friendWrapper.receiveConnection(result)
     } else {
-      if (DEBUG)
-        console.error('Recieved a connection from an unknown friend, closing. ' + result.publicKey)
+      getPeerLogger({ pk: result.publicKey }).info(
+        'Recieved a connection from an unknown friend, closing. '
+      )
       result.peerConnection?.close()
     }
   }

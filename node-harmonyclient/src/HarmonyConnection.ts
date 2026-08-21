@@ -10,6 +10,7 @@ import {
 import { initiatePeerConnection } from './routines/initiated/initiatePeerConnection'
 import { sendFriendRejection } from './routines/initiated/sendFriendRejection'
 import { sendFriendRequest } from './routines/initiated/sendFriendRequest'
+import winston from 'winston'
 
 export class HarmonyConnection {
   private websocket: HarmonyWebsocketConnection
@@ -19,7 +20,7 @@ export class HarmonyConnection {
    * @param publicKey This client's public key
    * @param websocketConnectionOptions Additional options for the websocket.
    */
-  constructor() {
+  constructor(logger?: winston.Logger) {
     // create websocket
     this.websocket = new HarmonyWebsocketConnection()
   }
@@ -75,6 +76,13 @@ export class HarmonyConnection {
   }
   public get onFailedLogin() {
     return this.websocket.onFailedLogin
+  }
+
+  public set onSuccessfulLogin(callback) {
+    this.websocket.onSuccessfulLogin = callback
+  }
+  public get onSuccessfulLogin() {
+    return this.websocket.onSuccessfulLogin
   }
 
   /**

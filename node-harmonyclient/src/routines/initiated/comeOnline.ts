@@ -132,8 +132,7 @@ export async function comeOnline(con: HarmonyWebsocketConnection, keyPair: KeyPa
       // send to server
       await send({ payload, signature: signatureBase64 })
 
-      const welcome = await recv(welcomeResponseSchema)
-      console.log(welcome.welcome)
+      await recv(welcomeResponseSchema)
     },
     { loginRequired: false }
   )

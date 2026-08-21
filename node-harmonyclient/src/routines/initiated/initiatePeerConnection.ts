@@ -174,8 +174,8 @@ export function initiatePeerConnection(
           break
         }
         default: {
-          console.warn(
-            `Ignored unexpected channel received in main process from peer ${peerPk}: ${channel.label}`
+          con.logger.warn(
+            `Ignored unexpected channel received from peer ${peerPk}: ${channel.label}`
           )
           break
         }
@@ -204,7 +204,7 @@ export function initiatePeerConnection(
     // setup the rtc connection using the signalling server
     con
       .launchRoutine((_, { send, recv }) =>
-        setupInitiatedPeerConnection(rtc, peerPk, { send, recv })
+        setupInitiatedPeerConnection(con, rtc, peerPk, { send, recv })
       )
       .then((status) => {
         if (status == 'offline' || status == 'reject') {
@@ -239,6 +239,7 @@ export function initiatePeerConnection(
  * Handes client-server communication to set up a p2p connection
  */
 async function setupInitiatedPeerConnection(
+  con: HarmonyWebsocketConnection,
   rtc: RTCPeerConnection,
   peerPk: string,
   { send, recv }: HarmonyRoutineParams
@@ -251,11 +252,9 @@ async function setupInitiatedPeerConnection(
   const peerResponse = await recv(peerResponseSchema)
 
   if (peerResponse.peerStatus == 'offline') {
-    console.log('Peer is offline')
     return 'offline'
   }
   if (peerResponse.forwarded.type == 'reject') {
-    console.log('Peer rejects connection request')
     return 'reject'
   }
   // only remains accept and offer case.
@@ -289,7 +288,7 @@ async function setupInitiatedPeerConnection(
           }
         })
       } catch {
-        console.error('failed to send ICE candidate')
+        con.logger.error(`Failed to send ICE candidate to ${peerPk}`)
       }
     }
   })
