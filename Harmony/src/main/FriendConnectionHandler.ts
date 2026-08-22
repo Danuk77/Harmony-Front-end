@@ -385,6 +385,24 @@ export class FriendConnectionHandler {
     this.onAcceptOrRejectVideoCall?.(status)
   }
 
+  /**
+   *
+   * @param removeListenersFirst Removes listeners on the peer connection before closing it.
+   */
+  public resetConnection = (removeListenersFirst: boolean) => {
+    // close a connection if one is open, reset encryption params, etc
+    if (this.peerConnection) {
+      this.logger.info('Closing peer connection')
+    }
+    if (removeListenersFirst) {
+      this.peerConnection?.removeAllListeners()
+    }
+    this.peerConnection?.close()
+    this.peerConnection = undefined
+    this.capabilities = null
+    this.encryptionParams = null
+  }
+
   public attemptConnection = () => {
     clearTimeout(this.reconnectTimeout)
     this.reconnectTimeout = undefined
@@ -392,6 +410,7 @@ export class FriendConnectionHandler {
       this.shouldReconnectWhenUnpaused = true
       return
     }
+    this.resetConnection(true)
     this.connectionStatus = 'connecting'
     this.logger.info('Attempting peer connection')
     this.con.initiatePeerConnection(this.friend.peerPk).then((result) => {
@@ -401,24 +420,17 @@ export class FriendConnectionHandler {
 
   /**
    * Connection request routine has just been initiated by the peer, and we are accepting the request.
-   * Connection has not been set up or anything yet.
+   * Connection has not been made yet.
    */
   public receiveConnectionRequest = () => {
     // clear timeout
     clearTimeout(this.reconnectTimeout)
     this.reconnectTimeout = undefined
-
-    if (this.peerConnection) {
-      this.logger.info('Closing old peer connection to make way for incoming one')
-      this.peerConnection.removeAllListeners()
-      this.peerConnection.close()
-      this.peerConnection = undefined
-    }
-
-    this.capabilities = null
-    this.encryptionParams = null
+    this.resetConnection(true)
     this.connectionStatus = 'connecting'
   }
+
+  public cancelAllOngoingConnectionRequests = () => {}
 
   /**
    * Process a PeerConnectionCreationResult.
@@ -438,25 +450,17 @@ export class FriendConnectionHandler {
       return
     }
 
-    // // if we already have a connection and we are receiving a new connection, replace and close the old one.
-    // if (
-    //   this.connectionStatus == 'encrypted-connected' ||
-    //   this.connectionStatus == 'unencrypted-connected'
-    // ) {
-    //   if (result.status == 'succeed') {
-    //     // reassign this.peerConnection first before closing so the event listener for the old channel doesn't change the status when it closes.
-    //     this.logger.info('Replacing old peer connection with new one')
-    //     const oldPeerConnection = this.peerConnection
-    //     this.peerConnection = result.peerConnection
-    //     oldPeerConnection?.close()
-    //     this.capabilities = null
-    //     this.encryptionParams = null
-    //   } else {
-    //     // ignore the new failed connection. As far as we're concerned, we already have a working connection.
-    //     this.logger.info('Ignoring new failed peer connection. We already have a working one.')
-    //     return
-    //   }
-    // }
+    // if we already have a connection and we are receiving a new connection, replace and close the old one.
+    if (
+      this.connectionStatus == 'encrypted-connected' ||
+      this.connectionStatus == 'unencrypted-connected'
+    ) {
+      if (result.status != 'succeed') {
+        // ignore the new failed connection. As far as we're concerned, we already have a working connection.
+        this.logger.info('Ignoring new failed peer connection. We already have a working one.')
+        return
+      }
+    }
 
     switch (result.status) {
       case 'offline':

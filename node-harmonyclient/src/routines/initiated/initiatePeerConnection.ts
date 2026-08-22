@@ -7,6 +7,7 @@ import {
 import { HarmonyWebsocketConnection } from '../../model/HarmonyWebsocketConnection'
 import { HarmonyRoutineParams } from '../../model/routine'
 import { RTCPeerConnection, RTCIceCandidate, RTCDataChannel } from 'werift'
+import { eToStr } from '../../utils'
 
 const ON_DATA_CHANNEL_TIMEOUT = 20_000 //ms
 
@@ -220,7 +221,7 @@ export function initiatePeerConnection(
         resolve({
           publicKey: peerPk,
           status: 'fail',
-          msg: (e as Error).message
+          msg: eToStr(e)
         })
       })
 

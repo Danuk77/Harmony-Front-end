@@ -8,7 +8,7 @@ import { HarmonyWebsocketConnection, validator } from '../../model/HarmonyWebsoc
 import { HarmonyError, HarmonyRoutineParams } from '../../model/routine'
 import { RTCIceCandidate, RTCPeerConnection } from 'werift'
 import { iceCandidateSchema } from '../initiated/initiatePeerConnection'
-import { base64RegexString } from '../../utils'
+import { base64RegexString, eToStr } from '../../utils'
 
 const initiateSchema = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',
@@ -149,7 +149,7 @@ export async function receivePeerConnection(
           resolve({
             publicKey: peerPk,
             status: 'fail',
-            msg: (reason as Error).message
+            msg: eToStr(reason)
           })
           done()
         })

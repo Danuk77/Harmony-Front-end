@@ -61,15 +61,23 @@
         // add "turn:"
         values.turnServerURL = 'turn:' + values.turnServerURL
       }
-    } else {
-      // give error if there are credentials provided without stun server addr.
-      if (values.turnServerCredential != '' || values.turnServerUsername != '') {
-        window.api.showMessageBox({
-          message: 'TURN credentials provided, but no TURN server specified!',
-          type: 'error'
-        })
-        return
-      }
+    }
+
+    // either none, or all 3 fields of the turn server must be filled in
+    let nonEmptyTurnFieldCount = 0
+    for (const field of [
+      values.turnServerURL,
+      values.turnServerUsername,
+      values.turnServerCredential
+    ]) {
+      if (field != '') nonEmptyTurnFieldCount++
+    }
+    if (![0, 3].includes(nonEmptyTurnFieldCount)) {
+      window.api.showMessageBox({
+        message: 'To use a TURN server, all 3 TURN fields must be filled in.',
+        type: 'error'
+      })
+      return
     }
 
     const newSTUN: IceServer | null = setSTUN
@@ -81,8 +89,8 @@
     const newTURN: IceServer | null = setTURN
       ? {
           urls: values.turnServerURL,
-          credential: values.turnServerCredential != '' ? values.turnServerCredential : undefined,
-          username: values.turnServerUsername != '' ? values.turnServerUsername : undefined
+          credential: values.turnServerCredential,
+          username: values.turnServerUsername
         }
       : null
 
