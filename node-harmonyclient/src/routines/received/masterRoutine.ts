@@ -44,6 +44,6 @@ export async function masterRoutine(
       } catch {
         //
       }
-      console.error('unknown incoming routine: ' + firstMsg.initiate)
+      con.logger.error(`Unknown incoming routine: ${firstMsg.initiate}`)
   }
 }

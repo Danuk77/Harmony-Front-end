@@ -19,6 +19,7 @@ import { showFriendBlockContextMenu } from './showFriendBlockContextMenu'
 import { generateKeyPair, verifyKeyPair } from 'node-harmonyclient'
 import { mainToRendererComManager } from './MainToRendererComManager'
 import { applicationMenu } from './applicationMenu'
+import { logger } from './logging'
 export const DEBUG = true
 
 process.traceProcessWarnings = true
@@ -243,6 +244,8 @@ app.whenReady().then(() => {
   app.on('before-quit', () => {
     controller.close()
   })
+
+  logger.info('Starting application')
 })
 
 // Quit when all windows are closed, except on macOS. There, it's common

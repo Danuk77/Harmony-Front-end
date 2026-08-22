@@ -144,6 +144,7 @@ export class VideoCallManager {
     resolve: Parameters<ConstructorParameters<typeof Promise<void>>[0]>[0],
     reject: Parameters<ConstructorParameters<typeof Promise<void>>[0]>[1]
   ) {
+    this.fch.logger.info('Received video call request')
     // cancel current routine in favour of this one
     try {
       await this.routineManager.cancelCurrentRoutine()
@@ -265,7 +266,9 @@ export class VideoCallManager {
         oldStatus.id !== null
       )
     ) {
-      console.error('peerAccepts called in bad state and was ignored: ', this.videoCallStatus)
+      this.fch.logger.warn(
+        'peerAccepts called in bad state and was ignored: ' + JSON.stringify(this.videoCallStatus)
+      )
       return
     }
 
@@ -321,7 +324,7 @@ export class VideoCallManager {
       }
     }
 
-    console.error('Video call error: ' + msg)
+    this.fch.logger.error('Video call error: ' + msg)
 
     switch (this.videoCallStatus.window) {
       case 'closed': {
@@ -381,7 +384,9 @@ export class VideoCallManager {
         oldStatus.id !== null
       )
     ) {
-      console.error('peerHangsUp called in bad state and was ignored: ', this.videoCallStatus)
+      this.fch.logger.warn(
+        'peerHangsUp called in bad state and was ignored: ' + JSON.stringify(this.videoCallStatus)
+      )
       return
     }
 
@@ -436,7 +441,9 @@ export class VideoCallManager {
         oldStatus.id !== null
       )
     ) {
-      console.error('weAccept called in bad state and was ignored: ', this.videoCallStatus)
+      this.fch.logger.warn(
+        'weAccept called in bad state and was ignored: ' + JSON.stringify(this.videoCallStatus)
+      )
       return
     }
 
@@ -482,6 +489,8 @@ export class VideoCallManager {
 
   // light blue
   public async sendVideoCallRequest() {
+    this.fch.logger.info('Sending video call request')
+
     // don't check the current state
     // user may want to start a new video call at any time due to issues - allow them
 

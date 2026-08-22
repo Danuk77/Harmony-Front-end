@@ -9,8 +9,6 @@ export const DB_MESSAGES_LOC = path.join(DB_LOC, '/messages.db')
 export const DB_USERS_LOC = path.join(DB_LOC, '/users.db')
 export const DB_FRIENDS_LOC = path.join(DB_LOC, '/friends.db')
 
-console.log(DB_LOC)
-
 export type User = {
   keyPair: KeyPair | null
   serverUrl: string | null

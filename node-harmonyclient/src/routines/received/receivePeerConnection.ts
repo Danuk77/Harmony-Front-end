@@ -194,7 +194,7 @@ async function setupReceivedPeerConnection(
           }
         })
       } catch {
-        console.error('failed to send ICE candidate')
+        con.logger.error(`Failed to send ICE candidate to ${initiateAndKey.key}`)
       }
     }
   })

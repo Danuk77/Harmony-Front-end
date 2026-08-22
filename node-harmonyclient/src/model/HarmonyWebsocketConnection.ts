@@ -7,6 +7,8 @@ import { eToStr, IceServer } from '../utils'
 import { Validator } from 'jsonschema'
 import { KeyPair } from '../utils'
 import { TransactionHandler } from './TransactionHandler'
+import winston, { log } from 'winston'
+import { newDefaultLogger } from '../logging'
 
 const WS_RECONNECT_TIMEOUT = 10000 // ms
 
@@ -38,6 +40,7 @@ export type WebsocketStatusType =
 export class HarmonyWebsocketConnection {
   public serverAPIVersion = '2.0'
   public options: HarmonyWebsocketConnectionOptions
+  public logger: winston.Logger
 
   private _serverUrl: string | null = null
   private wsConnection?: connection
@@ -52,6 +55,7 @@ export class HarmonyWebsocketConnection {
   // callback functions - may be added to the object.
   public onWsStatusChange?: (status: WebsocketStatusType) => unknown
   public onFailedLogin?: (reason: string) => unknown
+  public onSuccessfulLogin?: () => unknown
   public onFailedConnect?: (reason: string) => unknown
   public onIncomingConnectionRequest?: (
     publicKey: string
@@ -64,9 +68,10 @@ export class HarmonyWebsocketConnection {
   ) => FriendRequestResponseType | Promise<FriendRequestResponseType>
   public onReceiveFriendRejection?: (pk: string) => unknown
 
-  constructor(options?: HarmonyWebsocketConnectionOptions) {
+  constructor(options?: HarmonyWebsocketConnectionOptions, logger?: winston.Logger) {
     // override default options
     this.options = { ...defaultOptions, ...(options ?? {}) }
+    this.logger = logger ?? newDefaultLogger()
 
     this.keyPair = null
     this.transactionHandler = this.createTransactionHandler()
@@ -180,6 +185,7 @@ export class HarmonyWebsocketConnection {
     if (this.keyPair) {
       try {
         await comeOnline(this, this.keyPair)
+        this.onSuccessfulLogin?.()
         this.wsStatus = 'logged-in'
       } catch (e) {
         // the error could have been due to a connection close.
@@ -268,7 +274,7 @@ export class HarmonyWebsocketConnection {
   }
 
   private wsError = (err: Error): void => {
-    console.error('Websocket error: ', err)
+    this.logger.error(`Websocket error: ${eToStr(err)}`)
   }
   private wsClose = (): void => {
     // send a HarmonyError message to all open transactions.
@@ -295,7 +301,7 @@ export class HarmonyWebsocketConnection {
       try {
         await this.transactionHandler.recv(data)
       } catch (e) {
-        console.error(`Error during processing of websocket message: ${eToStr(e)}`)
+        this.logger.error(`Error during processing of websocket message: ${eToStr(e)}`)
       }
     })()
   }

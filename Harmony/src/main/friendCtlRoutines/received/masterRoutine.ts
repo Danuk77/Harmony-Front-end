@@ -30,7 +30,7 @@ export async function masterRoutine(
   try {
     firstMsg = await recv(initiateSchema)
   } catch (e) {
-    console.error(eToStr(e))
+    fch.logger.error(eToStr(e))
     return
   }
 

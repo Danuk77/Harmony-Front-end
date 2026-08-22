@@ -1,3 +1,5 @@
+import { logger } from './logging'
+
 type ExchangeRecord<T> = {
   id: number
   resolve: Parameters<ConstructorParameters<typeof Promise<T>>[0]>[0]
@@ -92,7 +94,7 @@ export class MainToRendererComManager {
     // find which message this is in response to, and call the resolver
     const record = this.idToExchangeRecord.get(id)
     if (!record) {
-      console.error(`Got unexpected response ${id} from the renderer: ${response}`)
+      logger.warn(`Got unexpected response ${id} from the renderer: ${response}`)
       return
     }
     record.resolve(response)

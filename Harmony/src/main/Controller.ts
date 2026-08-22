@@ -10,6 +10,7 @@ import { HarmonyConnection, WebsocketStatusType, FriendRequestResult } from 'nod
 import { FriendRoster } from './FriendRoster'
 import { Friend, LocalDatabase, Message } from './LocalDatabase'
 import { getFriendState, startAppListening, store, storeTypesafe } from './redux'
+import { friendRequestResultToString, getPeerLogger, logger } from './logging'
 
 export type SendMessageReturnType =
   | {
@@ -59,40 +60,63 @@ export class Controller {
 
     // con listeners
     this.con.onFailedLogin = (reason) => {
+      logger.error(`Failed server login: ${reason}`)
       if (reason != store.getState().connection.failedLoginMsg) {
         storeTypesafe.dispatch({ type: 'set-failed-login-msg', payload: reason })
       }
     }
 
     this.con.onFailedConnect = (reason) => {
+      logger.error(`Failed server connect: ${reason}`)
       if (reason != store.getState().connection.failedConnectMsg) {
         storeTypesafe.dispatch({ type: 'set-failed-connect-msg', payload: reason })
       }
     }
 
+    this.con.onSuccessfulLogin = () => {
+      logger.info('Server login')
+    }
+
     this.con.onIncomingConnectionRequest = async (pk) => {
-      if (!this.keyPair) return 'reject'
+      const peerLog = getPeerLogger({ pk })
+      if (!this.keyPair) {
+        peerLog.info('Reject connection request: no local key pair')
+        return 'reject'
+      }
 
       const friend = getFriendState(this.keyPair.publicKey, pk)?.friend
 
       if (friend && friend.status == 'accept') {
+        peerLog.info('Accept connection request')
         return 'accept'
         /**@todo maybe inform the renderer?*/
       } else if (friend && friend.status == 'blocked') {
+        peerLog.info('Reject connection request: blocked peer')
         // if we have blocked them, send an explicit friend rejection message
         // after a short delay to reduce likelihood of race condition in peer client of the friend status of this client
-        ;((localPk) => setTimeout(() => this.sendFriendRejection(localPk.publicKey, pk), 1000))(
-          this.keyPair
-        )
-
+        ;((localPk) =>
+          setTimeout(() => {
+            peerLog.info(
+              'Resending friend rejection following connection request from blocked peer'
+            )
+            this.sendFriendRejection(localPk.publicKey, pk)
+          }, 1000))(this.keyPair)
         return 'reject'
       } else if (friend && this.friendRequestTimers.has(pk)) {
         // we are not friends, but we are scheduled to send them a friend request.
         // bring that forward to now.
         // They will probably accept it, given that they are trying to connect to us.
-        this.sendFriendRequest(this.keyPair.publicKey, pk, friend.nickname)
+        peerLog.info(
+          'Reject connection request: unsent friend request. Will send another friend request soon.'
+        )
+        this.sendFriendRequest(this.keyPair.publicKey, pk, friend.nickname).then((result) => {
+          peerLog.info(friendRequestResultToString(result))
+        })
         return 'reject'
       } else {
+        peerLog.info(
+          `Reject connection request. Current friend status: ${friend?.status ?? 'none'}`
+        )
         return 'reject'
       }
     }
@@ -103,8 +127,9 @@ export class Controller {
     }
 
     this.con.onReceiveFriendRejection = async (pk) => {
-      if (!this.keyPair) return
+      getPeerLogger({ pk }).info('Received explicit friend rejection')
 
+      if (!this.keyPair) return
       const friend = getFriendState(this.keyPair.publicKey, pk)?.friend
       let updatedFriend: Friend
 
@@ -135,6 +160,9 @@ export class Controller {
       }
     }
     this.con.onReceiveFriendRequest = async (pk) => {
+      const peerLog = getPeerLogger({ pk })
+      peerLog.info('Received friend request')
+
       // this shouldn't happen - just for type narrowing
       if (!this.keyPair) {
         return 'reject'
@@ -174,9 +202,13 @@ export class Controller {
           case 'blocked':
             // if we have blocked them, send an explicit friend rejection message
             // after a short delay to reduce likelihood of race condition in peer client of the friend status of this client
-            ;((localPk) => setTimeout(() => this.sendFriendRejection(localPk.publicKey, pk), 1000))(
-              this.keyPair
-            )
+            ;((localPk) =>
+              setTimeout(() => {
+                peerLog.info(
+                  'Resending friend rejection following friend request from blocked peer'
+                )
+                this.sendFriendRejection(localPk.publicKey, pk)
+              }, 1000))(this.keyPair)
             return 'reject'
           case 'friend-request:awaiting-our-response':
             return 'pending'
@@ -227,10 +259,10 @@ export class Controller {
     }
     if (DEBUG) {
       this.con.onSendMessage = (msg) => {
-        console.log('📮 WSsend: ' + Buffer.from(msg).toString('utf-8'))
+        logger.verbose('📮 WSsend: ' + Buffer.from(msg).toString('utf-8'))
       }
       this.con.onReceiveMessage = (msg) => {
-        console.log('📬 WSrecv: ' + Buffer.from(msg).toString('utf-8'))
+        logger.verbose('📬 WSrecv: ' + Buffer.from(msg).toString('utf-8'))
       }
     }
     this.con.onWsStatusChange = (status) => {
@@ -245,7 +277,9 @@ export class Controller {
         // immmediately resend any friend requests
         if (this.keyPair /*Definitely set if we're logged in. For type narrowing */) {
           for (const pk of Array.from(this.friendRequestTimers.keys())) {
-            this.sendFriendRequest(this.keyPair?.publicKey, pk)
+            this.sendFriendRequest(this.keyPair?.publicKey, pk).then((result) =>
+              getPeerLogger({ pk }).info(friendRequestResultToString(result))
+            )
           }
         }
       } else {
@@ -259,11 +293,13 @@ export class Controller {
         msgNumber &&
         (msgNumber < 0 || msgNumber > Number.MAX_SAFE_INTEGER || !Number.isInteger(msgNumber))
       ) {
-        return { status: 'reject', reason: 'Bad msgNumber' }
+        getPeerLogger({ pk }).info('Reject peer message: bad msgNumber')
+        return
       }
 
       if (msgNumber && (await this.db.hasMessage(pk, 'local', msgNumber))) {
-        return { status: 'reject', reason: 'Message has already been received' }
+        getPeerLogger({ pk }).info('Reject peer message: message has already been received')
+        return
       }
 
       const msgObj: Message = {
@@ -331,8 +367,6 @@ export class Controller {
         }
         this.onNotification?.(notification, false /*display unconditionally*/, onClickNotification)
       }
-
-      return { status: 'accept' }
     }
 
     this.friendRoster.onFriendConnectionStatusChange = (peerPk, status) => {
@@ -510,8 +544,11 @@ export class Controller {
       friend.status == 'friend-request:offline-and-our-friend-request-unsent'
     ) {
       this.resetFriendRequestTimer(friend.peerPk)
-      if (immediate) {
-        this.keyPair && immediate && this.sendFriendRequest(this.keyPair.publicKey, friend.peerPk)
+      if (immediate && this.keyPair) {
+        const peerLog = getPeerLogger({ pk: friend.peerPk })
+        this.sendFriendRequest(this.keyPair.publicKey, friend.peerPk).then((result) => {
+          peerLog.info(friendRequestResultToString(result))
+        })
       }
     }
   }
@@ -526,7 +563,7 @@ export class Controller {
     try {
       await this.friendRoster.sendMessage(toPk, message, msgNumber)
     } catch (e) {
-      console.error(eToStr(e))
+      logger.error(eToStr(e), { peerPk: toPk })
       return {
         msg: null,
         error: 'Failed to send message: ' + eToStr(e)
@@ -545,7 +582,7 @@ export class Controller {
     try {
       await this.db.insertMessage(msgObj)
     } catch (e) {
-      console.error(eToStr(e))
+      logger.error(eToStr(e))
       return {
         msg: msgObj,
         error: 'Failed to add message to local database: ' + eToStr(e)
@@ -564,6 +601,8 @@ export class Controller {
     peerPk: string,
     nickname?: string
   ): Promise<FriendRequestResult> => {
+    getPeerLogger({ pk: peerPk }).info('Sending friend request')
+
     // reset interval
     if (this.friendRequestTimers.has(peerPk)) this.resetFriendRequestTimer(peerPk)
 
@@ -585,15 +624,14 @@ export class Controller {
     try {
       result = await this.con.sendFriendRequest(peerPk)
     } catch (e) {
-      console.error(eToStr(e))
+      const msg = `Failed to send friend request to ${peerPk}: ${eToStr(e)}`
       return {
         status: 'fail',
-        msg: 'Failed to send friend request: ' + eToStr(e)
+        msg
       }
     }
 
     if (result.status == 'fail') {
-      console.error(result.msg)
       return result
     }
 
@@ -788,10 +826,14 @@ export class Controller {
 
   private resetFriendRequestTimer = (peerPk: string) => {
     this.clearFriendRequestTimer(peerPk)
-    const interval = setInterval(
-      () => this.keyPair && this.sendFriendRequest(this.keyPair.publicKey, peerPk),
-      resendFriendRequestTimeout
-    )
+    const interval = setInterval(() => {
+      if (this.keyPair) {
+        const peerLog = getPeerLogger({ pk: peerPk })
+        this.sendFriendRequest(this.keyPair.publicKey, peerPk).then((result) =>
+          peerLog.info(friendRequestResultToString(result))
+        )
+      }
+    }, resendFriendRequestTimeout)
     this.friendRequestTimers.set(peerPk, interval)
   }
 
@@ -799,6 +841,7 @@ export class Controller {
    * Gracefully stop everything
    */
   public close() {
+    logger.info('Closing all connections')
     // remove all friend request resends
     this.clearFriendRequestTimers()
     this.friendRoster.closeAll()

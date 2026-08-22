@@ -225,7 +225,6 @@ export class TransactionHandler<T, S> {
         const errorMsg = parsed as {
           error: string
         }
-        console.log(errorMsg.error)
 
         // terminate the connection anyway. don't bother with re-sending messages for now.
         send({ terminate: 'cancel' })

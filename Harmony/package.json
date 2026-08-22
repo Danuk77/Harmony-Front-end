@@ -33,6 +33,7 @@
     "jsonschema": "^1.5.0",
     "luxon": "^3.7.2",
     "node-harmonyclient": "file:../node-harmonyclient",
+    "winston": "^3.19.0",
     "yup": "^1.6.1"
   },
   "devDependencies": {
