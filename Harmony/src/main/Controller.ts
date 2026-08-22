@@ -87,6 +87,7 @@ export class Controller {
       const friend = getFriendState(this.keyPair.publicKey, pk)?.friend
 
       if (friend && friend.status == 'accept') {
+        this.friendRoster.receiveConnectionRequest(pk)
         peerLog.info('Accept connection request')
         return 'accept'
         /**@todo maybe inform the renderer?*/

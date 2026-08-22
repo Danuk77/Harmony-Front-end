@@ -378,6 +378,7 @@ export class FriendConnectionHandler {
     this.connectionStatus = 'failed'
     this.peerConnection?.removeAllListeners()
     this.peerConnection?.close()
+    this.peerConnection = undefined
   }
 
   public acceptOrRejectVideoCall = (status: 'accept' | 'reject') => {
@@ -385,16 +386,38 @@ export class FriendConnectionHandler {
   }
 
   public attemptConnection = () => {
+    clearTimeout(this.reconnectTimeout)
+    this.reconnectTimeout = undefined
     if (this.paused) {
       this.shouldReconnectWhenUnpaused = true
       return
     }
-    this.reconnectTimeout = undefined
     this.connectionStatus = 'connecting'
     this.logger.info('Attempting peer connection')
     this.con.initiatePeerConnection(this.friend.peerPk).then((result) => {
       this.receiveConnection(result)
     })
+  }
+
+  /**
+   * Connection request routine has just been initiated by the peer, and we are accepting the request.
+   * Connection has not been set up or anything yet.
+   */
+  public receiveConnectionRequest = () => {
+    // clear timeout
+    clearTimeout(this.reconnectTimeout)
+    this.reconnectTimeout = undefined
+
+    if (this.peerConnection) {
+      this.logger.info('Closing old peer connection to make way for incoming one')
+      this.peerConnection.removeAllListeners()
+      this.peerConnection.close()
+      this.peerConnection = undefined
+    }
+
+    this.capabilities = null
+    this.encryptionParams = null
+    this.connectionStatus = 'connecting'
   }
 
   /**
@@ -415,25 +438,25 @@ export class FriendConnectionHandler {
       return
     }
 
-    // if we already have a connection and we are receiving a new connection, replace and close the old one.
-    if (
-      this.connectionStatus == 'encrypted-connected' ||
-      this.connectionStatus == 'unencrypted-connected'
-    ) {
-      if (result.status == 'succeed') {
-        // reassign this.peerConnection first before closing so the event listener for the old channel doesn't change the status when it closes.
-        this.logger.info('Replacing old peer connection with new one')
-        const oldPeerConnection = this.peerConnection
-        this.peerConnection = result.peerConnection
-        oldPeerConnection?.close()
-        this.capabilities = null
-        this.encryptionParams = null
-      } else {
-        // ignore the new failed connection. As far as we're concerned, we already have a working connection.
-        this.logger.info('Ignoring new failed peer connection. We already have a working one.')
-        return
-      }
-    }
+    // // if we already have a connection and we are receiving a new connection, replace and close the old one.
+    // if (
+    //   this.connectionStatus == 'encrypted-connected' ||
+    //   this.connectionStatus == 'unencrypted-connected'
+    // ) {
+    //   if (result.status == 'succeed') {
+    //     // reassign this.peerConnection first before closing so the event listener for the old channel doesn't change the status when it closes.
+    //     this.logger.info('Replacing old peer connection with new one')
+    //     const oldPeerConnection = this.peerConnection
+    //     this.peerConnection = result.peerConnection
+    //     oldPeerConnection?.close()
+    //     this.capabilities = null
+    //     this.encryptionParams = null
+    //   } else {
+    //     // ignore the new failed connection. As far as we're concerned, we already have a working connection.
+    //     this.logger.info('Ignoring new failed peer connection. We already have a working one.')
+    //     return
+    //   }
+    // }
 
     switch (result.status) {
       case 'offline':
@@ -550,6 +573,7 @@ export class FriendConnectionHandler {
             this.connectionStatus = 'online-disconnected'
             this.logger.info('Disconnected')
             this.controlChannelTransactionHandler.clear()
+            this.peerConnection = undefined
           }
           peerConnection.removeAllListeners()
           peerConnection.close()
@@ -697,5 +721,6 @@ export class FriendConnectionHandler {
   public close() {
     this.connectionStatus = 'closed'
     this.peerConnection?.close()
+    this.peerConnection = undefined
   }
 }

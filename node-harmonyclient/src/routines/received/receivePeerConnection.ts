@@ -70,18 +70,39 @@ export async function receivePeerConnection(
   firstMsg: object,
   { send, recv }: HarmonyRoutineParams
 ) {
+  // validate first message against schema
+  const validationResult = validator.validate(firstMsg, initiateSchema as object)
+  if (!validationResult.valid) {
+    throw new HarmonyError(
+      'Error on incoming message: ' +
+        validationResult.errors.map((error) => error.toString()).join(', ')
+    )
+  }
+
+  const initiateAndKey = firstMsg as {
+    initiate: 'receiveConnectionRequest'
+    key: string
+  }
+
+  const acceptOrReject = (await con.onIncomingConnectionRequest?.(initiateAndKey.key)) ?? 'reject'
+
+  // reject non-friends
+  if (acceptOrReject == 'reject') {
+    await send({
+      forward: {
+        type: 'reject'
+      }
+    })
+    await recv() // terminate:"done"
+    return 'reject'
+  }
+
+  const peerPk = (firstMsg as FromSchema<typeof initiateSchema>).key
+
+  // clear our timeout to reconnect to this peer
+
   // this function needs to wait until all messages on the routine have been sent/received, in order to prevent the transaction socket being deleted. Wait until a `done` callback is called.
   await new Promise<void>((done) => {
-    // validate first message against schema
-    const validationResult = validator.validate(firstMsg, initiateSchema as object)
-    if (!validationResult.valid) {
-      throw new HarmonyError(
-        'Error on incoming message: ' +
-          validationResult.errors.map((error) => error.toString()).join(', ')
-      )
-    }
-
-    const peerPk = (firstMsg as FromSchema<typeof initiateSchema>).key
     // wrap all the cases for the PeerConnectionCreationResult in a promise. Promises can only be resolved once, so this ensures at most one onIncomingConnectionResult event is fired.
     // the `done` promise is separate to this.
     new Promise<PeerConnectionCreationResult>((resolve) => {
@@ -109,11 +130,12 @@ export async function receivePeerConnection(
             status: 'succeed',
             peerConnection: new HarmonyPeerConnection(rtc, chatChannel, ctlChannel)
           })
+          // don't call done() to close the transaction yet - may still be more messages
         }
       })
 
       // attempt to connect the data channel with wth peer
-      setupReceivedPeerConnection(rtc, con, firstMsg, { send, recv })
+      signalReceivedPeerConnection(rtc, con, initiateAndKey, { send, recv })
         .then((status) => {
           if (status == 'reject') {
             resolve({
@@ -141,31 +163,15 @@ export async function receivePeerConnection(
   })
 }
 
-async function setupReceivedPeerConnection(
+async function signalReceivedPeerConnection(
   rtc: RTCPeerConnection,
   con: HarmonyWebsocketConnection,
-  firstMsg: object,
-  { send, recv }: HarmonyRoutineParams
-): Promise<'reject' | 'connect'> {
-  const initiateAndKey = firstMsg as {
+  firstMsg: {
     initiate: 'receiveConnectionRequest'
     key: string
-  }
-
-  /**@todo check the user's friend list to see if they can connect to this peer */
-  const acceptOrReject = (await con.onIncomingConnectionRequest?.(initiateAndKey.key)) ?? 'reject'
-
-  // reject non-friends
-  if (acceptOrReject == 'reject') {
-    await send({
-      forward: {
-        type: 'reject'
-      }
-    })
-    await recv() // terminate:"done"
-    return 'reject'
-  }
-
+  },
+  { send, recv }: HarmonyRoutineParams
+): Promise<'reject' | 'connect'> {
   const localDescription = await rtc.createOffer()
   await send({
     forward: {
@@ -194,7 +200,7 @@ async function setupReceivedPeerConnection(
           }
         })
       } catch {
-        con.logger.error(`Failed to send ICE candidate to ${initiateAndKey.key}`)
+        con.logger.error(`Failed to send ICE candidate to ${firstMsg.key}`)
       }
     }
   })

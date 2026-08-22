@@ -62,8 +62,8 @@ const logFormat = winston.format.printf(({ level, message, timestamp, ..._rest }
 export const logger = winston.createLogger({
   transports: [new winston.transports.Console({ forceConsole: true })],
   exitOnError: false,
-  format: winston.format.combine(winston.format.timestamp(), winston.format.colorize(), logFormat)
-  // level: 'verbose'
+  format: winston.format.combine(winston.format.timestamp(), winston.format.colorize(), logFormat),
+  level: 'verbose'
 })
 
 export function friendRequestResultToString(result: FriendRequestResult): string {

@@ -166,6 +166,13 @@ export class FriendRoster {
     }
   }
 
+  public receiveConnectionRequest = (pk: string) => {
+    const friendWrapper = this.friends.get(pk)
+    if (friendWrapper) {
+      friendWrapper.receiveConnectionRequest()
+    }
+  }
+
   public receiveConnection = (result: PeerConnectionCreationResult) => {
     const friendWrapper = this.friends.get(result.publicKey)
     if (friendWrapper) {
