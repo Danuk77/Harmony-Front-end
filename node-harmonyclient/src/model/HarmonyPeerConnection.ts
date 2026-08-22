@@ -20,10 +20,17 @@ export class HarmonyPeerConnection {
   }
 
   close() {
-    this.chatChannel.close()
-    this.ctlChannel.close()
-    this.rtc.close()
-    this.removeAllListeners()
+    return new Promise<void>((resolve) => {
+      this.chatChannel.close()
+      this.ctlChannel.close()
+
+      // werift bug I think. RTCDataChannel channel closes don't arrive to peer if we don't wait for a bit here.
+      setTimeout(() => {
+        this.rtc.close()
+        this.removeAllListeners()
+        resolve()
+      }, 10)
+    })
   }
 }
 
