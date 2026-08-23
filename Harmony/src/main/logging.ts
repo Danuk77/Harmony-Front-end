@@ -2,7 +2,7 @@ import { FriendRequestResult } from 'node-harmonyclient'
 import winston from 'winston'
 import { store } from './redux'
 import { FriendConnectionStatus } from './FriendConnectionHandler'
-import isDev from 'electron-is-dev'
+// import isDev from 'electron-is-dev'
 
 const connectionStateColors: Record<FriendConnectionStatus, string> = {
   'encrypted-connected': 'green',
@@ -64,7 +64,7 @@ export const logger = winston.createLogger({
   transports: [new winston.transports.Console({ forceConsole: true })],
   exitOnError: false,
   format: winston.format.combine(winston.format.timestamp(), winston.format.colorize(), logFormat),
-  ...(isDev ? { level: 'verbose' } : {})
+  ...(process.defaultApp ? { level: 'verbose' } : {})
 })
 
 export function friendRequestResultToString(result: FriendRequestResult): string {
