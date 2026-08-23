@@ -561,6 +561,7 @@ export class FriendConnectionHandler {
           this.connectionStatus = 'online-disconnected'
           this.logger.info('Disconnected')
           this.controlChannelTransactionHandler.clear()
+          this.peerConnection = undefined
         }
         peerConnection.removeAllListeners()
       }
