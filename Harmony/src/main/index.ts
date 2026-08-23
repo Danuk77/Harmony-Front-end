@@ -62,9 +62,17 @@ function createMainWindow(): BrowserWindow {
     height: 670,
     minWidth: 550,
     minHeight: 300,
-    titleBarStyle: 'hidden',
     darkTheme: true,
-    ...(process.platform !== 'darwin' ? { titleBarOverlay: true } : {}),
+    ...(process.platform !== 'darwin'
+      ? {
+          titleBarStyle: 'hidden',
+          titleBarOverlay: {
+            color: '#201b2f',
+            height: 24,
+            symbolColor: '#afafaf'
+          }
+        }
+      : {}),
     show: false,
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),

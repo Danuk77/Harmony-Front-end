@@ -3,6 +3,7 @@
   "productName": "Harmony Client",
   "version": "1.0.0",
   "description": "Front end for Harmony",
+  "homepage": "https://github.com/Danuk77/Harmony-Front-end",
   "main": "./out/main/index.js",
   "author": "ZiadAmr",
   "scripts": {

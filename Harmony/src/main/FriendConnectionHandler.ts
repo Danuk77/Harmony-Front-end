@@ -17,7 +17,7 @@ import { capAlternatives } from './friendCtlRoutines/capabilities'
 import { createCipheriv, createDecipheriv, createECDH, ECDH, hkdf, randomBytes } from 'crypto'
 import { sendGetECDHPublicKey } from './friendCtlRoutines/initiated/sendGetECDHPublicKey'
 import { DEBUG } from '.'
-import { getPeerLogger, logger } from './logging'
+import { getPeerLogger } from './logging'
 import winston from 'winston'
 import { FriendRoster } from './FriendRoster'
 

@@ -3,11 +3,10 @@
 import { HarmonyConnection, PeerConnectionCreationResult } from 'node-harmonyclient'
 import { Friend } from './LocalDatabase'
 import { FriendConnectionHandler, FriendConnectionStatus } from './FriendConnectionHandler'
-import { DEBUG } from '.'
 import { ICECandidate } from './friendCtlRoutines/VideoCallRoutine'
 import { FriendVideoCallStatus, VideoCallManager } from './VideoCallManager'
 import { Controller } from './Controller'
-import { getPeerLogger, logger } from './logging'
+import { getPeerLogger } from './logging'
 
 /**
  * Collection of all friends.
