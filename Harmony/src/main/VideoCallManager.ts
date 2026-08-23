@@ -10,6 +10,7 @@ import { assertNever } from '../common/utils'
 import { FriendConnectionHandler } from './FriendConnectionHandler'
 import { sendVideoCallRequest } from './friendCtlRoutines/initiated/sendVideoCallRequest'
 import { defaultVideoCallStatus } from '../common/redux'
+import isDev from 'electron-is-dev'
 
 export type FriendVideoCallStatus = {
   callDirection: 'none' | 'incoming' | 'outgoing'
@@ -78,7 +79,8 @@ export class VideoCallManager {
       ...(process.platform === 'linux' ? { icon } : {}),
       webPreferences: {
         preload: join(__dirname, '../preload/index.js'),
-        sandbox: false
+        sandbox: false,
+        devTools: isDev
       }
     })
     this.browserWindow = browserWindow
