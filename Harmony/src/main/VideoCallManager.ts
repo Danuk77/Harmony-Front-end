@@ -10,7 +10,6 @@ import { assertNever } from '../common/utils'
 import { FriendConnectionHandler } from './FriendConnectionHandler'
 import { sendVideoCallRequest } from './friendCtlRoutines/initiated/sendVideoCallRequest'
 import { defaultVideoCallStatus } from '../common/redux'
-// import isDev from 'electron-is-dev'
 
 export type FriendVideoCallStatus = {
   callDirection: 'none' | 'incoming' | 'outgoing'

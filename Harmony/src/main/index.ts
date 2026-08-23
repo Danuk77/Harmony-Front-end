@@ -20,7 +20,6 @@ import { generateKeyPair, verifyKeyPair } from 'node-harmonyclient'
 import { mainToRendererComManager } from './MainToRendererComManager'
 import { applicationMenu } from './applicationMenu'
 import { logger } from './logging'
-// import isDev from 'electron-is-dev'
 export const DEBUG = true
 
 process.traceProcessWarnings = true

@@ -2,7 +2,6 @@ import { FriendRequestResult } from 'node-harmonyclient'
 import winston from 'winston'
 import { store } from './redux'
 import { FriendConnectionStatus } from './FriendConnectionHandler'
-// import isDev from 'electron-is-dev'
 
 const connectionStateColors: Record<FriendConnectionStatus, string> = {
   'encrypted-connected': 'green',
