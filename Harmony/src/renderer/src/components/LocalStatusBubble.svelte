@@ -43,15 +43,20 @@
   #button {
     all: unset;
     width: 50%;
+    margin-top: 1px;
+    margin-bottom: 20px;
+  }
+  #button:focus-visible {
+    outline: auto;
   }
   #block {
+    box-shadow: var(--dark-box-shadow);
     background-color: var(--color-block);
     padding-top: 3px;
     padding-bottom: 3px;
 
     border-radius: 20px;
-    margin-top: 1px;
-    margin-bottom: 20px;
+
     display: flex;
     align-items: center;
     /* height: 25px; */

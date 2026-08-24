@@ -12,42 +12,68 @@
   import ServerSettingsMainPanel from './screens/server-settings/ServerSettingsMainPanel.svelte'
   import EditFriendMainPanel from './screens/edit-friend/EditFriendMainPanel.svelte'
   import EditFriendTopBar from './screens/edit-friend/EditFriendTopBar.svelte'
+  import EditKeyPairTopBar from './screens/edit-keypair/EditKeyPairTopBar.svelte'
+  import EditKeyPairMainPanel from './screens/edit-keypair/EditKeyPairMainPanel.svelte'
+
+  let stabColor = $derived.by(() => {
+    if (
+      $store.ui.screenMode == 'chat' &&
+      $store.friendStates.find(
+        (friend) =>
+          friend.friend.peerPk == $store.ui.selectedFriendPk &&
+          friend.friend.localPk == $store.user.keyPair?.publicKey
+      )?.connectionStatus == 'unencrypted-connected'
+    ) {
+      return 'var(--color-lightbulb-unverified)'
+    }
+    return 'inherit'
+  })
 </script>
 
 <div id="overlay">
-  <div id="iconAndLogo">
-    <ServerStatusBubble />
-  </div>
-  <div id="top-bar">
-    {#if $store.ui.screenMode == 'chat'}
-      <ChatTopBar />
-    {:else if $store.ui.screenMode == 'add-friend'}
-      <AddFriendTopBar />
-    {:else if $store.ui.screenMode == 'user-settings'}
-      <UserSettingsTopBar />
-    {:else if $store.ui.screenMode == 'server-settings'}
-      <ServerSettingsTopBar />
-    {:else if $store.ui.screenMode == 'edit-friend'}
-      <EditFriendTopBar />
-    {/if}
+  <div id="row1">
+    <div id="iconAndLogo">
+      <ServerStatusBubble />
+    </div>
+    <div id="top-bar">
+      {#if $store.ui.screenMode == 'chat'}
+        <ChatTopBar />
+      {:else if $store.ui.screenMode == 'add-friend'}
+        <AddFriendTopBar />
+      {:else if $store.ui.screenMode == 'user-settings'}
+        <UserSettingsTopBar />
+      {:else if $store.ui.screenMode == 'server-settings'}
+        <ServerSettingsTopBar />
+      {:else if $store.ui.screenMode == 'edit-friend'}
+        <EditFriendTopBar />
+      {:else if $store.ui.screenMode == 'edit-keypair'}
+        <EditKeyPairTopBar />
+      {/if}
+    </div>
   </div>
 
-  <div id="sidebar">
-    <Sidebar />
-  </div>
+  <div id="row2">
+    <div id="sidebar-container" style:background-color={stabColor}>
+      <div id="sidebar">
+        <Sidebar />
+      </div>
+    </div>
 
-  <div id="main-panel">
-    {#if $store.ui.screenMode == 'chat'}
-      <ChatMainPanel />
-    {:else if $store.ui.screenMode == 'add-friend'}
-      <AddFriendMainPanel />
-    {:else if $store.ui.screenMode == 'user-settings'}
-      <UserSettingsMainPanel />
-    {:else if $store.ui.screenMode == 'server-settings'}
-      <ServerSettingsMainPanel />
-    {:else if $store.ui.screenMode == 'edit-friend'}
-      <EditFriendMainPanel />
-    {/if}
+    <div id="main-panel">
+      {#if $store.ui.screenMode == 'chat'}
+        <ChatMainPanel />
+      {:else if $store.ui.screenMode == 'add-friend'}
+        <AddFriendMainPanel />
+      {:else if $store.ui.screenMode == 'user-settings'}
+        <UserSettingsMainPanel />
+      {:else if $store.ui.screenMode == 'server-settings'}
+        <ServerSettingsMainPanel />
+      {:else if $store.ui.screenMode == 'edit-friend'}
+        <EditFriendMainPanel />
+      {:else if $store.ui.screenMode == 'edit-keypair'}
+        <EditKeyPairMainPanel />
+      {/if}
+    </div>
   </div>
 </div>
 
@@ -61,29 +87,48 @@
     right: 0;
     grid-template-columns: 250px auto;
     grid-template-rows: min-content auto;
-    row-gap: 3px;
+    /* row-gap: 5px; */
   }
   #iconAndLogo {
-    grid-row: 1;
-    grid-column: 1;
     background-color: var(--color-sidebar);
   }
   #top-bar {
-    grid-row: 1;
-    grid-column: 2;
     background-color: var(--color-sidebar);
+  }
+  #sidebar-container {
+    z-index: 2;
   }
   #sidebar {
-    grid-column: 1;
-    grid-row: 2;
     min-height: 0;
     min-width: 0;
     background-color: var(--color-sidebar);
+    box-shadow: 1px 1px 3px black;
+    margin-top: 5px;
+    border-radius: 0px 10px 0px 0px;
+    z-index: 2;
+    height: 100%;
   }
   #main-panel {
-    grid-column: 2;
-    grid-row: 2;
     min-height: 0;
     min-width: 0;
+  }
+
+  #row1 {
+    -webkit-app-region: drag;
+    z-index: 3;
+    grid-row: 1;
+    grid-column: 1 / 3;
+    display: grid;
+    grid-template-columns: subgrid;
+    box-shadow: 1px 1px 3px black;
+  }
+
+  #row2 {
+    min-height: 0;
+    grid-row: 2;
+    grid-column: 1 / 3;
+    display: grid;
+    grid-template-columns: subgrid;
+    pointer-events: visible;
   }
 </style>

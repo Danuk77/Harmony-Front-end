@@ -4,27 +4,24 @@
   import { peerConnectionStatusToBulbColorCssVariable } from '../misc/misc'
   import type { FriendState } from '../../../common/redux'
   import { store } from '../redux'
-  import HarmonyIcon from './HarmonyIcon.svelte'
-  import { changeFriendStatus } from '../endpointIoWrappers'
+  import { executeFriendOption } from '../endpointIoWrappers'
   let {
     selected,
-    hasUnreadMessages: hasUnreadMessages,
+    hasUnreadMessages,
+    hasIncomingCall,
     fs,
     onclick,
     oncontextmenu
   }: {
     selected: boolean
     hasUnreadMessages: boolean
+    hasIncomingCall: boolean
     fs: FriendState
-    onclick?: HTMLButtonElement['onclick']
+    onclick?: () => unknown
     oncontextmenu?: HTMLButtonElement['oncontextmenu']
   } = $props()
 
-  let backgroundColor = $derived.by(() => {
-    const lighten =
-      selected && ($store.ui.screenMode == 'chat' || $store.ui.screenMode == 'edit-friend')
-    const amber = hasUnreadMessages
-
+  const getButtonBackgroundColor = (amber: boolean, lighten: boolean) => {
     if (amber) {
       if (lighten) {
         return '--color-block-highlighted-selected'
@@ -38,94 +35,158 @@
         return '--color-block'
       }
     }
+  }
+
+  let statusAndNameBackgroundColor = $derived.by(() => {
+    const lighten = selected && $store.ui.screenMode == 'chat'
+    const amber = hasUnreadMessages || hasIncomingCall
+
+    return getButtonBackgroundColor(amber, lighten)
+  })
+
+  let editBackgroundColor = $derived.by(() => {
+    const lighten = selected && $store.ui.screenMode == 'edit-friend'
+    const amber = hasUnreadMessages || hasIncomingCall
+
+    return getButtonBackgroundColor(amber, lighten)
   })
 
   let bulbColor = $derived.by(() => {
     if (fs.friend.status == 'accept') {
       return peerConnectionStatusToBulbColorCssVariable(fs.connectionStatus)
+    } else if (
+      fs.friend.status == 'friend-request:offline-and-our-friend-accept-unsent' ||
+      fs.friend.status == 'friend-request:offline-and-our-friend-request-unsent'
+    ) {
+      return '--color-lightbulb-offline'
     } else {
       return '--color-icon'
     }
   })
   let icon = $derived.by(() => {
+    if (hasIncomingCall) {
+      return 'fa-phone-volume'
+    }
+
     switch (fs.friend.status) {
-      case 'reject':
-        return 'fa-x'
       case 'accept':
         return 'fa-lightbulb'
-      case 'pending':
-        return 'fa-envelope'
-      case 'block':
+      case 'blocking':
+        return 'fa-x'
+      case 'blocked':
         return 'fa-ban'
-      case 'awaiting-response':
+      case 'none':
+        return '' /**@todo*/
+      case 'friend-request:considering-our-request':
+      case 'friend-request:offline-and-our-friend-request-unsent':
         return 'fa-hourglass-half'
+      case 'friend-request:awaiting-our-response':
+      case 'friend-request:offline-and-our-friend-accept-unsent':
+        return 'fa-envelope'
     }
   })
 </script>
 
-<a href={undefined} id="button" {onclick} {oncontextmenu}>
-  <div id="block" style={`background-color: var(${backgroundColor})`}>
+<div id="block">
+  <button
+    id="status-and-name"
+    style={`background-color: var(${statusAndNameBackgroundColor})`}
+    {onclick}
+    {oncontextmenu}
+    aria-label={fs.friend.nickname}
+  >
     {#key fs}
-      <span title={fs.connectionStatus}>
+      <span title={fs.connectionStatus} id="status-span">
         <i class="fas {icon}" id="bulb" style={`color: var(${bulbColor})`}></i>
       </span>
     {/key}
     <p id="nickname">{fs.friend.nickname}</p>
-    <div id="cog-container">
-      <HarmonyIcon
-        icon="fa-cog"
-        ariaLabel="Edit"
-        onclick={(e) => {
-          e.stopPropagation()
-          changeFriendStatus(fs.friend, 'edit')
-        }}
-      />
-    </div>
-  </div>
-</a>
+  </button>
+  <button
+    id="cog-container"
+    style={`background-color: var(${editBackgroundColor})`}
+    onclick={() => executeFriendOption(fs.friend, 'edit')}
+    aria-label="Edit"
+    {oncontextmenu}
+  >
+    <i class="fas fa-cog fa-lg" id="cog"></i>
+  </button>
+</div>
 
 <style>
-  #cog-container {
-    position: relative;
-    right: 0px;
-    flex-grow: 1;
+  button {
+    all: unset;
+  }
+  button:focus-visible {
+    outline: auto;
+  }
+  #status-and-name {
+    height: 100%;
     display: flex;
     flex-direction: row;
-    justify-content: flex-end;
-    margin-left: 5px;
-    margin-right: 5px;
-  }
-  #button {
-    width: 100%;
-  }
-  #block {
-    background-color: var(--color-block);
-    padding-top: 3px;
-    padding-bottom: 3px;
-
-    border-radius: 5px;
-    margin-top: 1px;
-    margin-bottom: 1px;
-    display: flex;
     align-items: center;
-    /* height: 25px; */
-    max-width: 100%;
+
+    flex-shrink: 1;
+    flex-grow: 1;
+    min-width: 0px;
+    padding-right: 2px;
+    border-radius: 5px 0 0 5px;
+    box-shadow: var(--dark-box-shadow);
   }
-  #block:hover {
+  button:hover {
     opacity: 80%;
     cursor: pointer;
   }
-  #block:active {
+  button:active {
     cursor: pointer;
+    opacity: 60%;
+  }
+  #status-span {
+    flex-shrink: 0;
+    height: max-content;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+  }
+  #nickname {
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+    flex-shrink: 1;
+    flex-grow: 1;
+    flex-basis: auto;
+  }
+  #cog-container {
+    /* background-color: var(--color-block); */
+    position: relative;
+    height: 100%;
+    right: 0px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: center;
+    padding-left: 5px;
+    margin-left: 2px;
+    padding-right: 5px;
+    border-radius: 0 5px 5px 0;
+    box-shadow: var(--dark-box-shadow);
   }
   #bulb {
     margin-left: 5px;
     margin-right: 5px;
     font-size: 20px;
   }
-  #nickname {
-    text-overflow: ellipsis;
-    overflow: hidden;
-    white-space: nowrap;
+
+  #block {
+    margin-top: 1px;
+    margin-bottom: 1px;
+    display: flex;
+    align-items: center;
+    /* height: 25px; */
+    width: 100%;
+    justify-content: space-between;
+    /* overflow: hidden; */
+    height: 30px;
   }
 </style>

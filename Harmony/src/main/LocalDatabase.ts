@@ -1,38 +1,50 @@
 import DataStore from '@seald-io/nedb'
 import { app } from '.'
 import path from 'path'
+import { IceServer, KeyPair } from '../common/redux'
+import { randomInt } from 'crypto'
 
 export const DB_LOC = path.join(app.getPath('userData'), '/UserData/')
 export const DB_MESSAGES_LOC = path.join(DB_LOC, '/messages.db')
 export const DB_USERS_LOC = path.join(DB_LOC, '/users.db')
 export const DB_FRIENDS_LOC = path.join(DB_LOC, '/friends.db')
 
-console.log(DB_LOC)
-
 export type User = {
-  pk: string | null
+  keyPair: KeyPair | null
   serverUrl: string | null
   serverEnabled: boolean
+  stunServer: IceServer | null
+  turnServer: IceServer | null
+  // null for system default
+  microphoneId: string | null
+  cameraId: string | null
 }
 type UserDoc = User & {
   _id?: string // nedb thing
 }
 
 const defaultUser: User = {
-  pk: null,
+  keyPair: null,
   serverUrl: null,
-  serverEnabled: true
+  serverEnabled: true,
+  stunServer: null,
+  turnServer: null,
+  cameraId: null,
+  microphoneId: null
 }
 
 export type Friend = {
   peerPk: string
   localPk: string
   status:
-    | 'reject' // they rejected us.
-    | 'accept' // they are friends with us.
-    | 'pending' // they are waiting for us to reply.
-    | 'block' // we rejected them
-    | 'awaiting-response' // we want to become friends; waiting for peer's response
+    | 'accept' // we are friends.
+    | 'blocking' // they have blocked us
+    | 'blocked' // we have blocked them
+    | 'none' // we have unblocked them
+    | 'friend-request:awaiting-our-response'
+    | 'friend-request:considering-our-request'
+    | 'friend-request:offline-and-our-friend-request-unsent'
+    | 'friend-request:offline-and-our-friend-accept-unsent'
   // ms since UNIX epoch
   statusModified: number
   nickname: string // initially set the same as publickey
@@ -48,6 +60,7 @@ export type Message = {
   text: string
   // ms since UNIX epoch
   date: number
+  msgNumber: number | null
 }
 
 type MessageDoc = Message & {
@@ -70,7 +83,7 @@ export class LocalDatabase {
   }
 
   public getConversation = async (pk0: string, pk1: string) => {
-    const friends = await this.messagesDb
+    const messages = await this.messagesDb
       .findAsync({
         $or: [
           {
@@ -83,8 +96,36 @@ export class LocalDatabase {
           }
         ]
       })
-      .sort({ date: 1 })
-    return friends
+      .sort({ date: 1, msgNumber: 1 })
+    return messages
+  }
+
+  public hasMessage = async (fromPk: string, toPk: string, msgNumber: number) => {
+    return !!(await this.messagesDb.findOneAsync({
+      fromPk,
+      toPk,
+      msgNumber
+    }))
+  }
+
+  public getNewMessageNumber = async (fromPk: string, toPk: string) => {
+    let msgNumber: number
+
+    while (true) {
+      msgNumber = randomInt(0, 281474976710654)
+
+      // check if number is already in db (very rare)
+      const inDb = !!(await this.messagesDb.findOneAsync({
+        fromPk,
+        toPk,
+        msgNumber
+      }))
+
+      if (!inDb) {
+        break
+      }
+    }
+    return msgNumber
   }
 
   public getFriend = async (localPk: string, peerPk: string) => {
@@ -165,7 +206,7 @@ export class LocalDatabase {
     try {
       const user = await this.usersDb.findOneAsync({})
       if (!user) return defaultUser
-      return user
+      return { ...defaultUser /**add extra fields if missing */, ...user }
     } catch {
       return defaultUser
     }

@@ -1,75 +1,82 @@
 <script lang="ts">
-  import * as yup from 'yup'
   import { store } from '../../redux'
-  import { collectYupErrorsByField } from '../../misc/utils'
+  import ScrollContainer from '../../components/ScrollContainer.svelte'
   import ExpandableBubble from '../../components/ExpandableBubble.svelte'
+  import SettingsOption from '../../components/SettingsOption.svelte'
 
-  const schema = yup.object({
-    pk: yup
-      .string()
-      .required('This field is required')
-      .matches(/^\s*[0123456789abcdefABCDEF]{128}\s*$/, 'Should be 128 hexadecimal digits')
-  })
+  let privateKeyShown = $state(false)
 
-  let values = $state<yup.InferType<typeof schema>>({
-    pk: $store.user.pk ?? ''
-  })
+  const generateNewKeyPair = async () => {
+    const result = await window.api.showMessageBox({
+      message: 'Generating a new key pair will remove your friends.',
+      detail: 'You will need to re-add all friends using the new public key. Proceed?',
+      buttons: ['Cancel', 'Continue'],
+      type: 'warning'
+    })
 
-  let formErrors = $derived(collectYupErrorsByField(schema, values))
-  let showErrors = $state(false)
+    if (result.response != 1) {
+      return
+    }
 
-  const handleSubmit: HTMLFormElement['onsubmit'] = (event) => {
-    event.preventDefault()
-    showErrors = true
+    const keyPair = await window.api.generateKeyPair()
 
-    if (schema.isValidSync(values)) {
-      // remove whitespace from pk and make lower
-      const pk = values.pk.toLowerCase().replace(/\s/g, '')
+    store.dispatch({ type: 'set-key-pair', payload: keyPair })
+    // keyPairForm.reset() // replace values in form with new ones
+  }
 
-      store.dispatch({ type: 'set-local-pk', payload: pk })
+  const editKeyPairManually = async () => {
+    if (!privateKeyShown) {
+      const result = await window.api.showMessageBox({
+        message: 'This option will display your private key on screen.',
+        detail: 'Be careful; this is essentially your password. Proceed?',
+        buttons: ['Cancel', 'Continue'],
+        type: 'warning'
+      })
+
+      if (result.response != 1) {
+        return
+      }
+    }
+
+    store.dispatch({ type: 'set-screen-mode', payload: 'edit-keypair' })
+  }
+
+  const showOrHidePrivateKey = async () => {
+    if (privateKeyShown) {
+      privateKeyShown = false
+    } else {
+      const result = await window.api.showMessageBox({
+        message: 'This option will display your private key on screen.',
+        detail: 'Be careful; this is essentially your password. Proceed?',
+        buttons: ['Cancel', 'Continue'],
+        type: 'warning'
+      })
+
+      if (result.response != 1) {
+        return
+      }
+
+      privateKeyShown = true
     }
   }
 </script>
 
-<div id="container">
-  <div id="scroll-container">
-    <div id="form">
-      <form onsubmit={handleSubmit}>
-        <ExpandableBubble
-          bind:value={values.pk}
-          label="Public Key"
-          error={showErrors && formErrors.pk.length > 0 ? formErrors.pk[0] : undefined}
-        />
-        <input type="submit" id="submit" value="Confirm" />
-      </form>
-    </div>
-  </div>
-</div>
-
-<style>
-  #container {
-    height: 100%;
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    overflow: hidden;
-  }
-  #scroll-container {
-    width: 100%;
-    overflow-y: scroll;
-    align-items: center;
-    display: flex;
-    flex-direction: column;
-    flex-grow: 1;
-  }
-  #form {
-    /* margin-top: auto; bottom-justifys content */
-    margin-top: 20px;
-    margin-bottom: 20px;
-    width: 90%;
-    max-width: 700px;
-    display: flex;
-    flex-direction: column;
-  }
-</style>
+<ScrollContainer>
+  <ExpandableBubble
+    value={$store.user.keyPair?.publicKey ?? ''}
+    label="Public Key"
+    readonly={true}
+  />
+  {#if privateKeyShown}
+    <ExpandableBubble
+      value={$store.user.keyPair?.privateKey ?? ''}
+      label="Private Key"
+      readonly={true}
+    />
+  {/if}
+  <SettingsOption onclick={showOrHidePrivateKey}
+    >{privateKeyShown ? 'Hide' : 'Show'} private key</SettingsOption
+  >
+  <SettingsOption onclick={generateNewKeyPair}>Generate new public/private keypair</SettingsOption>
+  <SettingsOption onclick={editKeyPairManually}>Edit public/private key manually</SettingsOption>
+</ScrollContainer>

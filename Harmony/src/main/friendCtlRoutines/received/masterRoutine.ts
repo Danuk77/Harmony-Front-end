@@ -1,0 +1,61 @@
+import { HarmonyRoutineParams } from 'node-harmonyclient'
+import { CtlChannelTransactionHandlerState } from '../../FriendConnectionHandler'
+import { FromSchema } from 'json-schema-to-ts'
+import { assertNever, eToStr } from '../../../common/utils'
+import { Validator } from 'jsonschema'
+import { receiveVideoCallRequest } from './receiveVideoCallRequest'
+import { receiveMessage } from './receiveMessage'
+import { capabilities } from '../capabilities'
+import { receiveGetCapabilities } from './receiveGetCapabilities'
+import { receiveGetECDHPublicKey } from './receiveGetECDHPublicKey'
+
+export const validator = new Validator()
+
+const initiateSchema = {
+  $schema: 'https://json-schema.org/draft/2020-12/schema',
+  type: 'object',
+  properties: {
+    initiate: {
+      enum: capabilities
+    }
+  },
+  required: ['initiate']
+} as const
+
+export async function masterRoutine(
+  { fch }: CtlChannelTransactionHandlerState,
+  { send, recv }: HarmonyRoutineParams
+) {
+  let firstMsg: FromSchema<typeof initiateSchema>
+  try {
+    firstMsg = await recv(initiateSchema)
+  } catch (e) {
+    fch.logger.error(eToStr(e))
+    return
+  }
+
+  switch (firstMsg.initiate) {
+    case 'videoCallRequest': {
+      await receiveVideoCallRequest(fch, firstMsg, { send, recv })
+      break
+    }
+    case 'message': {
+      await receiveMessage(fch, firstMsg, { send, recv })
+      break
+    }
+    // case 'verifyIdentity': {
+    //   await receiveVerifyIdentity(fch, firstMsg, { send, recv })
+    //   break
+    // }
+    case 'getCapabilities': {
+      await receiveGetCapabilities(fch, firstMsg, { send, recv })
+      break
+    }
+    case 'getECDHPublicKey': {
+      await receiveGetECDHPublicKey(fch, firstMsg, { send, recv })
+      break
+    }
+    default:
+      assertNever(firstMsg.initiate)
+  }
+}

@@ -9,22 +9,33 @@
   )
   let bulbColor = $derived(serverConnectionStatusToBulbColorCssVariable($store.connection.state))
 
-  const onclick: HTMLButtonElement['onclick'] = () => {
+  const onkeyup: HTMLAnchorElement['onkeyup'] = (event) => {
+    if (event.key == ' ' || event.key == 'Enter') {
+      onclick()
+    }
+  }
+
+  const onclick = () => {
     store.dispatch({ type: 'set-screen-mode', payload: 'server-settings' })
   }
 </script>
 
 <div id="container">
-  <button type="button" id="button" {onclick}>
-    <div id="block" style={`background-color: var(${backgroundColor})`}>
-      {#key $store.connection.state}
-        <span title={$store.connection.state}>
-          <i class="fas fa-plug" id="bulb" style={`color: var(${bulbColor})`}></i>
-        </span>
-      {/key}
-      <p id="nickname">{$store.user.serverUrl}</p>
-    </div>
-  </button>
+  <a
+    href={undefined}
+    tabindex="0"
+    id="button"
+    {onclick}
+    {onkeyup}
+    style={`background-color: var(${backgroundColor})`}
+  >
+    {#key $store.connection.state}
+      <span title={$store.connection.state}>
+        <i class="fas fa-plug" id="bulb" style={`color: var(${bulbColor})`}></i>
+      </span>
+    {/key}
+    <p id="nickname">{$store.user.serverUrl}</p>
+  </a>
   <div id="scrollbar-placeholder"></div>
 </div>
 
@@ -36,10 +47,8 @@
     width: var(--scrollbar-width);
   }
   #button {
-    all: unset;
-    width: 100%;
-  }
-  #block {
+    width: 85%;
+
     background-color: var(--color-block);
     padding-top: 3px;
     padding-bottom: 3px;
@@ -53,12 +62,18 @@
     max-width: 90%;
     margin-left: auto;
     margin-right: auto;
+    box-shadow: var(--dark-box-shadow);
   }
-  #block:hover {
+
+  #button:focus-visible {
+    opacity: 80%;
+    outline: auto;
+  }
+  #button:hover {
     opacity: 80%;
     cursor: pointer;
   }
-  #block:active {
+  #button:active {
     cursor: pointer;
   }
   #bulb {

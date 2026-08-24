@@ -1,0 +1,45 @@
+{
+  "name": "node-harmonyclient",
+  "version": "1.0.0",
+  "description": "Node client for HarmonyBackend (WebRTC signaling server) ",
+  "type": "commonjs",
+  "main": "build/index.js",
+  "types": "build/index.d.ts",
+  "scripts": {
+    "start": "npm run build && npm run launch",
+    "prettify": "npx prettier . --write",
+    "patch": "patch-package",
+    "build": "npx tsc",
+    "launch": "node ./build/index.js",
+    "watch": "npx tsc -w",
+    "lint": "npx eslint .",
+    "prepare": "npm run patch && npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tpeach90/node-harmonyclient.git"
+  },
+  "author": "Thomas Peach",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/tpeach90/node-harmonyclient/issues"
+  },
+  "homepage": "https://github.com/tpeach90/node-harmonyclient#readme",
+  "devDependencies": {
+    "@eslint/js": "^9.27.0",
+    "@types/websocket": "^1.0.10",
+    "eslint": "^9.27.0",
+    "json-schema-to-ts": "^3.1.1",
+    "patch-package": "^8.0.0",
+    "prettier": "3.5.3",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.32.1"
+  },
+  "dependencies": {
+    "canonical-json": "^0.2.0",
+    "jsonschema": "^1.5.0",
+    "websocket": "^1.0.35",
+    "werift": "^0.24.4",
+    "winston": "^3.19.0"
+  }
+}

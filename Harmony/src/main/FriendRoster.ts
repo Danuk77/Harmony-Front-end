@@ -1,10 +1,12 @@
 // stores a list of friends and corresponding rtc connections and periodically sends connection requests
 
-import { HarmonyConnection } from './connection/HarmonyConnection'
+import { HarmonyConnection, PeerConnectionCreationResult } from 'node-harmonyclient'
 import { Friend } from './LocalDatabase'
-import { FriendConnectionStatus, FriendConnectionHandler } from './FriendConnectionHandler'
-import { PeerConnectionCreationResult } from './connection/model/HarmonyPeerConnection'
-import { DEBUG } from '.'
+import { FriendConnectionHandler, FriendConnectionStatus } from './FriendConnectionHandler'
+import { ICECandidate } from './friendCtlRoutines/VideoCallRoutine'
+import { FriendVideoCallStatus, VideoCallManager } from './VideoCallManager'
+import { Controller } from './Controller'
+import { getPeerLogger } from './logging'
 
 /**
  * Collection of all friends.
@@ -15,17 +17,28 @@ export class FriendRoster {
   private friends: Map<string, FriendConnectionHandler> = new Map<string, FriendConnectionHandler>()
   private con: HarmonyConnection
   private _paused: boolean = true
-
-  constructor(con: HarmonyConnection) {
-    this.con = con
-  }
-
   // callbacks
   public onFriendConnectionStatusChange?: (
     publicKey: string,
     status: FriendConnectionStatus
   ) => unknown
-  public onReceiveMessage?: (publicKey: string, msg: string) => unknown
+  public onVideoCallStatusChange?: (publicKey: string, status: FriendVideoCallStatus) => unknown
+  public onReceiveMessage?: (publicKey: string, msg: string, msgNumber: number | null) => void
+  public onPeerSdpAnswerForVideoCall?: (
+    publicKey: string,
+    sdpAnswer: { type: 'answer'; sdp: string },
+    callID: number
+  ) => unknown
+  public onPeerIceCandidateForVideoCall?: (
+    publicKey: string,
+    candidate: ICECandidate,
+    callID: number
+  ) => unknown
+  public onNotification?: Controller['onNotification']
+
+  constructor(con: HarmonyConnection) {
+    this.con = con
+  }
 
   /**
    * Pause and resume making connection attempts to friends.
@@ -105,12 +118,18 @@ export class FriendRoster {
       existingFriendHandler.friend = friend
       return true
     } else {
-      const friendHandler = new FriendConnectionHandler(
-        this.con,
-        friend,
-        (status) => this.onFriendConnectionStatusChange?.(friend.peerPk, status),
-        (msg) => this.onReceiveMessage?.(friend.peerPk, msg)
-      )
+      const friendHandler = new FriendConnectionHandler(this.con, friend, {
+        onConnectionStatusChange: (connectionStatus) =>
+          this.onFriendConnectionStatusChange?.(friend.peerPk, connectionStatus),
+        onVideoCallStatusChange: (videoCallStatus) =>
+          this.onVideoCallStatusChange?.(friend.peerPk, videoCallStatus),
+        onReceiveMessage: (msg, msgNumber) =>
+          this.onReceiveMessage?.(friend.peerPk, msg, msgNumber),
+        onPeerSdpAnswerForVideoCall: (sdpAnswer, callID) =>
+          this.onPeerSdpAnswerForVideoCall?.(friend.peerPk, sdpAnswer, callID),
+        onPeerIceCandidateForVideoCall: (candidate, callID) =>
+          this.onPeerIceCandidateForVideoCall?.(friend.peerPk, candidate, callID)
+      })
       this.friends.set(friend.peerPk, friendHandler)
       friendHandler.paused = this.paused
       return false
@@ -146,15 +165,34 @@ export class FriendRoster {
     }
   }
 
+  public receiveConnectionRequest = (pk: string) => {
+    const friendWrapper = this.friends.get(pk)
+    if (friendWrapper) {
+      friendWrapper.receiveConnectionRequest()
+    }
+  }
+
   public receiveConnection = (result: PeerConnectionCreationResult) => {
     const friendWrapper = this.friends.get(result.publicKey)
     if (friendWrapper) {
       friendWrapper.receiveConnection(result)
     } else {
-      if (DEBUG)
-        console.error('Recieved a connection from an unknown friend, closing. ' + result.publicKey)
-      result.peerConnection?.rtc.close()
+      getPeerLogger({ pk: result.publicKey }).info(
+        'Recieved a connection from an unknown friend, closing. '
+      )
+      result.peerConnection?.close()
     }
+  }
+
+  public forceFriendReconnect = (publicKey: string) => {
+    const friendHandler = this.friends.get(publicKey)
+    if (!friendHandler) {
+      throw new Error('Friend does not exist')
+    }
+    if (friendHandler.friend.status != 'accept') {
+      throw new Error('Friend request not accepted')
+    }
+    friendHandler.attemptConnection()
   }
 
   // public getFriendConnectionStatus = (publicKey: string) => {
@@ -166,12 +204,77 @@ export class FriendRoster {
    * @param publicKey
    * @param msg
    */
-  public sendMessage = (publicKey: string, msg: string) => {
+  public sendMessage = async (publicKey: string, msg: string, msgNumber: number) => {
     const friendHandler = this.friends.get(publicKey)
     if (!friendHandler) {
       throw new Error('Friend does not exist')
     }
-    friendHandler.sendMessage(msg) // might throw an error.
+    await friendHandler.sendMessage(msg, msgNumber) // might throw an error.
+  }
+
+  public forwardICECandidateForVideoCall(pk: string, candidate: ICECandidate, callID: number) {
+    const friend = this.friends.get(pk)
+    if (friend && friend.videoCallManager.routineManager.currentSignalling?.id == callID) {
+      friend.videoCallManager.routineManager.forwardICECandidateForVideoCall(candidate)
+    }
+  }
+
+  public hangUpAndCloseVideoCall(
+    pk: string,
+    ...args: Parameters<VideoCallManager['hangUpAndClose']>
+  ) {
+    const friend = this.friends.get(pk)
+    if (friend) {
+      friend.videoCallManager.hangUpAndClose(...args)
+    }
+  }
+
+  public errorVideoCall(pk: string, ...args: Parameters<VideoCallManager['error']>) {
+    const friend = this.friends.get(pk)
+    if (friend) {
+      friend.videoCallManager.error(...args)
+    }
+  }
+
+  public signallingCompleteVideoCall(
+    pk: string,
+    ...args: Parameters<VideoCallManager['signallingComplete']>
+  ) {
+    const friend = this.friends.get(pk)
+    if (friend) {
+      friend.videoCallManager.signallingComplete(...args)
+    }
+  }
+
+  public peerHangsUpVideoCall(pk: string, ...args: Parameters<VideoCallManager['peerHangsUp']>) {
+    const friend = this.friends.get(pk)
+    if (friend) {
+      friend.videoCallManager.peerHangsUp(...args)
+    }
+  }
+
+  public weAcceptVideoCall(pk: string, ...args: Parameters<VideoCallManager['weAccept']>) {
+    const friend = this.friends.get(pk)
+    if (friend) {
+      friend.videoCallManager.weAccept(...args)
+    }
+  }
+
+  public sendVideoCallRequest(
+    pk: string,
+    ...args: Parameters<VideoCallManager['sendVideoCallRequest']>
+  ) {
+    const friend = this.friends.get(pk)
+    if (friend) {
+      friend.videoCallManager.sendVideoCallRequest(...args)
+    }
+  }
+
+  public videoCallWindowOpens(pk: string, ...args: Parameters<VideoCallManager['windowOpens']>) {
+    const friend = this.friends.get(pk)
+    if (friend) {
+      friend.videoCallManager.windowOpens(...args)
+    }
   }
 
   /**

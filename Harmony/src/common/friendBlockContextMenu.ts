@@ -1,27 +1,62 @@
 import { Friend } from '../main/LocalDatabase'
 
-export type FriendBlockContextMenuOptions = 'delete' | 'edit' | 'block' | 'unblock' | 'accept'
+export type FriendBlockContextMenuOptions =
+  | 'edit'
+  | 'reconnect'
+  | 'block'
+  | 'delete'
+  | 'unblock'
+  | 'send'
+  | 'accept'
+  | 'sendAnother'
+  | 'renew'
+  | 'sendNow'
+  | 'acceptNow'
+  | 'withdrawRequest'
+  | 'withdrawAccept'
 export const friendBlockContextMenuLabels: Record<FriendBlockContextMenuOptions, string> = {
   accept: 'Accept',
+  reconnect: 'Reconnect',
   block: 'Block',
   delete: 'Delete',
   edit: 'Edit',
-  unblock: 'Unblock'
+  unblock: 'Unblock',
+  acceptNow: 'Accept now',
+  renew: 'Resend friend request',
+  sendNow: 'Send request now',
+  send: 'Send request',
+  sendAnother: 'Send another request',
+  withdrawAccept: 'Withdraw unsent friend acceptance',
+  withdrawRequest: 'Withdraw unsent friend request'
 }
 
+/**@todo */
 export const friendBlockContextMenuAvailableOptions = (friend: Friend) => {
-  const options: FriendBlockContextMenuOptions[] = []
+  const options: FriendBlockContextMenuOptions[] = ['edit']
   switch (friend.status) {
-    case 'block':
+    case 'accept':
+      options.push('reconnect', 'renew', 'block')
+      break
+    case 'blocking':
+      options.push('send', 'block')
+      break
+    case 'blocked':
       options.push('unblock')
       break
-    case 'reject':
-    case 'accept':
-    case 'awaiting-response':
-      options.push('edit', 'block')
+    case 'none':
+      options.push('send', 'block')
       break
-    case 'pending':
+    case 'friend-request:awaiting-our-response':
       options.push('accept', 'block')
+      break
+    case 'friend-request:considering-our-request':
+      options.push('sendAnother', 'block')
+      break
+    case 'friend-request:offline-and-our-friend-request-unsent':
+      options.push('withdrawRequest', 'sendNow', 'block')
+      break
+    case 'friend-request:offline-and-our-friend-accept-unsent':
+      options.push('withdrawAccept', 'acceptNow', 'block')
       break
   }
   options.push('delete')

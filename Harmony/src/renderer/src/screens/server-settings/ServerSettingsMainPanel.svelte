@@ -1,90 +1,156 @@
 <script lang="ts">
   import * as yup from 'yup'
   import { store } from '../../redux'
-  import { collectYupErrorsByField } from '../../misc/utils'
-  import ExpandableBubble from '../../components/ExpandableBubble.svelte'
+  import ScrollContainer from '../../components/ScrollContainer.svelte'
+  import MenuForm from '../../components/MenuForm.svelte'
+  import type { IceServer } from '../../../../common/redux'
 
   const protocolRegex = /^(wss?):\/\//
 
-  const schema = yup.object({
+  const harmonyServerSchema = yup.object({
     url: yup
       .string()
       .matches(protocolRegex, 'Please specify protocol ("ws://" or "wss://")')
       .required('This field is required')
   })
 
-  let values = $state<yup.InferType<typeof schema>>({
-    url: $store.user.serverUrl ?? ''
+  const onSubmitHarmonyServer = (values: yup.InferType<typeof harmonyServerSchema>) => {
+    store.dispatch({ type: 'set-server-url', payload: values.url })
+  }
+
+  // const iceServerRegex = /^(((?:stun|turn):[^\n]+)(\n(?:stun|turn):[^\n]+)*)?$/
+
+  const iceServerSchema = yup.object({
+    stunServerURL: yup.string(),
+    turnServerURL: yup.string(),
+    turnServerUsername: yup.string(),
+    turnServerCredential: yup.string()
   })
 
-  let formErrors = $derived(collectYupErrorsByField(schema, values))
-  let showErrors = $state(false)
+  let cleanIceServerValues: yup.InferType<typeof iceServerSchema> = $derived({
+    stunServerURL: $store.user.stunServer?.urls.slice(5) ?? '',
+    turnServerURL: $store.user.turnServer?.urls.slice(5) ?? '',
+    turnServerUsername: $store.user.turnServer?.username ?? '',
+    turnServerCredential: $store.user.turnServer?.credential ?? ''
+  })
 
-  const handleSubmit: HTMLFormElement['onsubmit'] = (event) => {
-    event.preventDefault()
-    showErrors = true
+  let iceServerForm = $state<MenuForm<typeof iceServerSchema>>()
 
-    if (schema.isValidSync(values)) {
-      store.dispatch({ type: 'set-server-url', payload: values.url })
+  const onSubmitICEServers = (_values: yup.InferType<typeof iceServerSchema>) => {
+    const values = {
+      stunServerURL: _values.stunServerURL ?? '',
+      turnServerCredential: _values.turnServerCredential ?? '',
+      turnServerURL: _values.turnServerURL ?? '',
+      turnServerUsername: _values.turnServerUsername ?? ''
     }
+
+    let setSTUN = false
+    let setTURN = false
+
+    if (values.stunServerURL != '') {
+      setSTUN = true
+      // add "stun:"
+      if (values.stunServerURL.slice(0, 5) != 'stun:') {
+        values.stunServerURL = 'stun:' + values.stunServerURL
+      }
+    }
+
+    if (values.turnServerURL != '') {
+      setTURN = true
+      if (values.turnServerURL.slice(0, 5) != 'turn:') {
+        // add "turn:"
+        values.turnServerURL = 'turn:' + values.turnServerURL
+      }
+    }
+
+    // either none, or all 3 fields of the turn server must be filled in
+    let nonEmptyTurnFieldCount = 0
+    for (const field of [
+      values.turnServerURL,
+      values.turnServerUsername,
+      values.turnServerCredential
+    ]) {
+      if (field != '') nonEmptyTurnFieldCount++
+    }
+    if (![0, 3].includes(nonEmptyTurnFieldCount)) {
+      window.api.showMessageBox({
+        message: 'To use a TURN server, all 3 TURN fields must be filled in.',
+        type: 'error'
+      })
+      return
+    }
+
+    const newSTUN: IceServer | null = setSTUN
+      ? {
+          urls: values.stunServerURL
+        }
+      : null
+
+    const newTURN: IceServer | null = setTURN
+      ? {
+          urls: values.turnServerURL,
+          credential: values.turnServerCredential,
+          username: values.turnServerUsername
+        }
+      : null
+
+    store.dispatch({ type: 'set-stun-server', payload: newSTUN })
+    store.dispatch({ type: 'set-turn-server', payload: newTURN })
+
+    iceServerForm?.reset()
   }
 </script>
 
-<div id="container">
-  <div id="scroll-container">
-    <div id="form">
-      <form onsubmit={handleSubmit}>
-        <ExpandableBubble
-          bottomMargin={false}
-          bind:value={values.url}
-          label="Websocket URL"
-          error={showErrors && formErrors.url.length > 0 ? formErrors.url[0] : undefined}
-        />
-        <input type="submit" id="submit" value="Confirm" />
-      </form>
-    </div>
+<ScrollContainer>
+  <MenuForm
+    legend="Harmony Server"
+    schema={harmonyServerSchema}
+    cleanValues={{
+      url: $store.user.serverUrl ?? ''
+    }}
+    labels={{ url: 'Websocket URL' }}
+    onSubmit={onSubmitHarmonyServer}
+  />
 
-    <div id="checkboxes">
-      <input
-        id="serverEnabled"
-        name="serverEnabled"
-        bind:checked={() => $store.user.serverEnabled,
-        (v) => store.dispatch({ type: 'set-server-enabled', payload: v })}
-        type="checkbox"
-      />
-      <label for="serverEnabled">Enable server</label>
-    </div>
+  {#if $store.connection.state == 'disconnected' && $store.connection.failedConnectMsg}
+    <p id="connectError">Failed: {$store.connection.failedConnectMsg}</p>
+  {/if}
+
+  <div id="checkboxes">
+    <input
+      id="serverEnabled"
+      name="serverEnabled"
+      bind:checked={() => $store.user.serverEnabled,
+      (v) => store.dispatch({ type: 'set-server-enabled', payload: v })}
+      type="checkbox"
+    />
+    <label for="serverEnabled">Enable Harmony server</label>
   </div>
-</div>
+
+  <br />
+
+  <MenuForm
+    bind:this={iceServerForm}
+    legend="ICE Servers"
+    schema={iceServerSchema}
+    cleanValues={cleanIceServerValues}
+    labels={{
+      stunServerURL: 'STUN Server URL (optional) - required for connections outside LAN',
+      turnServerURL: 'TURN Server URL (optional)',
+      turnServerUsername: 'TURN Server Username (optional)',
+      turnServerCredential: 'TURN Server Credential (optional)'
+    }}
+    onSubmit={onSubmitICEServers}
+  />
+</ScrollContainer>
 
 <style>
-  #container {
-    height: 100%;
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    overflow: hidden;
-  }
-  #scroll-container {
-    width: 100%;
-    overflow-y: scroll;
-    align-items: center;
-    display: flex;
-    flex-direction: column;
-    flex-grow: 1;
-  }
-  #form {
-    /* margin-top: auto; bottom-justifys content */
-    margin-top: 20px;
-    margin-bottom: 20px;
-    width: 90%;
-    max-width: 700px;
-    display: flex;
-    flex-direction: column;
-  }
   #checkboxes {
     width: 90%;
     max-width: 700px;
+  }
+  #connectError {
+    color: var(--color-text-error);
+    margin-bottom: 10px;
   }
 </style>
